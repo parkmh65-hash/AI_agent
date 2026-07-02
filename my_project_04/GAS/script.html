@@ -1,0 +1,159 @@
+<script>
+  /**
+   * Google Apps Script Frontend Javascript Logic (script.html)
+   */
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Navigation / Tab Switching Elements
+    const navItems = document.querySelectorAll('.nav-item');
+    const views = document.querySelectorAll('.app-view');
+
+    // UI elements for Menu 1
+    const btnRequest = document.getElementById('btn-request');
+    const txtQuestion = document.getElementById('ai-question');
+    const boxOutput = document.getElementById('ai-output');
+
+    // 1. Setup Navigation Event Listeners
+    navItems.forEach(item => {
+      item.addEventListener('click', () => {
+        // Remove active state from all items and views
+        navItems.forEach(nav => nav.classList.remove('active'));
+        views.forEach(view => view.classList.remove('active'));
+
+        // Activate clicked item
+        item.classList.add('active');
+        
+        // Activate corresponding view
+        const targetId = item.getAttribute('data-target');
+        const targetView = document.getElementById(targetId);
+        if (targetView) {
+          targetView.classList.add('active');
+        }
+      });
+    });
+
+    // 2. Setup AI Request Event Listeners
+    btnRequest.addEventListener('click', handleRequest);
+
+    // Support submitting on Ctrl+Enter
+    txtQuestion.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleRequest();
+      }
+    });
+
+    /**
+     * Handles the AI request button trigger.
+     */
+    function handleRequest() {
+      const query = txtQuestion.value.trim();
+
+      if (!query) {
+        alert("분석하거나 질문할 내용을 입력해 주세요.");
+        txtQuestion.focus();
+        return;
+      }
+
+      // Display loading state
+      boxOutput.className = "ai-answer-box"; // remove empty-state
+      boxOutput.innerHTML = `
+        <div class="loading-container">
+          <div class="spinner"></div>
+          <span>인공지능 시안에게 요청을 전달하고 분석하는 중입니다...</span>
+        </div>
+      `;
+
+      // Disable inputs during network request
+      btnRequest.disabled = true;
+      txtQuestion.disabled = true;
+
+      // Execute Google Apps Script backend function
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onFailure)
+        .askAI(query);
+    }
+
+    /**
+     * Success handler for Code.gs askAI call.
+     */
+    function onSuccess(response) {
+      // Re-enable input components
+      btnRequest.disabled = false;
+      txtQuestion.disabled = false;
+
+      if (response && response.error) {
+        boxOutput.innerHTML = `
+          <div style="color: var(--error-color); font-weight: 600;">요청 실패</div>
+          <div class="chat-response-content">${formatContent(response.reply)}</div>
+        `;
+        return;
+      }
+
+      const reply = response.reply || (typeof response === 'string' ? response : JSON.stringify(response));
+      const rowCount = response.db_row_count !== undefined ? response.db_row_count : 0;
+      const executionTime = response.execution_time_sec !== undefined ? response.execution_time_sec : 0.0;
+      const responseTimeStr = response.response_time || "방금 전";
+
+      // Render the response with metadata
+      boxOutput.innerHTML = `
+        <div class="chat-response-content">${formatContent(reply)}</div>
+        <div class="ai-meta-block">
+          <div class="meta-item">
+            <span class="material-symbols-outlined meta-sub-icon">database</span>
+            <span>RAG 벡터 DB 행: <strong>${rowCount}</strong>개</span>
+          </div>
+          <div class="meta-item">
+            <span class="material-symbols-outlined meta-sub-icon">timer</span>
+            <span>수행 속도: <strong>${executionTime.toFixed(2)}</strong>초</span>
+          </div>
+          <div class="meta-item">
+            <span class="material-symbols-outlined meta-sub-icon">schedule</span>
+            <span>응답 시각: <strong>${responseTimeStr}</strong></span>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * Failure handler for Code.gs askAI call.
+     */
+    function onFailure(error) {
+      btnRequest.disabled = false;
+      txtQuestion.disabled = false;
+
+      boxOutput.innerHTML = `
+        <div style="color: var(--error-color); font-weight: 600;">통신 실패</div>
+        <div class="chat-response-content">Google Apps Script와의 통신 중 오류가 발생했습니다.<br>${error.message || error.toString()}</div>
+      `;
+    }
+
+    /**
+     * Helper to parse markdown elements like **bold** and `code` into HTML.
+     */
+    function formatContent(text) {
+      if (!text) return "";
+      
+      // Escape HTML entities to prevent XSS
+      let escaped = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+      // Format markdown bold (**text**) to HTML strong
+      escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+      // Format markdown backticks (`code`) to HTML code
+      escaped = escaped.replace(/`(.*?)`/g, '<code>$1</code>');
+
+      // Format bullet points (- item or * item)
+      escaped = escaped.replace(/^\s*[-*]\s+(.*?)$/gm, '• $1');
+
+      // Handle newlines
+      escaped = escaped.replace(/\n/g, '<br>');
+
+      return escaped;
+    }
+  });
+</script>
