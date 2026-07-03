@@ -9,8 +9,108 @@
     const txtQuestion = document.getElementById('ai-question');
     const boxOutput = document.getElementById('ai-output');
 
+    // PDF Ingestion UI elements
+    const pdfDropZone = document.getElementById('pdf-drop-zone');
+    const pdfFileInput = document.getElementById('pdf-file-input');
+    const btnBrowse = document.getElementById('btn-browse');
+    const pdfStatus = document.getElementById('pdf-upload-status');
+
     // Setup AI Request Event Listener
     btnRequest.addEventListener('click', handleRequest);
+
+    // Trigger file dialog
+    btnBrowse.addEventListener('click', (e) => {
+      e.stopPropagation(); // prevent drop zone click bubble
+      pdfFileInput.click();
+    });
+
+    // Handle Drop Zone clicks (optionally trigger file browser too)
+    pdfDropZone.addEventListener('click', () => {
+      pdfFileInput.click();
+    });
+
+    pdfFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        processFile(e.target.files[0]);
+      }
+    });
+
+    // Drag and Drop handlers
+    function handleDragOver(e) {
+      e.preventDefault();
+      pdfDropZone.classList.add('drag-over');
+    }
+
+    function handleDragLeave(e) {
+      e.preventDefault();
+      pdfDropZone.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      pdfDropZone.classList.remove('drag-over');
+      
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        processFile(files[0]);
+      }
+    }
+
+    pdfDropZone.addEventListener('dragover', handleDragOver);
+    pdfDropZone.addEventListener('dragleave', handleDragLeave);
+    pdfDropZone.addEventListener('drop', handleDrop);
+
+    /**
+     * Read file and encode to base64, then submit to GAS Backend.
+     */
+    function processFile(file) {
+      if (!file.name.endsWith('.pdf')) {
+        showStatus('error', '⚠️ PDF 파일만 업로드할 수 있습니다.');
+        return;
+      }
+
+      showStatus('loading', `⏳ '${file.name}' 파일 분석 및 임베딩 생성 중입니다...`);
+
+      // Read as DataURL (Base64)
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const base64Data = e.target.result.split(',')[1]; // extract base64 part
+        
+        // Execute GAS upload function
+        google.script.run
+          .withSuccessHandler((res) => onUploadSuccess(res, file.name))
+          .withFailureHandler((err) => onUploadFailure(err, file.name))
+          .uploadPdfFile(base64Data, file.name);
+      };
+      reader.onerror = function() {
+        showStatus('error', '❌ 파일을 읽는 중 오류가 발생했습니다.');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function onUploadSuccess(response, fileName) {
+      if (response && response.error) {
+        showStatus('error', `❌ 업로드 실패: ${response.message}`);
+        return;
+      }
+
+      showStatus('success', `
+        🎉 <strong>업로드 성공!</strong><br>
+        • 파일명: ${fileName}<br>
+        • 페이지 수: ${response.pages}p, 생성된 청크: ${response.chunks_added}개<br>
+        • 현재 벡터 DB 총 데이터 행: <strong>${response.total_db_rows}</strong>개
+      `);
+    }
+
+    function onUploadFailure(error, fileName) {
+      showStatus('error', `❌ 서버 오류 발생 ('${fileName}'): ${error.message || error.toString()}`);
+    }
+
+    function showStatus(type, htmlContent) {
+      pdfStatus.style.display = 'block';
+      pdfStatus.className = `upload-status-box ${type}`;
+      pdfStatus.innerHTML = htmlContent;
+    }
 
     // Support submitting on Ctrl+Enter or Cmd+Enter
     txtQuestion.addEventListener('keydown', (e) => {
