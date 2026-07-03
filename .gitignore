@@ -34,3 +34,8 @@ env/
 .vscode/
 *.swp
 *.swo
+
+# Local State & Output
+state.json
+*.png
+

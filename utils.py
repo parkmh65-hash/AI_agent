@@ -32,7 +32,8 @@ def format_messages_for_logging(messages: List[BaseMessage]) -> str:
         elif isinstance(msg, AIMessage):
             role = "AI"
         
-        content = msg.content
+        # Safely access msg content or convert to string if it lacks the attribute
+        content = msg.content if hasattr(msg, "content") else str(msg)
         formatted_logs.append(f"[{role} - Msg {idx+1}]: {content}")
         
     return "\n".join(formatted_logs)

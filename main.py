@@ -72,7 +72,7 @@ def supervisor(state: State): # supervisor 에이전트 추가
     )
 
     # 체인 연결
-    supervisor_chain = supervisor_system_prompt | llm. with_structured_output(Task)    
+    supervisor_chain = supervisor_system_prompt | llm.with_structured_output(Task)    
 
     # 메시지 가져오기
     messages = state.get("messages", [])		#⑤
@@ -568,8 +568,6 @@ graph_builder.add_edge("communicator", END)
 
 graph = graph_builder.compile()
 
-graph.get_graph().draw_mermaid_png(output_file_path=absolute_path.replace('.py', '.png'))
-
 # FastAPI 설정 (구글 클라우드 런 연동 및 API 대응용)
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -691,6 +689,12 @@ async def chat(request: ChatRequest):
 
 # 로컬 단독 터미널 실행 대응 (__name__ == "__main__" 시 CLI 모드로 구동)
 if __name__ == "__main__":
+    # Mermaid 그래프 이미지 생성 시도 (네트워크 환경에 따라 차단되거나 실패할 수 있으므로 예외처리)
+    try:
+        graph.get_graph().draw_mermaid_png(output_file_path=absolute_path.replace('.py', '.png'))
+    except Exception as e:
+        print(f"[안내] Mermaid 그래프 이미지 생성 실패 (가벼운 경고): {e}")
+
     # 상태 초기화
     state = State(
         messages = [
