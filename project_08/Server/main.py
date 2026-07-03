@@ -83,7 +83,7 @@ async def chat(request: ChatRequest):
     tools = [
         {
             "type": "file_search",
-            "vector_store_ids": [vector_store_id]
+            "vector_store_ids": [vs_6a47c8ebbc988191a5c89ff6c809a267]
         }
     ]
     
