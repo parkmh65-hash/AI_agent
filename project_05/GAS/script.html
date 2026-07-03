@@ -68,6 +68,9 @@
         return;
       }
 
+      // Clear the user input text box upon successful response
+      txtQuestion.value = "";
+
       const reply = response.reply || (typeof response === 'string' ? response : JSON.stringify(response));
       const rowCount = response.db_row_count !== undefined ? response.db_row_count : 0;
       const executionTime = response.execution_time_sec !== undefined ? response.execution_time_sec : 0.0;
