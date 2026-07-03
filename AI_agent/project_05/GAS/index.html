@@ -19,6 +19,24 @@
       </header>
 
       <main class="app-main">
+        <!-- PDF Ingestion Card -->
+        <div class="card pdf-ingest-section">
+          <h2 class="section-title">
+            <span class="material-symbols-outlined title-icon">upload_file</span>
+            PDF파일 불러오기
+          </h2>
+          <div class="drop-zone" id="pdf-drop-zone">
+            <span class="material-symbols-outlined drop-icon">cloud_upload</span>
+            <p class="drop-text">PDF 파일을 이 영역에 드래그하거나 [파일 찾기] 버튼을 누르세요.</p>
+            <input type="file" id="pdf-file-input" accept=".pdf" style="display: none;" />
+            <button id="btn-browse" class="btn-secondary">
+              <span class="material-symbols-outlined btn-sub-icon">search</span>
+              파일 찾기
+            </button>
+          </div>
+          <div id="pdf-upload-status" class="upload-status-box" style="display: none;"></div>
+        </div>
+
         <!-- Input Section -->
         <div class="card input-section">
           <label for="ai-question" class="input-label">

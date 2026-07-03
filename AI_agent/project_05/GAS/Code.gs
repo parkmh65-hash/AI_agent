@@ -69,3 +69,59 @@ function askAI(question) {
     };
   }
 }
+
+/**
+ * Receives Base64-encoded PDF from client, decodes it, 
+ * and forwards (posts) it to FastAPI /upload_pdf endpoint.
+ * 
+ * @param {string} base64Data Base64 string of the PDF file.
+ * @param {string} fileName Original name of the PDF file.
+ * @return {object} Result JSON containing status details.
+ */
+function uploadPdfFile(base64Data, fileName) {
+  var backendUrl = PropertiesService.getScriptProperties().getProperty('BACKEND_URL');
+  if (!backendUrl || backendUrl === "https://your-render-url.onrender.com/chat") {
+    return {
+      "error": true,
+      "message": "💡 [안내] Google Apps Script 프로젝트 설정 -> 스크립트 속성에 'BACKEND_URL'이 설정되지 않았습니다."
+    };
+  }
+
+  // Point to /upload_pdf endpoint instead of /chat
+  var uploadUrl = backendUrl.replace(/\/chat\/?$/, '').replace(/\/$/, '') + '/upload_pdf';
+
+  try {
+    // Decode base64 to byte array blob
+    var decoded = Utilities.base64Decode(base64Data);
+    var blob = Utilities.newBlob(decoded, 'application/pdf', fileName);
+
+    var payload = {
+      'file': blob
+    };
+
+    var options = {
+      'method': 'post',
+      'payload': payload,
+      'muteHttpExceptions': true
+    };
+
+    var response = UrlFetchApp.fetch(uploadUrl, options);
+    var responseCode = response.getResponseCode();
+    var responseBody = response.getContentText();
+
+    if (responseCode === 200) {
+      return JSON.parse(responseBody);
+    } else {
+      return {
+        "error": true,
+        "message": "백엔드 서버 에러 (HTTP " + responseCode + "): " + responseBody
+      };
+    }
+  } catch (error) {
+    return {
+      "error": true,
+      "message": "백엔드 서버와 통신 실패: " + error.toString()
+    };
+  }
+}
+

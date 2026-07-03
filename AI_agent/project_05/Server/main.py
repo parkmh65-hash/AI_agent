@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, TypedDict, List
 from dotenv import load_dotenv
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -296,3 +296,82 @@ async def chat(request: ChatRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI Router RAG Pipeline Execution Error: {str(e)}")
+
+
+@app.post("/upload_pdf")
+async def upload_pdf(file: UploadFile = File(...)):
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
+        
+    try:
+        import io
+        from pypdf import PdfReader
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+        from langchain_core.documents import Document
+        from langchain_openai import OpenAIEmbeddings
+        from langchain_community.vectorstores import SupabaseVectorStore
+        
+        contents = await file.read()
+        pdf_file = io.BytesIO(contents)
+        reader = PdfReader(pdf_file)
+        num_pages = len(reader.pages)
+        
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        all_chunks = []
+        
+        for page_idx, page in enumerate(reader.pages):
+            text = page.extract_text()
+            if not text or not text.strip():
+                continue
+                
+            chunks = text_splitter.split_text(text)
+            for chunk_idx, chunk in enumerate(chunks):
+                doc = Document(
+                    page_content=chunk,
+                    metadata={
+                        "source": file.filename,
+                        "page": page_idx + 1,
+                        "chunk_id": f"{file.filename}_p{page_idx+1}_c{chunk_idx}"
+                    }
+                )
+                all_chunks.append(doc)
+                
+        if not all_chunks:
+            return {"status": "success", "message": "No text could be extracted from PDF.", "chunks_added": 0}
+            
+        supabase_url = os.getenv("SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_KEY")
+        
+        embeddings = OpenAIEmbeddings(model="text-embedding-3-small", dimensions=768)
+        supabase_client = create_client(supabase_url, supabase_key)
+        
+        vector_store = SupabaseVectorStore(
+            client=supabase_client,
+            embedding=embeddings,
+            table_name="documents",
+            query_name="match_documents"
+        )
+        
+        batch_size = 50
+        for i in range(0, len(all_chunks), batch_size):
+            batch = all_chunks[i:i + batch_size]
+            vector_store.add_documents(batch)
+            
+        # Get updated db count
+        db_count = 0
+        try:
+            res = supabase_client.table("documents").select("id", count="exact").limit(1).execute()
+            db_count = res.count if res.count is not None else 0
+        except Exception:
+            pass
+            
+        return {
+            "status": "success",
+            "message": f"Successfully parsed and ingested '{file.filename}'.",
+            "pages": num_pages,
+            "chunks_added": len(all_chunks),
+            "total_db_rows": db_count
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process and ingest PDF: {str(e)}")
+
