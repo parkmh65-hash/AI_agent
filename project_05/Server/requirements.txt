@@ -10,3 +10,4 @@ langchain-google-genai
 pydantic
 pydantic-settings
 pypdf
+python-multipart
