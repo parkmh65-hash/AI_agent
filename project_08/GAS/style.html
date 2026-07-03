@@ -1,0 +1,464 @@
+<style>
+  /* -------------------------------------------------------------
+     Premium Korean Literature & Ink Aesthetics Design System
+     Project 08 - 현진건 작가와 대화하기
+  ------------------------------------------------------------- */
+  
+  :root {
+    --bg-gradient-start: #0D0E12;
+    --bg-gradient-end: #17181D;
+    --card-bg: rgba(26, 27, 34, 0.7);
+    --card-border: rgba(197, 168, 128, 0.15);
+    --accent-color: #C5A880; /* Traditional Gold/Bronze */
+    --accent-glow: rgba(197, 168, 128, 0.3);
+    --accent-hover: #E5C49F;
+    --text-primary: #F3F4F6;
+    --text-secondary: #9CA3AF;
+    --text-muted: #4B5563;
+    
+    --user-bubble-bg: rgba(197, 168, 128, 0.15);
+    --user-bubble-border: rgba(197, 168, 128, 0.35);
+    --ai-bubble-bg: rgba(37, 40, 52, 0.65);
+    --ai-bubble-border: rgba(255, 255, 255, 0.08);
+    
+    --success-color: #10B981;
+    --error-color: #EF4444;
+    --font-serif: 'Noto Serif KR', Georgia, serif;
+    --font-sans: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  /* Reset & Base Styles */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 16px;
+    overflow-y: auto;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(13, 14, 18, 0.6);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--card-border);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
+  }
+
+  /* Layout Container */
+  .app-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  /* Header Section */
+  .app-header {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+  }
+
+  .header-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(197, 168, 128, 0.05);
+    box-shadow: 0 0 10px rgba(197, 168, 128, 0.1);
+  }
+
+  .app-title {
+    font-family: var(--font-serif);
+    font-size: 2.8rem;
+    font-weight: 900;
+    color: #FFFFFF;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    position: relative;
+  }
+
+  .app-title::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 2px;
+    background: var(--accent-color);
+    margin: 8px auto 0 auto;
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+
+  .app-subtitle {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    max-width: 620px;
+    font-weight: 400;
+  }
+
+  /* Main Views */
+  .app-main {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  /* Card Component */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), inset 0 1px 0px rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .card:hover {
+    border-color: rgba(197, 168, 128, 0.3);
+    box-shadow: 0 18px 40px rgba(197, 168, 128, 0.05), 0 15px 35px rgba(0, 0, 0, 0.5);
+  }
+
+  .section-header, .control-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 10px;
+  }
+
+  .section-header h2, .control-header h2 {
+    font-family: var(--font-serif);
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #FFFFFF;
+  }
+
+  .section-icon {
+    color: var(--accent-color);
+  }
+
+  /* Control/Reset Section */
+  .control-description {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 18px;
+  }
+
+  /* Buttons */
+  .btn-primary, .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+    font-family: var(--font-sans);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #A8895C 0%, #C5A880 100%);
+    color: #0F0F12;
+    border: none;
+    font-weight: 600;
+    box-shadow: 0 4px 14px var(--accent-glow);
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #C5A880 0%, #E5C49F 100%);
+    box-shadow: 0 6px 20px rgba(197, 168, 128, 0.5);
+    transform: translateY(-1px);
+  }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(197, 168, 128, 0.08);
+    border-color: var(--accent-color);
+    color: var(--accent-hover);
+    box-shadow: 0 0 12px rgba(197, 168, 128, 0.1);
+  }
+
+  /* Input Section */
+  .input-section {
+    position: relative;
+  }
+
+  .textarea-container {
+    position: relative;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  textarea {
+    width: 100%;
+    background: rgba(15, 16, 21, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 16px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    resize: none;
+    font-family: var(--font-sans);
+    transition: all 0.3s ease;
+  }
+
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px rgba(197, 168, 128, 0.15), inset 0 1px 2px rgba(0,0,0,0.8);
+  }
+
+  /* Overlay Loading State */
+  .status-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(20, 21, 28, 0.85);
+    backdrop-filter: blur(4px);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 10;
+    border: 1px solid var(--accent-color);
+    animation: fadeIn 0.3s ease;
+  }
+
+  #status-text {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    color: var(--accent-color);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(197, 168, 128, 0.2);
+    border-top: 3px solid var(--accent-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  /* Chat Area & Bubbles */
+  .chat-container {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-height: 250px;
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 8px;
+  }
+
+  .chat-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-muted);
+    padding: 60px 0;
+    text-align: center;
+  }
+
+  .chat-empty-state span {
+    font-size: 3rem;
+  }
+
+  .chat-empty-state p {
+    font-size: 0.9rem;
+  }
+
+  .message {
+    display: flex;
+    flex-direction: column;
+    max-width: 85%;
+    animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .message.user {
+    align-self: flex-end;
+  }
+
+  .message.assistant {
+    align-self: flex-start;
+  }
+
+  .message-sender {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .message.user .message-sender {
+    align-self: flex-end;
+    color: var(--accent-color);
+  }
+
+  .message-bubble {
+    padding: 16px 20px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+
+  .message.user .message-bubble {
+    background: var(--user-bubble-bg);
+    border: 1px solid var(--user-bubble-border);
+    color: #FFFFFF;
+    border-top-right-radius: 2px;
+  }
+
+  .message.assistant .message-bubble {
+    background: var(--ai-bubble-bg);
+    border: 1px solid var(--ai-bubble-border);
+    color: #E5E7EB;
+    border-top-left-radius: 2px;
+    font-family: var(--font-serif);
+  }
+
+  .message-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    align-self: flex-end;
+  }
+  
+  .message.user .message-time {
+    align-self: flex-end;
+  }
+  
+  .message.assistant .message-time {
+    align-self: flex-start;
+  }
+
+  /* History Separator Header */
+  .history-header {
+    text-align: center;
+    margin: 20px 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .history-header span {
+    font-family: var(--font-serif);
+    font-size: 0.8rem;
+    color: var(--accent-color);
+    background: #17181D;
+    padding: 4px 14px;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    z-index: 2;
+  }
+
+  .history-header::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 1px;
+    background: var(--card-border);
+    z-index: 1;
+  }
+
+  /* Footer */
+  .app-footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.6;
+    margin-top: 10px;
+    margin-bottom: 20px;
+  }
+
+  .footer-copyright {
+    margin-top: 4px;
+    color: var(--text-muted);
+  }
+
+  /* Animations */
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Responsive Design */
+  @media (max-width: 640px) {
+    .app-title {
+      font-size: 2.2rem;
+    }
+    .card {
+      padding: 20px;
+    }
+    body {
+      padding: 20px 12px;
+    }
+  }
+</style>

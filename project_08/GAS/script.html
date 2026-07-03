@@ -1,0 +1,229 @@
+<script>
+  /**
+   * Client-side Logic (script.html)
+   * project_08 - 현진건 작가와 대화하기
+   */
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // DOM Elements
+    const btnInitialize = document.getElementById('btn-initialize');
+    const btnSubmit = document.getElementById('btn-submit');
+    const userQuestion = document.getElementById('user-question');
+    const chatHistoryContainer = document.getElementById('chat-history-container');
+    const statusIndicator = document.getElementById('status-indicator');
+    
+    // Key names for storage
+    const SESSION_RESP_ID_KEY = 'response_id';
+    const LOCAL_HISTORY_KEY = 'past_chat_history';
+
+    // 1. Initialize Event Listeners
+    btnInitialize.addEventListener('click', initializeSession);
+    btnSubmit.addEventListener('click', submitQuestion);
+    
+    // Support Ctrl+Enter to submit
+    userQuestion.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        submitQuestion();
+      }
+    });
+
+    /**
+     * Step 3.1: 대화 히스토리 초기화와 지난 대화 히스토리 출력
+     * Clears active screen, resets current response_id (session state),
+     * and outputs saved history from localStorage.
+     */
+    function initializeSession() {
+      // Clear current chat container UI
+      chatHistoryContainer.innerHTML = '';
+      
+      // Clear session state response_id
+      sessionStorage.removeItem(SESSION_RESP_ID_KEY);
+      
+      // Load saved chat history
+      const savedHistory = localStorage.getItem(LOCAL_HISTORY_KEY);
+      if (savedHistory) {
+        try {
+          const historyArray = JSON.parse(savedHistory);
+          
+          if (historyArray.length > 0) {
+            // Render History Header
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'history-header';
+            headerDiv.innerHTML = '<span>지난 대화 히스토리</span>';
+            chatHistoryContainer.appendChild(headerDiv);
+            
+            // Render each saved message
+            historyArray.forEach(msg => {
+              appendMessageUI(msg.sender, msg.text, msg.time);
+            });
+            
+            // Add a small divider showing new conversation starts
+            const newStartDiv = document.createElement('div');
+            newStartDiv.className = 'history-header';
+            newStartDiv.innerHTML = '<span>새로운 대화 시작</span>';
+            chatHistoryContainer.appendChild(newStartDiv);
+          } else {
+            showEmptyState();
+          }
+        } catch (e) {
+          console.error("Failed to parse chat history:", e);
+          showEmptyState();
+        }
+      } else {
+        showEmptyState();
+      }
+      
+      // Scroll to bottom
+      scrollToBottom();
+    }
+
+    /**
+     * Step 3.2: 질문 입력 및 처리
+     */
+    function submitQuestion() {
+      const questionText = userQuestion.value.trim();
+      if (!questionText) {
+        alert("작가님에게 보낼 질문을 입력해 주세요.");
+        return;
+      }
+
+      // Show status "현진건 작가님에게 질문중입니다" in the ask area
+      showLoading(true);
+      
+      // Output user question to chat container
+      const timeStr = getCurrentTimeStr();
+      appendMessageUI('user', questionText, timeStr);
+      
+      // Save user question to localStorage history
+      saveToHistory('user', questionText, timeStr);
+      
+      // Retrieve previous response_id from Session State
+      const prevResponseId = sessionStorage.getItem(SESSION_RESP_ID_KEY);
+      
+      // Clear input field
+      userQuestion.value = '';
+      
+      // Remove empty state if present
+      const emptyState = chatHistoryContainer.querySelector('.chat-empty-state');
+      if (emptyState) {
+        emptyState.remove();
+      }
+
+      scrollToBottom();
+
+      // Call Apps Script askAI function
+      google.script.run
+        .withSuccessHandler((response) => {
+          showLoading(false);
+          
+          if (response && response.error) {
+            appendMessageUI('assistant', `⚠️ 오류가 발생했습니다:\n${response.reply}`, getCurrentTimeStr());
+            return;
+          }
+
+          const replyText = response.reply || "[대답이 비어있습니다.]";
+          const newResponseId = response.response_id;
+
+          // Save to Session State response_id key
+          if (newResponseId) {
+            sessionStorage.setItem(SESSION_RESP_ID_KEY, newResponseId);
+          }
+
+          // Output LLM response
+          const responseTime = getCurrentTimeStr();
+          appendMessageUI('assistant', replyText, responseTime);
+
+          // Save LLM response to history
+          saveToHistory('assistant', replyText, responseTime);
+          
+          scrollToBottom();
+        })
+        .withFailureHandler((error) => {
+          showLoading(false);
+          appendMessageUI('assistant', `❌ 시스템 연동 오류가 발생했습니다:\n${error.toString()}`, getCurrentTimeStr());
+          scrollToBottom();
+        })
+        .askAI(questionText, prevResponseId);
+    }
+
+    // Helper: Show/Hide loading overlay
+    function showLoading(isLoading) {
+      if (isLoading) {
+        statusIndicator.style.display = 'flex';
+        btnSubmit.disabled = true;
+      } else {
+        statusIndicator.style.display = 'none';
+        btnSubmit.disabled = false;
+      }
+    }
+
+    // Helper: Append a message to the UI
+    function appendMessageUI(sender, text, time) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${sender}`;
+
+      const senderSpan = document.createElement('span');
+      senderSpan.className = 'message-sender';
+      if (sender === 'user') {
+        senderSpan.innerHTML = '<span class="material-symbols-outlined" style="font-size:0.9rem">person</span> 나';
+      } else {
+        senderSpan.innerHTML = '<span class="material-symbols-outlined" style="font-size:0.9rem">menu_book</span> 현진건 작가';
+      }
+
+      const bubbleDiv = document.createElement('div');
+      bubbleDiv.className = 'message-bubble';
+      bubbleDiv.innerText = text;
+
+      const timeDiv = document.createElement('div');
+      timeDiv.className = 'message-time';
+      timeDiv.innerText = time;
+
+      messageDiv.appendChild(senderSpan);
+      messageDiv.appendChild(bubbleDiv);
+      messageDiv.appendChild(timeDiv);
+
+      chatHistoryContainer.appendChild(messageDiv);
+    }
+
+    // Helper: Save messages to localStorage history
+    function saveToHistory(sender, text, time) {
+      let historyArray = [];
+      const saved = localStorage.getItem(LOCAL_HISTORY_KEY);
+      if (saved) {
+        try {
+          historyArray = JSON.parse(saved);
+        } catch (e) {
+          historyArray = [];
+        }
+      }
+      historyArray.push({ sender, text, time });
+      localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(historyArray));
+    }
+
+    // Helper: Show empty state inside chat
+    function showEmptyState() {
+      chatHistoryContainer.innerHTML = `
+        <div class="chat-empty-state">
+          <span class="material-symbols-outlined">chat_bubble_outline</span>
+          <p>질문을 하거나 대화 세션을 시작해 보세요.</p>
+        </div>
+      `;
+    }
+
+    // Helper: Get formatted current time string
+    function getCurrentTimeStr() {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? '오후' : '오전';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // 0 should be 12
+      return `${ampm} ${hours}:${minutes}`;
+    }
+
+    // Helper: Scroll chat to bottom
+    function scrollToBottom() {
+      chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
+    }
+  });
+</script>

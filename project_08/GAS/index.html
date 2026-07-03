@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <!-- Noto Serif KR for classic literature feel, Noto Sans KR for UI elements -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;900&family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,300,0,0" rel="stylesheet" />
+    
+    <!-- Load Style Template -->
+    <?!= HtmlService.createHtmlOutputFromFile('style').getContent(); ?>
+  </head>
+  <body>
+    <div class="app-container">
+      <header class="app-header">
+        <div class="header-badge">Classic Literature AI Agent</div>
+        <h1 class="app-title">현진건 작가와 대화하기</h1>
+        <p class="app-subtitle">소설 《운수 좋은 날》, 《빈처》, 《B사감과 러브레터》의 저자, 빙허(憑虛) 현진건 작가님과의 특별한 대화</p>
+      </header>
+
+      <main class="app-main">
+        <!-- Control panel with the execution/reset button -->
+        <div class="card control-section">
+          <div class="control-header">
+            <span class="material-symbols-outlined section-icon">history_edu</span>
+            <h2>대화 세션 관리</h2>
+          </div>
+          <p class="control-description">대화를 새로 시작하려면 아래 실행 버튼을 클릭하여 세션을 초기화하고 이전 기록을 불러오세요.</p>
+          <button id="btn-initialize" class="btn-secondary">
+            <span class="material-symbols-outlined">restart_alt</span>
+            실행 (대화 초기화 및 이전 기록 출력)
+          </button>
+        </div>
+
+        <!-- "물어보기" (Ask) Area -->
+        <div class="card input-section">
+          <div class="section-header">
+            <span class="material-symbols-outlined section-icon">edit_note</span>
+            <h2>물어보기</h2>
+          </div>
+          
+          <div class="textarea-container" id="ask-area-container">
+            <textarea 
+              id="user-question" 
+              placeholder="작가님에게 궁금한 점을 질문해 보세요. (예: '운수 좋은 날'의 결말은 어떤 의미를 담고 있나요?)" 
+              rows="4"
+            ></textarea>
+            <div id="status-indicator" class="status-overlay" style="display: none;">
+              <div class="spinner"></div>
+              <span id="status-text">현진건 작가님에게 질문중입니다</span>
+            </div>
+          </div>
+          
+          <button id="btn-submit" class="btn-primary">
+            <span class="material-symbols-outlined">send</span>
+            질문 전송
+          </button>
+        </div>
+
+        <!-- "대화" (Conversation/History) Area -->
+        <div class="card chat-section">
+          <div class="section-header">
+            <span class="material-symbols-outlined section-icon">forum</span>
+            <h2>대화 기록</h2>
+          </div>
+          
+          <div id="chat-history-container" class="chat-container">
+            <!-- Messages will be populated here -->
+            <div class="chat-empty-state">
+              <span class="material-symbols-outlined">chat_bubble_outline</span>
+              <p>질문을 하거나 대화 세션을 시작해 보세요.</p>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="app-footer">
+        <p>본 서비스는 OpenAI Responses API와 Google Apps Script를 사용하여 운수 좋은 날 소설 데이터를 탐색합니다.</p>
+        <p class="footer-copyright">© 2026 Classic Korean Literature AI Agent. Project 08.</p>
+      </footer>
+    </div>
+
+    <!-- Load Script Template -->
+    <?!= HtmlService.createHtmlOutputFromFile('script').getContent(); ?>
+  </body>
+</html>
