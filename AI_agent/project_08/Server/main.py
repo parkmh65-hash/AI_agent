@@ -43,7 +43,7 @@ else:
 # Request and Response schemas
 class ChatRequest(BaseModel):
     message: str
-    response_id: str = None  # Previous response ID for stateful chaining
+    response_id: str | None = None  # Previous response ID for stateful chaining
 
 class ChatResponse(BaseModel):
     reply: str
@@ -83,7 +83,7 @@ async def chat(request: ChatRequest):
     tools = [
         {
             "type": "file_search",
-            "vector_store_ids": [vs_6a47c8ebbc988191a5c89ff6c809a267]
+            "vector_store_ids": [vector_store_id]
         }
     ]
     
