@@ -5,527 +5,156 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ChatPDF With Multiquery+HybridSearch+RagFusion</title>
   
-  <!-- React and ReactDOM CDN -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  
-  <!-- Babel CDN for compiling JSX in browser -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
   <!-- FontAwesome for Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- Include premium styles -->
+  <!-- Include custom styles template evaluated by GAS -->
   <?!= include('style'); ?>
   
-  <!-- Fallback style for local running outside GAS -->
+  <!-- Local fallback placeholder (safely ignored in GAS environment) -->
   <style id="local-style-placeholder"></style>
 </head>
 <body>
-  <div id="root"></div>
-
-  <!-- React code -->
-  <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
-
-    // Safe localStorage wrapper for Google Apps Script iframe sandbox
-    const safeLocalStorage = {
-      getItem: (key) => {
-        try {
-          return localStorage.getItem(key);
-        } catch (e) {
-          console.warn("localStorage read blocked:", e);
-          return null;
-        }
-      },
-      setItem: (key, value) => {
-        try {
-          localStorage.setItem(key, value);
-        } catch (e) {
-          console.warn("localStorage write blocked:", e);
-        }
-      }
-    };
-
-    function App() {
-      // Configuration
-      const [apiBaseUrl, setApiBaseUrl] = useState(() => {
-        return safeLocalStorage.getItem("rag_api_base_url") || "http://localhost:8000";
-      });
-      const [showSettings, setShowSettings] = useState(false);
-
-      // Upload State
-      const [file, setFile] = useState(null);
-      const [uploading, setUploading] = useState(false);
-      const [uploadResult, setUploadResult] = useState(null);
-      const [uploadError, setUploadError] = useState("");
+  <div class="app-container">
+    <header>
+      <div>
+        <h1><i class="fa-solid fa-brain"></i> ChatPDF With Multiquery+HybridSearch+RagFusion</h1>
+        <div class="subtitle">멀티모달 RAG (텍스트 + 표 + 이미지) 문서 질의 응답 시스템</div>
+      </div>
       
-      // Query/Chat State
-      const [query, setQuery] = useState("");
-      const [chatHistory, setChatHistory] = useState([]);
-      const [loading, setLoading] = useState(false);
-      const [chatError, setChatError] = useState("");
-      
-      // Modal Details for Raw View
-      const [selectedSource, setSelectedSource] = useState(null);
+      <div style="display: flex; gap: 8px;">
+        <button id="btn-settings" class="btn btn-secondary" style="width: auto; padding: 8px 12px;">
+          <i class="fa-solid fa-gear"></i> 설정
+        </button>
+        <button id="btn-reset" class="btn btn-secondary" style="width: auto; padding: 8px 12px; color: #ef4444;">
+          <i class="fa-solid fa-trash"></i> DB 초기화
+        </button>
+      </div>
+    </header>
 
-      const fileInputRef = useRef(null);
-      const chatEndRef = useRef(null);
+    <!-- Settings Panel (API URL Configuration) -->
+    <div id="settings-panel" class="card hidden" style="padding: 16px; gap: 12px;">
+      <div class="card-title" style="font-size: 0.95rem;">
+        <i class="fa-solid fa-network-wired"></i> 백엔드 API URL 설정
+      </div>
+      <div style="display: flex; gap: 12px;">
+        <input 
+          type="text" 
+          id="api-base-url" 
+          class="input-field" 
+          placeholder="예: http://localhost:8000"
+        />
+      </div>
+      <p style="font-size: 0.75rem; color: var(--text-secondary);">
+        * 로컬 테스트 시 <code>http://localhost:8000</code>을 지정하고, Render 배포 시 Render 웹 서비스 주소를 지정하세요.
+      </p>
+    </div>
 
-      // Save API URL to localStorage on change
-      const saveApiUrl = (url) => {
-        const cleanUrl = url.trim().replace(/\/$/, "");
-        setApiBaseUrl(cleanUrl);
-        safeLocalStorage.setItem("rag_api_base_url", cleanUrl);
-      };
-
-      // Scroll to bottom of chat
-      useEffect(() => {
-        if (chatEndRef.current) {
-          chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, [chatHistory, loading]);
-
-      // Handle PDF selection
-      const handleFileChange = (e) => {
-        const selectedFile = e.target.files[0];
-        if (selectedFile) {
-          if (selectedFile.type !== "application/pdf") {
-            setUploadError("PDF 파일만 업로드할 수 있습니다.");
-            setFile(null);
-            return;
-          }
-          setFile(selectedFile);
-          setUploadError("");
-          setUploadResult(null);
-          
-          // Trigger upload immediately after file select
-          uploadPDF(selectedFile);
-        }
-      };
-
-      // Trigger file selection dialog
-      const triggerFileSelect = () => {
-        fileInputRef.current.click();
-      };
-
-      // Upload PDF logic
-      const uploadPDF = async (selectedFile) => {
-        setUploading(true);
-        setUploadError("");
-        setUploadResult(null);
-
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-
-        try {
-          const response = await fetch(`${apiBaseUrl}/api/documents/upload`, {
-            method: "POST",
-            body: formData,
-          });
-
-          if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.detail || "파일 파싱 및 벡터 DB 추가 실패");
-          }
-
-          const result = await response.json();
-          setUploadResult(result);
-          
-          // Add notification message in chat
-          setChatHistory(prev => [...prev, {
-            role: "system",
-            content: `📄 문서 업로드 완료: ${selectedFile.name}\n(텍스트 청크: ${result.summary.text_chunks}개, 표: ${result.summary.tables}개, 이미지: ${result.summary.images}개 가 저장되었습니다.)`
-          }]);
-        } catch (error) {
-          console.error("Upload error:", error);
-          setUploadError(error.message || "서버 통신 실패. API URL을 확인하세요.");
-        } finally {
-          setUploading(false);
-        }
-      };
-
-      // Database Reset logic
-      const resetDatabase = async () => {
-        if (!confirm("벡터 DB를 초기화하시겠습니까? 모든 인덱스 문서가 삭제됩니다.")) return;
-        
-        try {
-          const response = await fetch(`${apiBaseUrl}/api/database/reset`, {
-            method: "POST"
-          });
-          if (response.ok) {
-            alert("벡터 데이터베이스가 성공적으로 초기화되었습니다.");
-            setUploadResult(null);
-            setFile(null);
-            setChatHistory([]);
-          } else {
-            throw new Error("초기화 실패");
-          }
-        } catch (error) {
-          alert(`에러: ${error.message}`);
-        }
-      };
-
-      // Send AI Query logic
-      const handleAskAI = async () => {
-        if (!query.trim()) return;
-        
-        const currentQuestion = query;
-        // 3단계 요구사항: [나의 질문] 영역의 내용은 지우기
-        setQuery("");
-        setChatError("");
-        setLoading(true);
-
-        // Add user query to conversation history
-        const userMsg = { role: "user", content: currentQuestion };
-        setChatHistory(prev => [...prev, userMsg]);
-
-        // Build history excluding systems for payload
-        const cleanHistory = chatHistory
-          .filter(msg => msg.role === "user" || msg.role === "assistant")
-          .map(msg => ({ role: msg.role, content: msg.content }));
-
-        try {
-          const response = await fetch(`${apiBaseUrl}/api/chat/query`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              query: currentQuestion,
-              history: cleanHistory,
-              top_k: 5,
-              use_multiquery: true
-            }),
-          });
-
-          if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.detail || "답변 생성 실패");
-          }
-
-          const data = await response.json();
-          
-          // Add assistant response to conversation history
-          setChatHistory(prev => [...prev, {
-            role: "assistant",
-            content: data.answer,
-            sources: data.sources
-          }]);
-        } catch (error) {
-          console.error("Query error:", error);
-          setChatError(error.message || "서버 통신 오류가 발생했습니다.");
-          setChatHistory(prev => [...prev, {
-            role: "system",
-            content: `⚠️ 에러 발생: ${error.message || "서버 응답 오류"}`
-          }]);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      // Helper to format local and remote URLs for previewing images
-      const formatImageUrl = (originalPath) => {
-        if (!originalPath) return "";
-        if (originalPath.startsWith("http://") || originalPath.startsWith("https://")) {
-          return originalPath;
-        }
-        // Local path fallback ( FastAPI prefix )
-        return `${apiBaseUrl}${originalPath}`;
-      };
-
-      return (
-        <div className="app-container">
-          <header>
-            <div>
-              <h1><i className="fa-solid fa-brain"></i> ChatPDF With Multiquery+HybridSearch+RagFusion</h1>
-              <div className="subtitle">멀티모달 RAG (텍스트 + 표 + 이미지) 문서 질의 응답 시스템</div>
-            </div>
-            
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-secondary" style={{ width: 'auto', padding: '8px 12px' }} onClick={() => setShowSettings(!showSettings)}>
-                <i className="fa-solid fa-gear"></i> 설정
-              </button>
-              <button className="btn btn-secondary" style={{ width: 'auto', padding: '8px 12px', color: '#ef4444' }} onClick={resetDatabase}>
-                <i className="fa-solid fa-trash"></i> DB 초기화
-              </button>
-            </div>
-          </header>
-
-          {showSettings && (
-            <div className="card" style={{ padding: '16px', gap: '12px' }}>
-              <div className="card-title" style={{ fontSize: '0.95rem' }}>
-                <i className="fa-solid fa-network-wired"></i> 백엔드 API URL 설정
-              </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  value={apiBaseUrl} 
-                  onChange={(e) => saveApiUrl(e.target.value)} 
-                  placeholder="예: http://localhost:8000"
-                />
-              </div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                * 로컬 테스트 시 <code>http://localhost:8000</code>을 지정하고, Render 배포 시 Render 웹 서비스 주소를 지정하세요.
-              </p>
-            </div>
-          )}
-
-          <div className="main-grid">
-            {/* Left Panel: File Upload & Metadata */}
-            <div className="card">
-              <div className="card-title">
-                <i className="fa-solid fa-file-pdf"></i> PDF 파일 불러오기
-              </div>
-              
-              <div className="dropzone" onClick={triggerFileSelect}>
-                <i className="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
-                <p>PDF 파일을 여기에 드래그하거나 클릭하여 로드</p>
-                <span>* 텍스트, 이미지, 표가 혼합된 문서 지원</span>
-                
-                <input 
-                  type="file" 
-                  ref={fileInputRef}
-                  className="hidden-file-input" 
-                  accept=".pdf"
-                  onChange={handleFileChange}
-                />
-              </div>
-
-              <button 
-                className="btn btn-primary" 
-                onClick={triggerFileSelect}
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <>
-                    <div className="spinner"></div> 파싱 및 벡터 저장 중...
-                  </>
-                ) : (
-                  <>
-                    <i className="fa-solid fa-folder-open"></i> 파일 찾기
-                  </>
-                )}
-              </button>
-
-              {uploadError && (
-                <div style={{ fontSize: '0.8rem', color: 'var(--danger)', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <i className="fa-solid fa-triangle-exclamation"></i> {uploadError}
-                </div>
-              )}
-
-              {file && (
-                <div className="file-info">
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <i className="fa-solid fa-file-invoice" style={{ color: '#a5b4fc' }}></i>
-                    <span className="file-name" title={file.name}>{file.name}</span>
-                  </div>
-                  <span className="file-status">
-                    {uploading ? "업로드 중" : "DB 등록됨"}
-                  </span>
-                </div>
-              )}
-
-              {uploadResult && (
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
-                  <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>색인 완료 결과:</div>
-                  <div>- 총 청크 수: {uploadResult.summary.total_chunks}개</div>
-                  <div>- 텍스트 청크: {uploadResult.summary.text_chunks}개</div>
-                  <div>- 추출된 표: {uploadResult.summary.tables}개</div>
-                  <div>- 추출된 이미지: {uploadResult.summary.images}개</div>
-                </div>
-              )}
-            </div>
-
-            {/* Right Panel: Chat dialogue and output */}
-            <div className="card chat-panel">
-              <div className="card-title" style={{ justifyContent: 'space-between' }}>
-                <span><i className="fa-solid fa-comments"></i> 대화 및 멀티모달 분석</span>
-                {loading && (
-                  <div className="loading-container">
-                    <div className="spinner"></div> AI가 답변 생성 중...
-                  </div>
-                )}
-              </div>
-
-              <div className="chat-history">
-                {chatHistory.length === 0 ? (
-                  <div className="empty-chat">
-                    <div className="empty-icon"><i className="fa-solid fa-message"></i></div>
-                    <h3>RAG 대화 시작하기</h3>
-                    <p>PDF 문서를 왼쪽 영역에 업로드한 후,<br />질문을 입력하여 관련 텍스트, 표, 이미지 정보 검색 결과를 받아보세요.</p>
-                  </div>
-                ) : (
-                  chatHistory.map((msg, index) => (
-                    <div key={index} className={`message ${msg.role}`}>
-                      <div className="message-sender">
-                        {msg.role === 'user' ? '나의 질문' : msg.role === 'assistant' ? 'AI 답변' : '시스템 알림'}
-                      </div>
-                      
-                      <div className="message-bubble">
-                        {msg.content}
-                      </div>
-
-                      {/* Display retrieved sources cards (RAW 데이터 확인) */}
-                      {msg.sources && msg.sources.length > 0 && (
-                        <div className="sources-container">
-                          <div className="sources-title">참조된 RAW 데이터 (클릭하여 전체 보기)</div>
-                          <div className="sources-grid">
-                            {msg.sources.map((src, sIdx) => (
-                              <div 
-                                key={sIdx} 
-                                className="source-card"
-                                onClick={() => setSelectedSource(src)}
-                              >
-                                <div className="source-meta">
-                                  <span className={`source-type ${src.metadata.type}`}>
-                                    {src.metadata.type === 'text' ? '텍스트' : src.metadata.type === 'table' ? '표 데이터' : '이미지'}
-                                  </span>
-                                  <span>P. {src.metadata.page}</span>
-                                </div>
-                                <div className="source-snippet">
-                                  {src.metadata.type === 'image' ? src.metadata.caption : src.content}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-                <div ref={chatEndRef} />
-              </div>
-
-              {chatError && (
-                <div style={{ color: 'var(--danger)', fontSize: '0.8rem', padding: '8px' }}>
-                  <i className="fa-solid fa-circle-exclamation"></i> {chatError}
-                </div>
-              )}
-
-              {/* Chat query input area */}
-              <div className="text-input-wrapper">
-                <label htmlFor="query-input">나의 질문</label>
-                <textarea
-                  id="query-input"
-                  className="textarea-field"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="문서의 텍스트, 표, 또는 이미지 내용에 대해 궁금한 점을 질문해 주세요..."
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleAskAI();
-                    }
-                  }}
-                  disabled={loading}
-                />
-                
-                <button 
-                  className="btn btn-primary"
-                  onClick={handleAskAI}
-                  disabled={loading || !query.trim()}
-                  style={{ alignSelf: 'flex-end', width: 'auto', minWidth: '150px' }}
-                >
-                  {loading ? (
-                    <>
-                      <div className="spinner"></div> 생성 중...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fa-solid fa-paper-plane"></i> AI 질문하기
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Modal Overlay for viewing Raw Metadata and Documents */}
-          {selectedSource && (
-            <div className="modal-overlay" onClick={() => setSelectedSource(null)}>
-              <div className="modal" onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header">
-                  <div className="modal-title">
-                    참조된 RAW 데이터 상세 보기 ({selectedSource.metadata.type.toUpperCase()})
-                  </div>
-                  <button className="modal-close" onClick={() => setSelectedSource(null)}>
-                    <i className="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-                
-                <div className="modal-body">
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      <strong>출처 문서:</strong> {selectedSource.metadata.source} (Page {selectedSource.metadata.page})
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      <strong>유사도 거리 (Distance):</strong> {selectedSource.distance.toFixed(4)}
-                    </div>
-                  </div>
-
-                  {/* Render based on item type */}
-                  {selectedSource.metadata.type === 'image' && (
-                    <div>
-                      {selectedSource.metadata.original_path && (
-                        <div style={{ marginBottom: '12px' }}>
-                          <img 
-                            className="source-image-preview"
-                            src={formatImageUrl(selectedSource.metadata.original_path)}
-                            alt="Raw Extracted Image" 
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.style.display = 'none';
-                              console.warn("Failed to render source image");
-                            }}
-                          />
-                        </div>
-                      )}
-                      <div>
-                        <strong>이미지 요약 분석 텍스트:</strong>
-                        <div style={{ marginTop: '8px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', whiteSpace: 'pre-wrap' }}>
-                          {selectedSource.content}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedSource.metadata.type === 'table' && (
-                    <div>
-                      <strong>마크다운 표 데이터:</strong>
-                      <div className="table-markdown-view">
-                        {selectedSource.content}
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedSource.metadata.type === 'text' && (
-                    <div>
-                      <strong>본문 텍스트 청크 내용:</strong>
-                      <div style={{ marginTop: '8px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', whiteSpace: 'pre-wrap', maxHeight: '300px', overflowY: 'auto' }}>
-                        {selectedSource.content}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+    <div class="main-grid">
+      <!-- Left Panel: File Upload & Metadata -->
+      <div class="card">
+        <div class="card-title">
+          <i class="fa-solid fa-file-pdf"></i> PDF 파일 불러오기
         </div>
-      );
-    }
+        
+        <div id="dropzone" class="dropzone">
+          <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+          <p>PDF 파일을 여기에 드래그하거나 클릭하여 로드</p>
+          <span>* 텍스트, 이미지, 표가 혼합된 문서 지원</span>
+          
+          <input 
+            type="file" 
+            id="file-input" 
+            class="hidden-file-input" 
+            accept=".pdf"
+          />
+        </div>
 
-    const mountApp = () => {
-      const root = ReactDOM.createRoot(document.getElementById('root'));
-      root.render(<App />);
-    };
+        <button id="btn-find-file" class="btn btn-primary">
+          <i class="fa-solid fa-folder-open"></i> 파일 찾기
+        </button>
 
-    if (document.readyState === "loading") {
-      window.addEventListener('DOMContentLoaded', mountApp);
-    } else {
-      mountApp();
-    }
-  </script>
+        <div id="upload-error" class="hidden" style="font-size: 0.8rem; color: var(--danger); display: flex; gap: 6px; align-items: center;">
+          <i class="fa-solid fa-triangle-exclamation"></i> <span></span>
+        </div>
+
+        <!-- Selected File Status Box -->
+        <div id="file-info" class="file-info hidden">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <i class="fa-solid fa-file-invoice" style="color: #a5b4fc;"></i>
+            <span id="file-name-display" class="file-name"></span>
+          </div>
+          <span id="file-status-display" class="file-status">DB 등록됨</span>
+        </div>
+
+        <!-- Parsing Summaries Box -->
+        <div id="upload-result-box" class="hidden" style="font-size: 0.8rem; color: var(--text-secondary); display: flex; flexDirection: column; gap: 8px; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 8px;">
+          <div style="font-weight: 600; color: var(--text-primary);">색인 완료 결과:</div>
+          <div id="upload-summary-text" style="display: flex; flex-direction: column; gap: 4px;"></div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Chat Board -->
+      <div class="card chat-panel">
+        <div class="card-title" style="justify-content: space-between;">
+          <span><i class="fa-solid fa-comments"></i> 대화 및 멀티모달 분석</span>
+          <div id="chat-header-status" class="loading-container hidden">
+            <div class="spinner"></div> AI가 답변 생성 중...
+          </div>
+        </div>
+
+        <!-- Chat History Area -->
+        <div id="chat-history" class="chat-history">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+        <div id="chat-error" class="hidden" style="color: var(--danger); font-size: 0.8rem; padding: 8px;">
+          <i class="fa-solid fa-circle-exclamation"></i> <span></span>
+        </div>
+
+        <!-- Input Query Box -->
+        <div class="text-input-wrapper">
+          <label htmlFor="query-input">나의 질문</label>
+          <textarea
+            id="query-input"
+            class="textarea-field"
+            placeholder="문서의 텍스트, 표, 또는 이미지 내용에 대해 궁금한 점을 질문해 주세요..."
+          ></textarea>
+          
+          <button 
+            id="btn-ask-ai"
+            class="btn btn-primary"
+            style="align-self: flex-end; width: auto; min-width: 150px;"
+          >
+            <i class="fa-solid fa-paper-plane"></i> AI 질문하기
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Overlay for RAW Citation details viewing -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <div id="modal-title" class="modal-title">참조된 RAW 데이터 상세 보기</div>
+        <button id="modal-close" class="modal-close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div id="modal-meta-source" style="font-size: 0.8rem; color: var(--text-secondary);"></div>
+          <div id="modal-meta-distance" style="font-size: 0.8rem; color: var(--text-secondary);"></div>
+        </div>
+        <!-- Injected dynamically based on type -->
+        <div id="modal-body-content" style="margin-top: 8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Include javascript logic template evaluated by GAS -->
+  <?!= include('script'); ?>
 </body>
 </html>
