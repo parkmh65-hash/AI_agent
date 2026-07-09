@@ -601,10 +601,29 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
+    // Safe localStorage wrapper for Google Apps Script iframe sandbox
+    const safeLocalStorage = {
+      getItem: (key) => {
+        try {
+          return localStorage.getItem(key);
+        } catch (e) {
+          console.warn("localStorage read blocked:", e);
+          return null;
+        }
+      },
+      setItem: (key, value) => {
+        try {
+          localStorage.setItem(key, value);
+        } catch (e) {
+          console.warn("localStorage write blocked:", e);
+        }
+      }
+    };
+
     function App() {
       // Configuration
       const [apiBaseUrl, setApiBaseUrl] = useState(() => {
-        return localStorage.getItem("rag_api_base_url") || "http://localhost:8000";
+        return safeLocalStorage.getItem("rag_api_base_url") || "http://localhost:8000";
       });
       const [showSettings, setShowSettings] = useState(false);
 
@@ -630,7 +649,7 @@
       const saveApiUrl = (url) => {
         const cleanUrl = url.trim().replace(/\/$/, "");
         setApiBaseUrl(cleanUrl);
-        localStorage.setItem("rag_api_base_url", cleanUrl);
+        safeLocalStorage.setItem("rag_api_base_url", cleanUrl);
       };
 
       useEffect(() => {
