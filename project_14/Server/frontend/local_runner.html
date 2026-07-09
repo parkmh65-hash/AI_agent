@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatPDF With Multiquery+HybridSearch+RagFusion (Local Runner)</title>
+  
+  <!-- React and ReactDOM CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel CDN for compiling JSX in browser -->
+  <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+  
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Local CSS fallback directly loaded for testing outside GAS -->
+  <style>
+    /* Import Google Font */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    /* Global Reset & Base Variables */
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: rgba(17, 24, 39, 0.8);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-glow: rgba(99, 102, 241, 0.35);
+      
+      --accent: #8b5cf6;
+      --accent-glow: rgba(139, 92, 246, 0.35);
+      
+      --success: #10b981;
+      --danger: #ef4444;
+      --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.12) 0, transparent 50%);
+      background-attachment: fixed;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Layout Containers */
+    .app-container {
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      flex-grow: 1;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      background: linear-gradient(135deg, #a5b4fc, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 24px;
+      align-items: start;
+      flex-grow: 1;
+    }
+
+    @media (max-width: 900px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Premium Card Design (Glassmorphism) */
+    .card {
+      background-color: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 12px;
+    }
+
+    /* Input fields & Dropzone styling */
+    .dropzone {
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 32px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      background: rgba(255, 255, 255, 0.01);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .dropzone:hover {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.03);
+      box-shadow: 0 0 16px 0 rgba(99, 102, 241, 0.1);
+    }
+
+    .dropzone.drag-active {
+      border-color: var(--accent);
+      background: rgba(139, 92, 246, 0.05);
+    }
+
+    .dropzone-icon {
+      font-size: 2rem;
+      color: var(--text-secondary);
+      transition: color 0.25s ease;
+    }
+    .dropzone:hover .dropzone-icon {
+      color: var(--primary);
+    }
+
+    .dropzone p {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .dropzone span {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Hidden Input */
+    .hidden-file-input {
+      display: none;
+    }
+
+    /* Premium Buttons */
+    .btn {
+      font-family: var(--font-family);
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #ffffff;
+      box-shadow: 0 4px 14px 0 var(--primary-glow);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px 0 rgba(99, 102, 241, 0.45);
+      background: linear-gradient(135deg, var(--primary-hover), #7c3aed);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Textarea form inputs */
+    .text-input-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .text-input-wrapper label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .textarea-field {
+      width: 100%;
+      min-height: 90px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      font-size: 0.9rem;
+      resize: vertical;
+      transition: all 0.2s ease;
+    }
+
+    .textarea-field:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-glow);
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      font-size: 0.85rem;
+    }
+    
+    .input-field:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    /* Chat Pane & Dialogues */
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 120px);
+      min-height: 550px;
+    }
+
+    .chat-history {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 16px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .message {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      animation: fadeIn 0.3s ease-out forwards;
+      max-width: 85%;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+      align-items: flex-start;
+      max-width: 90%;
+    }
+
+    .message-bubble {
+      padding: 14px 18px;
+      border-radius: 16px;
+      font-size: 0.925rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .message.user .message-bubble {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #ffffff;
+      border-bottom-right-radius: 2px;
+    }
+
+    .message.assistant .message-bubble {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+      border-top-left-radius: 2px;
+    }
+
+    .message-sender {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    /* Citations and Sources */
+    .sources-container {
+      margin-top: 8px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .sources-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      letter-spacing: 0.05em;
+    }
+
+    .sources-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .source-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      max-width: 260px;
+    }
+
+    .source-card:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--primary);
+    }
+
+    .source-meta {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .source-type {
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+    }
+    .source-type.table {
+      background: rgba(16, 185, 129, 0.15);
+      color: #a7f3d0;
+    }
+    .source-type.image {
+      background: rgba(139, 92, 246, 0.15);
+      color: #ddd6fe;
+    }
+
+    .source-snippet {
+      color: rgba(255, 255, 255, 0.4);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* File items listed */
+    .file-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .file-name {
+      font-size: 0.8rem;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 200px;
+    }
+
+    .file-status {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--success);
+      background: rgba(16, 185, 129, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* Loading indicator */
+    .loading-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      padding: 8px 12px;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-top: 2px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Dialog / Modal for raw details viewing */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .modal {
+      background: #111827;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 650px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.25rem;
+      cursor: pointer;
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      font-size: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .source-image-preview {
+      max-width: 100%;
+      max-height: 300px;
+      object-fit: contain;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: #000;
+      margin: 0 auto;
+      display: block;
+    }
+
+    .table-markdown-view {
+      overflow-x: auto;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      white-space: pre;
+    }
+
+    /* Empty state */
+    .empty-chat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-grow: 1;
+      color: var(--text-secondary);
+      gap: 12px;
+      text-align: center;
+      opacity: 0.6;
+      padding: 40px;
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 8px;
+    }
+
+    /* Animations */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React code -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    function App() {
+      // Configuration
+      const [apiBaseUrl, setApiBaseUrl] = useState(() => {
+        return localStorage.getItem("rag_api_base_url") || "http://localhost:8000";
+      });
+      const [showSettings, setShowSettings] = useState(false);
+
+      // Upload State
+      const [file, setFile] = useState(null);
+      const [uploading, setUploading] = useState(false);
+      const [uploadResult, setUploadResult] = useState(null);
+      const [uploadError, setUploadError] = useState("");
+      
+      // Query/Chat State
+      const [query, setQuery] = useState("");
+      const [chatHistory, setChatHistory] = useState([]);
+      const [loading, setLoading] = useState(false);
+      const [chatError, setChatError] = useState("");
+      
+      // Modal Details for Raw View
+      const [selectedSource, setSelectedSource] = useState(null);
+
+      const fileInputRef = useRef(null);
+      const chatEndRef = useRef(null);
+
+      // Save API URL to localStorage on change
+      const saveApiUrl = (url) => {
+        const cleanUrl = url.trim().replace(/\/$/, "");
+        setApiBaseUrl(cleanUrl);
+        localStorage.setItem("rag_api_base_url", cleanUrl);
+      };
+
+      // Scroll to bottom of chat
+      useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, [chatHistory, loading]);
+
+      // Handle PDF selection
+      const handleFileChange = (e) => {
+        const selectedFile = e.target.files[0];
+        if (selectedFile) {
+          if (selectedFile.type !== "application/pdf") {
+            setUploadError("PDF 파일만 업로드할 수 있습니다.");
+            setFile(null);
+            return;
+          }
+          setFile(selectedFile);
+          setUploadError("");
+          setUploadResult(null);
+          
+          // Trigger upload immediately after file select
+          uploadPDF(selectedFile);
+        }
+      };
+
+      // Trigger file selection dialog
+      const triggerFileSelect = () => {
+        fileInputRef.current.click();
+      };
+
+      // Upload PDF logic
+      const uploadPDF = async (selectedFile) => {
+        setUploading(true);
+        setUploadError("");
+        setUploadResult(null);
+
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        try {
+          const response = await fetch(`${apiBaseUrl}/api/documents/upload`, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.detail || "파일 파싱 및 벡터 DB 추가 실패");
+          }
+
+          const result = await response.json();
+          setUploadResult(result);
+          
+          // Add notification message in chat
+          setChatHistory(prev => [...prev, {
+            role: "system",
+            content: `📄 문서 업로드 완료: ${selectedFile.name}\n(텍스트 청크: ${result.summary.text_chunks}개, 표: ${result.summary.tables}개, 이미지: ${result.summary.images}개 가 저장되었습니다.)`
+          }]);
+        } catch (error) {
+          console.error("Upload error:", error);
+          setUploadError(error.message || "서버 통신 실패. API URL을 확인하세요.");
+        } finally {
+          setUploading(false);
+        }
+      };
+
+      // Database Reset logic
+      const resetDatabase = async () => {
+        if (!confirm("벡터 DB를 초기화하시겠습니까? 모든 인덱스 문서가 삭제됩니다.")) return;
+        
+        try {
+          const response = await fetch(`${apiBaseUrl}/api/database/reset`, {
+            method: "POST"
+          });
+          if (response.ok) {
+            alert("벡터 데이터베이스가 성공적으로 초기화되었습니다.");
+            setUploadResult(null);
+            setFile(null);
+            setChatHistory([]);
+          } else {
+            throw new Error("초기화 실패");
+          }
+        } catch (error) {
+          alert(`에러: ${error.message}`);
+        }
+      };
+
+      // Send AI Query logic
+      const handleAskAI = async () => {
+        if (!query.trim()) return;
+        
+        const currentQuestion = query;
+        // 3단계 요구사항: [나의 질문] 영역의 내용은 지우기
+        setQuery("");
+        setChatError("");
+        setLoading(true);
+
+        // Add user query to conversation history
+        const userMsg = { role: "user", content: currentQuestion };
+        setChatHistory(prev => [...prev, userMsg]);
+
+        // Build history excluding systems for payload
+        const cleanHistory = chatHistory
+          .filter(msg => msg.role === "user" || msg.role === "assistant")
+          .map(msg => ({ role: msg.role, content: msg.content }));
+
+        try {
+          const response = await fetch(`${apiBaseUrl}/api/chat/query`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              query: currentQuestion,
+              history: cleanHistory,
+              top_k: 5,
+              use_multiquery: true
+            }),
+          });
+
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.detail || "답변 생성 실패");
+          }
+
+          const data = await response.json();
+          
+          // Add assistant response to conversation history
+          setChatHistory(prev => [...prev, {
+            role: "assistant",
+            content: data.answer,
+            sources: data.sources
+          }]);
+        } catch (error) {
+          console.error("Query error:", error);
+          setChatError(error.message || "서버 통신 오류가 발생했습니다.");
+          setChatHistory(prev => [...prev, {
+            role: "system",
+            content: `⚠️ 에러 발생: ${error.message || "서버 응답 오류"}`
+          }]);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Helper to format local and remote URLs for previewing images
+      const formatImageUrl = (originalPath) => {
+        if (!originalPath) return "";
+        if (originalPath.startsWith("http://") || originalPath.startsWith("https://")) {
+          return originalPath;
+        }
+        // Local path fallback ( FastAPI prefix )
+        return `${apiBaseUrl}${originalPath}`;
+      };
+
+      return (
+        <div className="app-container">
+          <header>
+            <div>
+              <h1><i className="fa-solid fa-brain"></i> ChatPDF With Multiquery+HybridSearch+RagFusion</h1>
+              <div className="subtitle">멀티모달 RAG (텍스트 + 표 + 이미지) 문서 질의 응답 시스템</div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="btn btn-secondary" style={{ width: 'auto', padding: '8px 12px' }} onClick={() => setShowSettings(!showSettings)}>
+                <i className="fa-solid fa-gear"></i> 설정
+              </button>
+              <button className="btn btn-secondary" style={{ width: 'auto', padding: '8px 12px', color: '#ef4444' }} onClick={resetDatabase}>
+                <i className="fa-solid fa-trash"></i> DB 초기화
+              </button>
+            </div>
+          </header>
+
+          {showSettings && (
+            <div className="card" style={{ padding: '16px', gap: '12px' }}>
+              <div className="card-title" style={{ fontSize: '0.95rem' }}>
+                <i className="fa-solid fa-network-wired"></i> 백엔드 API URL 설정
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  value={apiBaseUrl} 
+                  onChange={(e) => saveApiUrl(e.target.value)} 
+                  placeholder="예: http://localhost:8000"
+                />
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                * 로컬 테스트 시 <code>http://localhost:8000</code>을 지정하고, Render 배포 시 Render 웹 서비스 주소를 지정하세요.
+              </p>
+            </div>
+          )}
+
+          <div className="main-grid">
+            {/* Left Panel: File Upload & Metadata */}
+            <div className="card">
+              <div className="card-title">
+                <i className="fa-solid fa-file-pdf"></i> PDF 파일 불러오기
+              </div>
+              
+              <div className="dropzone" onClick={triggerFileSelect}>
+                <i className="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+                <p>PDF 파일을 여기에 드래그하거나 클릭하여 로드</p>
+                <span>* 텍스트, 이미지, 표가 혼합된 문서 지원</span>
+                
+                <input 
+                  type="file" 
+                  ref={fileInputRef}
+                  className="hidden-file-input" 
+                  accept=".pdf"
+                  onChange={handleFileChange}
+                />
+              </div>
+
+              <button 
+                className="btn btn-primary" 
+                onClick={triggerFileSelect}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <>
+                    <div className="spinner"></div> 파싱 및 벡터 저장 중...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-folder-open"></i> 파일 찾기
+                  </>
+                )}
+              </button>
+
+              {uploadError && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--danger)', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <i className="fa-solid fa-triangle-exclamation"></i> {uploadError}
+                </div>
+              )}
+
+              {file && (
+                <div className="file-info">
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <i className="fa-solid fa-file-invoice" style={{ color: '#a5b4fc' }}></i>
+                    <span className="file-name" title={file.name}>{file.name}</span>
+                  </div>
+                  <span className="file-status">
+                    {uploading ? "업로드 중" : "DB 등록됨"}
+                  </span>
+                </div>
+              )}
+
+              {uploadResult && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
+                  <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>색인 완료 결과:</div>
+                  <div>- 총 청크 수: {uploadResult.summary.total_chunks}개</div>
+                  <div>- 텍스트 청크: {uploadResult.summary.text_chunks}개</div>
+                  <div>- 추출된 표: {uploadResult.summary.tables}개</div>
+                  <div>- 추출된 이미지: {uploadResult.summary.images}개</div>
+                </div>
+              )}
+            </div>
+
+            {/* Right Panel: Chat dialogue and output */}
+            <div className="card chat-panel">
+              <div className="card-title" style={{ justifyContent: 'space-between' }}>
+                <span><i className="fa-solid fa-comments"></i> 대화 및 멀티모달 분석</span>
+                {loading && (
+                  <div className="loading-container">
+                    <div className="spinner"></div> AI가 답변 생성 중...
+                  </div>
+                )}
+              </div>
+
+              <div className="chat-history">
+                {chatHistory.length === 0 ? (
+                  <div className="empty-chat">
+                    <div className="empty-icon"><i className="fa-solid fa-message"></i></div>
+                    <h3>RAG 대화 시작하기</h3>
+                    <p>PDF 문서를 왼쪽 영역에 업로드한 후,<br />질문을 입력하여 관련 텍스트, 표, 이미지 정보 검색 결과를 받아보세요.</p>
+                  </div>
+                ) : (
+                  chatHistory.map((msg, index) => (
+                    <div key={index} className={`message ${msg.role}`}>
+                      <div className="message-sender">
+                        {msg.role === 'user' ? '나의 질문' : msg.role === 'assistant' ? 'AI 답변' : '시스템 알림'}
+                      </div>
+                      
+                      <div className="message-bubble">
+                        {msg.content}
+                      </div>
+
+                      {/* Display retrieved sources cards */}
+                      {msg.sources && msg.sources.length > 0 && (
+                        <div className="sources-container">
+                          <div className="sources-title">참조된 RAW 데이터 (클릭하여 전체 보기)</div>
+                          <div className="sources-grid">
+                            {msg.sources.map((src, sIdx) => (
+                              <div 
+                                key={sIdx} 
+                                className="source-card"
+                                onClick={() => setSelectedSource(src)}
+                              >
+                                <div className="source-meta">
+                                  <span className={`source-type ${src.metadata.type}`}>
+                                    {src.metadata.type === 'text' ? '텍스트' : src.metadata.type === 'table' ? '표 데이터' : '이미지'}
+                                  </span>
+                                  <span>P. {src.metadata.page}</span>
+                                </div>
+                                <div className="source-snippet">
+                                  {src.metadata.type === 'image' ? src.metadata.caption : src.content}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              {chatError && (
+                <div style={{ color: 'var(--danger)', fontSize: '0.8rem', padding: '8px' }}>
+                  <i className="fa-solid fa-circle-exclamation"></i> {chatError}
+                </div>
+              )}
+
+              {/* Chat query input area */}
+              <div className="text-input-wrapper">
+                <label htmlFor="query-input">나의 질문</label>
+                <textarea
+                  id="query-input"
+                  className="textarea-field"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="문서의 텍스트, 표, 또는 이미지 내용에 대해 궁금한 점을 질문해 주세요..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAskAI();
+                    }
+                  }}
+                  disabled={loading}
+                />
+                
+                <button 
+                  className="btn btn-primary"
+                  onClick={handleAskAI}
+                  disabled={loading || !query.trim()}
+                  style={{ alignSelf: 'flex-end', width: 'auto', minWidth: '150px' }}
+                >
+                  {loading ? (
+                    <>
+                      <div className="spinner"></div> 생성 중...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-paper-plane"></i> AI 질문하기
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Overlay for viewing Raw Metadata and Documents */}
+          {selectedSource && (
+            <div className="modal-overlay" onClick={() => setSelectedSource(null)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <div className="modal-title">
+                    참조된 RAW 데이터 상세 보기 ({selectedSource.metadata.type.toUpperCase()})
+                  </div>
+                  <button className="modal-close" onClick={() => setSelectedSource(null)}>
+                    <i className="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+                
+                <div className="modal-body">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <strong>출처 문서:</strong> {selectedSource.metadata.source} (Page {selectedSource.metadata.page})
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <strong>유사도 거리 (Distance):</strong> {selectedSource.distance.toFixed(4)}
+                    </div>
+                  </div>
+
+                  {/* Render based on item type */}
+                  {selectedSource.metadata.type === 'image' && (
+                    <div>
+                      {selectedSource.metadata.original_path && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <img 
+                            className="source-image-preview"
+                            src={formatImageUrl(selectedSource.metadata.original_path)}
+                            alt="Raw Extracted Image" 
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <strong>이미지 요약 분석 텍스트:</strong>
+                        <div style={{ marginTop: '8px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', whiteSpace: 'pre-wrap' }}>
+                          {selectedSource.content}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedSource.metadata.type === 'table' && (
+                    <div>
+                      <strong>마크다운 표 데이터:</strong>
+                      <div className="table-markdown-view">
+                        {selectedSource.content}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedSource.metadata.type === 'text' && (
+                    <div>
+                      <strong>본문 텍스트 청크 내용:</strong>
+                      <div style={{ marginTop: '8px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', whiteSpace: 'pre-wrap', maxHeight: '300px', overflowY: 'auto' }}>
+                        {selectedSource.content}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
