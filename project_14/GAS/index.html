@@ -456,7 +456,7 @@
                             onError={(e) => {
                               e.target.onerror = null;
                               e.target.style.display = 'none';
-                              logger.warning("Failed to render source image");
+                              console.warn("Failed to render source image");
                             }}
                           />
                         </div>
@@ -495,8 +495,10 @@
       );
     }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    window.addEventListener('DOMContentLoaded', () => {
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    });
   </script>
 </body>
 </html>
