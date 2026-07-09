@@ -1068,8 +1068,16 @@
       );
     }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    const mountApp = () => {
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    };
+
+    if (document.readyState === "loading") {
+      window.addEventListener('DOMContentLoaded', mountApp);
+    } else {
+      mountApp();
+    }
   </script>
 </body>
 </html>
