@@ -1,4 +1,5 @@
 Server/venv/
+.venv/
 Server/__pycache__/
 Server/test_reply.json
 *.pyc
