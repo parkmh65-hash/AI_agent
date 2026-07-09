@@ -24,6 +24,12 @@ class QueryResultSource(BaseModel):
     metadata: SourceMetadata
     distance: float
 
+class PerformanceMetrics(BaseModel):
+    rows_retrieved: int = Field(..., description="Number of rows retrieved from vector store")
+    retrieval_time_ms: float = Field(..., description="Time taken to search vectors in milliseconds")
+    total_time_ms: float = Field(..., description="Total pipeline response time in milliseconds")
+
 class QueryResponse(BaseModel):
     answer: str = Field(..., description="LLM generated answer based on documents")
     sources: List[QueryResultSource] = Field(..., description="The source documents retrieved and used")
+    performance: PerformanceMetrics = Field(..., description="Execution speed and row count metrics")

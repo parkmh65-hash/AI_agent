@@ -3,12 +3,42 @@ from typing import List, Dict, Any, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.messages import SystemMessage, HumanMessage
 from app.config import config
 from app.services.vectorstore import vector_store_service
 
 logger = logging.getLogger(__name__)
 
 class RetrieverService:
+    def determine_routing(self, query: str) -> str:
+        """
+        Determines whether the query is a simple chitchat (일상 대화) or a document search query (RAG).
+        Returns 'chitchat' or 'rag'.
+        """
+        try:
+            prompt = f"""You are a query routing assistant.
+Classify the user's query into one of two categories:
+- 'chitchat': If the query is a simple greeting, thank you, general conversation, or small talk (e.g. "안녕", "고마워", "너는 누구야?").
+- 'rag': If the query is asking for information, facts, data lookup, or document search (e.g. "Q3 매출 성장율이 어때?", "이 문서의 내용을 설명해줘").
+
+Query: {query}
+
+Response (Answer ONLY with 'chitchat' or 'rag' without punctuation or explanation):"""
+            
+            messages = [
+                SystemMessage(content="You are a strict query router. Only output 'chitchat' or 'rag'."),
+                HumanMessage(content=prompt)
+            ]
+            response = self.llm.invoke(messages)
+            decision = response.content.strip().lower()
+            logger.info(f"Query routing decision for '{query}': {decision}")
+            if "chitchat" in decision:
+                return "chitchat"
+            return "rag"
+        except Exception as e:
+            logger.error(f"Error in query routing: {str(e)}. Defaulting to 'rag'.")
+            return "rag"
+
     def __init__(self):
         # LLM for generating query variations (MultiQuery)
         self.llm = ChatOpenAI(

@@ -270,6 +270,8 @@
 
     // Add user query to conversation history
     chatHistory.push({ role: "user", content: currentQuestion });
+    // Add loading placeholder message to UI immediately
+    chatHistory.push({ role: "assistant", content: "AI 질문중입니다...", isLoadingPlaceholder: true });
     renderChat();
 
     // Prepare history payload for API call
@@ -298,14 +300,25 @@
 
       const data = await response.json();
       
-      // Add assistant response to history
+      // Remove loading placeholder
+      if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].isLoadingPlaceholder) {
+        chatHistory.pop();
+      }
+
+      // Add assistant response to history with performance stats
       chatHistory.push({
         role: "assistant",
         content: data.answer,
-        sources: data.sources
+        sources: data.sources,
+        performance: data.performance
       });
       renderChat();
     } catch (error) {
+      // Remove loading placeholder on error
+      if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].isLoadingPlaceholder) {
+        chatHistory.pop();
+      }
+
       console.error("Query error:", error);
       showChatError(error.message || "서버 통신 오류가 발생했습니다.");
       chatHistory.push({
@@ -356,8 +369,30 @@
       // Bubble Content
       const bubbleDiv = document.createElement("div");
       bubbleDiv.className = "message-bubble";
-      bubbleDiv.textContent = msg.content;
+      if (msg.isLoadingPlaceholder) {
+        bubbleDiv.innerHTML = '<div style="display: flex; align-items: center; gap: 8px;"><div class="spinner"></div> AI 질문중입니다...</div>';
+      } else {
+        bubbleDiv.textContent = msg.content;
+      }
       msgDiv.appendChild(bubbleDiv);
+
+      // Render performance stats if present
+      if (msg.performance) {
+        const statsDiv = document.createElement("div");
+        statsDiv.className = "performance-stats";
+        statsDiv.style.fontSize = "0.725rem";
+        statsDiv.style.color = "rgba(255, 255, 255, 0.4)";
+        statsDiv.style.marginTop = "6px";
+        statsDiv.style.padding = "4px 8px";
+        statsDiv.style.background = "rgba(255, 255, 255, 0.02)";
+        statsDiv.style.borderRadius = "4px";
+        statsDiv.style.border = "1px solid rgba(255, 255, 255, 0.04)";
+        statsDiv.style.display = "inline-flex";
+        statsDiv.style.alignItems = "center";
+        statsDiv.style.gap = "6px";
+        statsDiv.innerHTML = `<i class="fa-solid fa-bolt" style="color: #fbbf24;"></i> 조회된 행 수: ${msg.performance.rows_retrieved}개 | 검색 속도: ${msg.performance.retrieval_time_ms} ms | 총 응답 시간: ${msg.performance.total_time_ms} ms`;
+        msgDiv.appendChild(statsDiv);
+      }
 
       // Render Sources if present (RAW 데이터 확인 기능)
       if (msg.sources && msg.sources.length > 0) {

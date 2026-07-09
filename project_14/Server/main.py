@@ -166,31 +166,45 @@ async def upload_document(file: UploadFile = File(...)):
 @app.post("/api/chat/query", response_model=QueryResponse)
 async def query_rag(request: QueryRequest):
     """
-    RAG Query endpoint. Retrieves relevant context (texts, tables, images) using MultiQuery & RRF,
-    then generates a multimodal response from GPT-4o-mini.
+    RAG Query endpoint. First determines routing (chitchat vs RAG), retrieves context if needed,
+    profiles performance, and generates a multimodal answer.
     """
+    import time
+    start_total = time.perf_counter()
+    
     try:
         # Convert request history format to dict list for generator service
         history_list = None
         if request.history:
             history_list = [h.dict() for h in request.history]
             
-        # 1. Retrieve relevant context
-        retrieved_docs = retriever_service.retrieve(
-            query_text=request.query,
-            top_k=request.top_k,
-            filter_dict=request.filter_dict,
-            use_multiquery=request.use_multiquery
-        )
+        # 1. Determine routing: chitchat (일상 대화) vs RAG (문서 질의)
+        route = retriever_service.determine_routing(request.query)
         
-        # 2. Generate answer with multimodal capabilities
+        retrieved_docs = []
+        retrieval_time_ms = 0.0
+        
+        if route == "rag":
+            # 2. Retrieve relevant context (with timing)
+            start_retrieval = time.perf_counter()
+            retrieved_docs = retriever_service.retrieve(
+                query_text=request.query,
+                top_k=request.top_k,
+                filter_dict=request.filter_dict,
+                use_multiquery=request.use_multiquery
+            )
+            retrieval_time_ms = (time.perf_counter() - start_retrieval) * 1000.0
+        else:
+            logger.info(f"Bypassing retrieval: query '{request.query}' routed as chitchat.")
+        
+        # 3. Generate answer (with multimodal capabilities)
         answer = generator_service.generate_answer(
             query=request.query,
             retrieved_docs=retrieved_docs,
             history=history_list
         )
         
-        # 3. Format sources for response schema
+        # 4. Format sources for response schema
         sources = []
         for doc in retrieved_docs:
             sources.append({
@@ -205,7 +219,16 @@ async def query_rag(request: QueryRequest):
                 "distance": doc.get("distance", 0.0)
             })
             
-        return QueryResponse(answer=answer, sources=sources)
+        # 5. Measure total execution time
+        total_time_ms = (time.perf_counter() - start_total) * 1000.0
+        
+        performance = {
+            "rows_retrieved": len(retrieved_docs),
+            "retrieval_time_ms": round(retrieval_time_ms, 2),
+            "total_time_ms": round(total_time_ms, 2)
+        }
+        
+        return QueryResponse(answer=answer, sources=sources, performance=performance)
         
     except Exception as e:
         logger.error(f"Error during RAG query: {str(e)}")
