@@ -57,16 +57,16 @@ def preprocess_image(image_path, max_size=(224, 224)):
     
     return img, base64_data
 
-def get_image_embedding(pil_image):
-    """Generate normalized 512-dimension CLIP embedding vector."""
-    inputs = processor(images=pil_image, return_tensors="pt").to(device)
+def get_image_embeddings_batch(pil_images):
+    """Generate normalized 512-dimension CLIP embedding vectors for a batch of images."""
+    inputs = processor(images=pil_images, return_tensors="pt").to(device)
     with torch.no_grad():
         image_features = model.get_image_features(**inputs)
     # Extract pooler_output (which is the projected 512-dim features tensor in transformers v5)
     features_tensor = image_features.pooler_output
     # L2 normalize
     features_tensor = features_tensor / features_tensor.norm(dim=-1, keepdim=True)
-    return features_tensor[0].cpu().numpy().tolist()
+    return features_tensor.cpu().numpy().tolist()
 
 def main():
     image_dir = r"C:\Users\user\Downloads\image\fashion_dataset"
@@ -86,7 +86,9 @@ def main():
         return
 
     batch_size = 50
-    supabase_batch = []
+    current_images = []
+    current_filenames = []
+    current_base64s = []
     
     start_time = time.time()
     
@@ -95,49 +97,54 @@ def main():
         try:
             # 1. Preprocess and get Base64 data
             pil_img, base64_data = preprocess_image(img_path)
+            current_images.append(pil_img)
+            current_filenames.append(filename)
+            current_base64s.append(base64_data)
             
-            # 2. Get CLIP embedding
-            embedding = get_image_embedding(pil_img)
-            
-            # 3. Add to local ChromaDB
-            collection.add(
-                ids=[filename],
-                embeddings=[embedding],
-                metadatas=[{"image_name": filename, "base64_data": base64_data}]
-            )
-            
-            # 4. Add to Supabase batch list
-            supabase_batch.append({
-                "image_name": filename,
-                "base64_data": base64_data,
-                "embedding": embedding
-            })
-            
-            # 5. Insert batch to Supabase
-            if len(supabase_batch) >= batch_size:
-                print(f"Uploading batch {idx + 1 - batch_size} to {idx} to Supabase...")
-                supabase.table("fashion").insert(supabase_batch).execute()
-                supabase_batch = []
+            # 2. Process and upload batch if full or at end
+            if len(current_images) >= batch_size or (idx + 1) == total_images:
+                batch_count = len(current_images)
+                print(f"Processing and uploading batch of {batch_count} items (idx {idx+1-batch_count} to {idx})...", flush=True)
                 
-            if (idx + 1) % 50 == 0 or (idx + 1) == total_images:
+                # Get embeddings in a single forward pass
+                embeddings = get_image_embeddings_batch(current_images)
+                
+                # Insert into local ChromaDB in batch
+                collection.add(
+                    ids=current_filenames,
+                    embeddings=embeddings,
+                    metadatas=[{"image_name": name, "base64_data": b64} for name, b64 in zip(current_filenames, current_base64s)]
+                )
+                
+                # Insert into Supabase in batch
+                supabase_batch = [{
+                    "image_name": name,
+                    "base64_data": b64,
+                    "embedding": emb
+                } for name, b64, emb in zip(current_filenames, current_base64s, embeddings)]
+                
+                supabase.table("fashion").insert(supabase_batch).execute()
+                
+                # Calculate progress and speed
                 elapsed = time.time() - start_time
                 speed = (idx + 1) / elapsed
                 remaining = (total_images - (idx + 1)) / speed if speed > 0 else 0
-                print(f"Progress: {idx + 1}/{total_images} ({(idx + 1)/total_images*100:.1f}%) | Speed: {speed:.2f} img/s | Remaining: {remaining:.1f}s")
+                print(f"Progress: {idx + 1}/{total_images} ({(idx + 1)/total_images*100:.1f}%) | Speed: {speed:.2f} img/s | Remaining: {remaining:.1f}s", flush=True)
+                
+                # Reset batch lists
+                current_images = []
+                current_filenames = []
+                current_base64s = []
                 
         except Exception as e:
-            print(f"Error processing {filename}: {e}")
-            
-    # Insert any remaining records in the last batch
-    if len(supabase_batch) > 0:
-        print(f"Uploading final batch of {len(supabase_batch)} items...")
-        try:
-            supabase.table("fashion").insert(supabase_batch).execute()
-        except Exception as e:
-            print(f"Error uploading final batch: {e}")
+            print(f"Error processing {filename}: {e}", flush=True)
+            # Reset batch lists to prevent poisoning subsequent batches
+            current_images = []
+            current_filenames = []
+            current_base64s = []
 
     total_time = time.time() - start_time
-    print(f"Finished ingesting {total_images} images in {total_time:.2f} seconds!")
+    print(f"Finished ingesting {total_images} images in {total_time:.2f} seconds!", flush=True)
 
 if __name__ == "__main__":
     main()
