@@ -1,0 +1,436 @@
+<script type="text/babel">
+  const { useState, useEffect, useRef } = React;
+
+  // Safe localStorage helper to prevent SecurityError inside GAS iframe sandbox
+  const safeLocalStorage = {
+    getItem: (key) => {
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        console.warn("localStorage read blocked:", e);
+        return null;
+      }
+    },
+    setItem: (key, value) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {
+        console.warn("localStorage write blocked:", e);
+      }
+    }
+  };
+
+  function App() {
+    const [apiBaseUrl, setApiBaseUrl] = useState(
+      safeLocalStorage.getItem("fashion_rag_api_url") || "http://localhost:8000"
+    );
+    const [showSettings, setShowSettings] = useState(false);
+    const [chatHistory, setChatHistory] = useState([]);
+    const [queryText, setQueryText] = useState("");
+    const [isUploading, setIsUploading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [uploadResult, setUploadResult] = useState(null);
+    const [dragActive, setDragActive] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
+    
+    const fileInputRef = useRef(null);
+    const chatEndRef = useRef(null);
+
+    // Save settings to localStorage on change
+    const handleApiUrlChange = (e) => {
+      const url = e.target.value.trim().replace(/\/$/, "");
+      setApiBaseUrl(url);
+      safeLocalStorage.setItem("fashion_rag_api_url", url);
+    };
+
+    // Auto-scroll chat to bottom
+    useEffect(() => {
+      if (chatEndRef.current) {
+        chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [chatHistory, isLoading]);
+
+    // Handle local file selection
+    const handleFileChange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        uploadFile(file);
+      }
+    };
+
+    // Drag-and-drop actions
+    const handleDrag = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.type === "dragenter" || e.type === "dragover") {
+        setDragActive(true);
+      } else if (e.type === "dragleave") {
+        setDragActive(false);
+      }
+    };
+
+    const handleDrop = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        uploadFile(e.dataTransfer.files[0]);
+      }
+    };
+
+    // Upload single image via API
+    const uploadFile = async (file) => {
+      if (!file.type.startsWith("image/")) {
+        alert("이미지 파일만 업로드할 수 있습니다.");
+        return;
+      }
+      setIsUploading(true);
+      setErrorMsg("");
+      setUploadResult(null);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/upload`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.detail || "이미지 업로드 및 벡터 DB 저장 실패");
+        }
+
+        const data = await response.json();
+        setUploadResult(data);
+
+        // Add a system notification to chat history
+        setChatHistory(prev => [
+          ...prev,
+          {
+            role: "system",
+            content: `📸 패션 이미지 DB 등록 성공: ${file.name} (총 DB 이미지 수: ${data.row_count}개)`
+          }
+        ]);
+      } catch (error) {
+        console.error("Upload error:", error);
+        setErrorMsg(error.message || "서버 통신 실패. API URL을 확인하세요.");
+      } finally {
+        setIsUploading(false);
+      }
+    };
+
+    // Reset database
+    const handleResetDatabase = async () => {
+      if (!confirm("벡터 DB를 정말 초기화하시겠습니까? 모든 패션 데이터가 삭제됩니다.")) return;
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/database/reset`, {
+          method: "POST"
+        });
+        if (response.ok) {
+          alert("벡터 데이터베이스가 성공적으로 초기화되었습니다.");
+          setUploadResult(null);
+          setChatHistory([]);
+        } else {
+          throw new Error("DB 초기화 실패");
+        }
+      } catch (error) {
+        alert(`에러: ${error.message}`);
+      }
+    };
+
+    // Call query endpoint to get fashion advice
+    const handleSubmitQuery = async () => {
+      if (!queryText.trim() || isLoading) return;
+
+      const currentQuery = queryText.trim();
+      
+      // 3단계 요구사항: [나의 질문] 영역의 내용은 지우기
+      setQueryText("");
+      setIsLoading(true);
+      setErrorMsg("");
+
+      // Append user query to chat history
+      setChatHistory(prev => [...prev, { role: "user", content: currentQuery }]);
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/chat/query`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query: currentQuery }),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.detail || "답변 생성 실패");
+        }
+
+        const data = await response.json();
+
+        // Append assistant response with image assets and performance metrics
+        setChatHistory(prev => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.answer,
+            images: data.images,
+            stats: {
+              db_row_count: data.db_row_count,
+              retrieval_time_ms: data.retrieval_time_ms,
+              total_time_ms: data.total_time_ms
+            }
+          }
+        ]);
+      } catch (error) {
+        console.error("Query error:", error);
+        setErrorMsg(error.message || "서버 통신 오류가 발생했습니다.");
+        setChatHistory(prev => [
+          ...prev,
+          {
+            role: "system",
+            content: `⚠️ 에러 발생: ${error.message || "서버 응답 오류"}`
+          }
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmitQuery();
+      }
+    };
+
+    return (
+      <div className="app-container">
+        {/* Header Section */}
+        <header>
+          <div className="header-logo">
+            <i className="fa-solid fa-shirt"></i>
+            <div>
+              <h1>FashionRAG</h1>
+              <div className="subtitle">Multimodal AI Fashion Styling Advisor</div>
+            </div>
+          </div>
+          <div className="header-actions">
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setShowSettings(!showSettings)}
+              style={{ padding: '8px 12px' }}
+            >
+              <i className="fa-solid fa-gear"></i> 설정
+            </button>
+            <button 
+              className="btn btn-secondary" 
+              onClick={handleResetDatabase}
+              style={{ padding: '8px 12px', color: '#ef4444' }}
+            >
+              <i className="fa-solid fa-trash"></i> DB 초기화
+            </button>
+          </div>
+        </header>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <div className="card settings-card" style={{ padding: '16px', gap: '12px' }}>
+            <div className="card-title" style={{ fontSize: '0.95rem', borderBottom: 'none', paddingBottom: 0 }}>
+              <i className="fa-solid fa-network-wired"></i> 백엔드 API URL 설정
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <input 
+                type="text" 
+                className="input-field" 
+                value={apiBaseUrl}
+                onChange={handleApiUrlChange}
+                placeholder="예: http://localhost:8000"
+              />
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              * 로컬 테스트 시 <code>http://localhost:8000</code>을 지정하고, Render 배포 시 Render 웹 서비스 주소를 지정하세요.
+            </p>
+          </div>
+        )}
+
+        {/* Main Interface Grid */}
+        <div className="main-grid">
+          {/* Left Column: Image Loader */}
+          <div className="card">
+            <div className="card-title">
+              <i className="fa-solid fa-image"></i> 사진 불러오기
+            </div>
+            
+            <div 
+              className={`dropzone ${dragActive ? 'drag-active' : ''}`}
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current.click()}
+            >
+              <i className="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+              <p>패션 이미지를 드래그하거나 클릭하여 로드</p>
+              <span>* 기기에 있는 로컬 패션 이미지를 Supabase DB에 추가</span>
+              
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                className="hidden" 
+                accept="image/*"
+                onChange={handleFileChange}
+              />
+            </div>
+
+            <button 
+              className="btn btn-primary" 
+              onClick={() => fileInputRef.current.click()}
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <div className="spinner"></div> 이미지 분석 중...
+                </>
+              ) : (
+                <>
+                  <i className="fa-solid fa-folder-open"></i> 찾기
+                </>
+              )}
+            </button>
+
+            {uploadResult && (
+              <div className="upload-info-box">
+                <i className="fa-solid fa-circle-check"></i>
+                <div>
+                  <span><strong>성공적으로 업로드됨:</strong> {uploadResult.filename}</span>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                    총 DB 인덱스 수: {uploadResult.row_count}개 | 소요 시간: {uploadResult.elapsed_ms}ms
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {errorMsg && (
+              <div style={{ color: 'var(--danger)', fontSize: '0.8rem', padding: '4px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <i className="fa-solid fa-triangle-exclamation"></i>
+                <span>{errorMsg}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Chat & Styling Advice Board */}
+          <div className="card chat-panel">
+            <div className="card-title" style={{ justifyContent: 'space-between' }}>
+              <span><i className="fa-solid fa-comments"></i> AI 스타일링 조언</span>
+              {isLoading && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--primary)' }}>
+                  <div className="spinner spinner-primary"></div> AI가 스타일 분석 중...
+                </div>
+              )}
+            </div>
+
+            {/* Chat Messages */}
+            <div className="chat-history">
+              {chatHistory.length === 0 ? (
+                <div className="empty-chat">
+                  <div className="empty-icon">
+                    <i className="fa-solid fa-wand-magic-sparkles"></i>
+                  </div>
+                  <h3>스타일링 조언을 받아 보세요</h3>
+                  <p>
+                    왼쪽 영역에서 로컬 이미지를 추가하여 벡터 DB를 생성한 뒤,<br />
+                    아래 영역에 원하시는 룩이나 코디 코드를 입력하여 물어보세요.
+                  </p>
+                </div>
+              ) : (
+                chatHistory.map((msg, index) => (
+                  <div key={index} className={`message ${msg.role}`}>
+                    <div className="message-sender">
+                      {msg.role === 'user' ? '나의 질문' : msg.role === 'assistant' ? 'AI 답변' : '시스템'}
+                    </div>
+                    <div className="message-bubble">
+                      {msg.content}
+                      
+                      {/* Retrieved fashion photos */}
+                      {msg.images && msg.images.length > 0 && (
+                        <div className="retrieved-images-container">
+                          {msg.images.map((imgData, imgIdx) => (
+                            <div key={imgIdx} className="retrieved-image-card">
+                              <img src={imgData} alt={`Retrieved fashion outfit ${imgIdx + 1}`} />
+                              <div className="retrieved-image-badge">추천 코디 {imgIdx + 1}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Retrieval & Generation Performance stats */}
+                    {msg.stats && (
+                      <div className="performance-badge">
+                        <i className="fa-solid fa-bolt"></i>
+                        <span>
+                          조회된 DB 행 수: {msg.stats.db_row_count}개 | 검색 속도: {msg.stats.retrieval_time_ms}ms | 총 응답 시간: {msg.stats.total_time_ms}ms
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+              
+              {/* Dynamic Loading Bubble */}
+              {isLoading && (
+                <div className="message assistant">
+                  <div className="message-sender">AI 답변</div>
+                  <div className="message-bubble" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="spinner spinner-primary"></div>
+                    AI 질문중입니다...
+                  </div>
+                </div>
+              )}
+              
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input query field */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>스타일링 조언을 받아 보세요</label>
+                <textarea
+                  className="textarea-field"
+                  value={queryText}
+                  onChange={(e) => setQueryText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="예: 하늘색 계열의 캐주얼한 여름 코디 추천해줘 (Enter를 눌러 질문)"
+                  disabled={isLoading}
+                />
+              </div>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleSubmitQuery}
+                disabled={isLoading || !queryText.trim()}
+                style={{ alignSelf: 'flex-end', minWidth: '130px' }}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="spinner"></div> 처리 중...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-paper-plane"></i> 조언 받기
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mount React App
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(<App />);
+</script>

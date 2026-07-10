@@ -110,8 +110,9 @@ async def upload_image(file: UploadFile = File(...)):
         inputs = processor(images=pil_img, return_tensors="pt").to(device)
         with torch.no_grad():
             image_features = model.get_image_features(**inputs)
-        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-        embedding = image_features[0].cpu().numpy().tolist()
+        features_tensor = image_features.pooler_output
+        features_tensor = features_tensor / features_tensor.norm(dim=-1, keepdim=True)
+        embedding = features_tensor[0].cpu().numpy().tolist()
         
         # Save to ChromaDB
         collection.add(
@@ -166,8 +167,9 @@ async def query_fashion(req: QueryRequest):
         inputs = processor(text=[translated_query], return_tensors="pt").to(device)
         with torch.no_grad():
             text_features = model.get_text_features(**inputs)
-        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-        query_vector = text_features[0].cpu().numpy().tolist()
+        features_tensor = text_features.pooler_output
+        features_tensor = features_tensor / features_tensor.norm(dim=-1, keepdim=True)
+        query_vector = features_tensor[0].cpu().numpy().tolist()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate query embedding: {str(e)}")
         

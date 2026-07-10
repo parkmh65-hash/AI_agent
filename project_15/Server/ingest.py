@@ -62,9 +62,11 @@ def get_image_embedding(pil_image):
     inputs = processor(images=pil_image, return_tensors="pt").to(device)
     with torch.no_grad():
         image_features = model.get_image_features(**inputs)
+    # Extract pooler_output (which is the projected 512-dim features tensor in transformers v5)
+    features_tensor = image_features.pooler_output
     # L2 normalize
-    image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-    return image_features[0].cpu().numpy().tolist()
+    features_tensor = features_tensor / features_tensor.norm(dim=-1, keepdim=True)
+    return features_tensor[0].cpu().numpy().tolist()
 
 def main():
     image_dir = r"C:\Users\user\Downloads\image\fashion_dataset"

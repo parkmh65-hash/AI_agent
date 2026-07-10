@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FashionRAG (Local Runner)</title>
+  
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts Outfit & Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Embedded styles from style.html -->
+  <style>
+    :root {
+      --bg-main: #0a0e17;
+      --bg-card: rgba(20, 26, 43, 0.6);
+      --bg-input: rgba(13, 17, 28, 0.8);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.2);
+      
+      --primary: #6366f1;
+      --primary-gradient: linear-gradient(135deg, #6366f1, #d946ef);
+      --primary-hover-gradient: linear-gradient(135deg, #4f46e5, #c084fc);
+      --accent: #d946ef;
+      
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-disabled: #4b5563;
+      
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      
+      --font-family: 'Inter', sans-serif;
+      --font-header: 'Outfit', sans-serif;
+      
+      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.2);
+      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+      --shadow-glow: 0 0 15px rgba(99, 102, 241, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      min-height: 100vh;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-image: 
+        radial-gradient(at 10% 20%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 90% 80%, rgba(217, 70, 239, 0.1) 0px, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 1200px;
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: var(--shadow-lg), var(--shadow-glow);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+    }
+
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-logo i {
+      font-size: 2.2rem;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.3));
+    }
+
+    h1 {
+      font-family: var(--font-header);
+      font-weight: 800;
+      font-size: 1.8rem;
+      letter-spacing: -0.5px;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: rgba(13, 17, 28, 0.4);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(99, 102, 241, 0.3);
+      box-shadow: var(--shadow-md), 0 0 10px rgba(99, 102, 241, 0.05);
+    }
+
+    .card-title {
+      font-family: var(--font-header);
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 10px;
+    }
+
+    .card-title i {
+      color: var(--primary);
+    }
+
+    .input-field {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .input-field:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    .textarea-field {
+      width: 100%;
+      min-height: 100px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      font-size: 0.9rem;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .textarea-field:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--primary-gradient);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      padding: 10px 18px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn:hover {
+      background: var(--primary-hover-gradient);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 12px rgba(99, 102, 241, 0.2);
+    }
+
+    .btn:disabled {
+      background: var(--text-disabled);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--border-hover);
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border-color);
+      border-radius: 16px;
+      padding: 30px 20px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.01);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .dropzone:hover, .dropzone.drag-active {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.04);
+    }
+
+    .dropzone-icon {
+      font-size: 2.2rem;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .dropzone p {
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .dropzone span {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .settings-card {
+      border-left: 3px solid var(--primary);
+      background: rgba(99, 102, 241, 0.02);
+    }
+
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      height: 520px;
+    }
+
+    .chat-history {
+      flex-grow: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-right: 8px;
+      margin-bottom: 12px;
+    }
+
+    .chat-history::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-history::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 3px;
+    }
+    .chat-history::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+
+    .empty-chat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-secondary);
+      gap: 16px;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+      opacity: 0.3;
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+
+    .message {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 85%;
+    }
+
+    .message.user {
+      align-self: flex-end;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+    }
+
+    .message.system {
+      align-self: center;
+      max-width: 100%;
+    }
+
+    .message-sender {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      padding: 0 4px;
+    }
+
+    .message.user .message-sender {
+      align-self: flex-end;
+    }
+
+    .message-bubble {
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 0.925rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .message.user .message-bubble {
+      background: var(--primary-gradient);
+      color: white;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
+    }
+
+    .message.assistant .message-bubble {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      border-bottom-left-radius: 4px;
+    }
+
+    .message.system .message-bubble {
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px dashed rgba(255, 255, 255, 0.05);
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      text-align: center;
+      border-radius: 8px;
+    }
+
+    .retrieved-images-container {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .retrieved-image-card {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      width: 130px;
+      height: 130px;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .retrieved-image-card:hover {
+      transform: scale(1.05);
+      border-color: var(--primary);
+    }
+
+    .retrieved-image-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .retrieved-image-badge {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      font-size: 0.65rem;
+      padding: 3px;
+      text-align: center;
+      backdrop-filter: blur(2px);
+    }
+
+    .performance-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.725rem;
+      color: rgba(255, 255, 255, 0.4);
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      margin-top: 6px;
+      align-self: flex-start;
+    }
+
+    .performance-badge i {
+      color: #fbbf24;
+    }
+
+    .upload-info-box {
+      padding: 10px 14px;
+      background: rgba(16, 185, 129, 0.04);
+      border: 1px solid rgba(16, 185, 129, 0.15);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .upload-info-box i {
+      color: var(--success);
+    }
+
+    .upload-info-box span {
+      font-size: 0.8rem;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top: 2px solid white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .spinner-primary {
+      border-color: rgba(99, 102, 241, 0.2);
+      border-top-color: var(--primary);
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.05); }
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React & ReactDOM (Production UMD) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Embedded React code from script.html -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const safeLocalStorage = {
+      getItem: (key) => {
+        try { return localStorage.getItem(key); }
+        catch (e) { return null; }
+      },
+      setItem: (key, value) => {
+        try { localStorage.setItem(key, value); }
+        catch (e) {}
+      }
+    };
+
+    function App() {
+      const [apiBaseUrl, setApiBaseUrl] = useState(
+        safeLocalStorage.getItem("fashion_rag_api_url") || "http://localhost:8000"
+      );
+      const [showSettings, setShowSettings] = useState(false);
+      const [chatHistory, setChatHistory] = useState([]);
+      const [queryText, setQueryText] = useState("");
+      const [isUploading, setIsUploading] = useState(false);
+      const [isLoading, setIsLoading] = useState(false);
+      const [uploadResult, setUploadResult] = useState(null);
+      const [dragActive, setDragActive] = useState(false);
+      const [errorMsg, setErrorMsg] = useState("");
+      
+      const fileInputRef = useRef(null);
+      const chatEndRef = useRef(null);
+
+      const handleApiUrlChange = (e) => {
+        const url = e.target.value.trim().replace(/\/$/, "");
+        setApiBaseUrl(url);
+        safeLocalStorage.setItem("fashion_rag_api_url", url);
+      };
+
+      useEffect(() => {
+        if (chatEndRef.current) {
+          chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, [chatHistory, isLoading]);
+
+      const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) uploadFile(file);
+      };
+
+      const handleDrag = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === "dragenter" || e.type === "dragover") {
+          setDragActive(true);
+        } else if (e.type === "dragleave") {
+          setDragActive(false);
+        }
+      };
+
+      const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(false);
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          uploadFile(e.dataTransfer.files[0]);
+        }
+      };
+
+      const uploadFile = async (file) => {
+        if (!file.type.startsWith("image/")) {
+          alert("이미지 파일만 업로드할 수 있습니다.");
+          return;
+        }
+        setIsUploading(true);
+        setErrorMsg("");
+        setUploadResult(null);
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+          const response = await fetch(`${apiBaseUrl}/api/upload`, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.detail || "이미지 업로드 및 벡터 DB 저장 실패");
+          }
+
+          const data = await response.json();
+          setUploadResult(data);
+
+          setChatHistory(prev => [
+            ...prev,
+            {
+              role: "system",
+              content: `📸 패션 이미지 DB 등록 성공: ${file.name} (총 DB 이미지 수: ${data.row_count}개)`
+            }
+          ]);
+        } catch (error) {
+          console.error("Upload error:", error);
+          setErrorMsg(error.message || "서버 통신 실패. API URL을 확인하세요.");
+        } finally {
+          setIsUploading(false);
+        }
+      };
+
+      const handleResetDatabase = async () => {
+        if (!confirm("벡터 DB를 정말 초기화하시겠습니까? 모든 패션 데이터가 삭제됩니다.")) return;
+        try {
+          const response = await fetch(`${apiBaseUrl}/api/database/reset`, {
+            method: "POST"
+          });
+          if (response.ok) {
+            alert("벡터 데이터베이스가 성공적으로 초기화되었습니다.");
+            setUploadResult(null);
+            setChatHistory([]);
+          } else {
+            throw new Error("DB 초기화 실패");
+          }
+        } catch (error) {
+          alert(`에러: ${error.message}`);
+        }
+      };
+
+      const handleSubmitQuery = async () => {
+        if (!queryText.trim() || isLoading) return;
+
+        const currentQuery = queryText.trim();
+        setQueryText("");
+        setIsLoading(true);
+        setErrorMsg("");
+
+        setChatHistory(prev => [...prev, { role: "user", content: currentQuery }]);
+
+        try {
+          const response = await fetch(`${apiBaseUrl}/api/chat/query`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ query: currentQuery }),
+          });
+
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.detail || "답변 생성 실패");
+          }
+
+          const data = await response.json();
+
+          setChatHistory(prev => [
+            ...prev,
+            {
+              role: "assistant",
+              content: data.answer,
+              images: data.images,
+              stats: {
+                db_row_count: data.db_row_count,
+                retrieval_time_ms: data.retrieval_time_ms,
+                total_time_ms: data.total_time_ms
+              }
+            }
+          ]);
+        } catch (error) {
+          console.error("Query error:", error);
+          setErrorMsg(error.message || "서버 통신 오류가 발생했습니다.");
+          setChatHistory(prev => [
+            ...prev,
+            {
+              role: "system",
+              content: `⚠️ 에러 발생: ${error.message || "서버 응답 오류"}`
+            }
+          ]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      const handleKeyDown = (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          handleSubmitQuery();
+        }
+      };
+
+      return (
+        <div className="app-container">
+          <header>
+            <div className="header-logo">
+              <i className="fa-solid fa-shirt"></i>
+              <div>
+                <h1>FashionRAG</h1>
+                <div className="subtitle">Multimodal AI Fashion Styling Advisor</div>
+              </div>
+            </div>
+            <div className="header-actions">
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setShowSettings(!showSettings)}
+                style={{ padding: '8px 12px' }}
+              >
+                <i className="fa-solid fa-gear"></i> 설정
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={handleResetDatabase}
+                style={{ padding: '8px 12px', color: '#ef4444' }}
+              >
+                <i className="fa-solid fa-trash"></i> DB 초기화
+              </button>
+            </div>
+          </header>
+
+          {showSettings && (
+            <div className="card settings-card" style={{ padding: '16px', gap: '12px' }}>
+              <div className="card-title" style={{ fontSize: '0.95rem', borderBottom: 'none', paddingBottom: 0 }}>
+                <i className="fa-solid fa-network-wired"></i> 백엔드 API URL 설정
+              </div>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  value={apiBaseUrl}
+                  onChange={handleApiUrlChange}
+                  placeholder="예: http://localhost:8000"
+                />
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                * 로컬 테스트 시 <code>http://localhost:8000</code>을 지정하고, Render 배포 시 Render 웹 서비스 주소를 지정하세요.
+              </p>
+            </div>
+          )}
+
+          <div className="main-grid">
+            <div className="card">
+              <div className="card-title">
+                <i className="fa-solid fa-image"></i> 사진 불러오기
+              </div>
+              
+              <div 
+                className={`dropzone ${dragActive ? 'drag-active' : ''}`}
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current.click()}
+              >
+                <i className="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+                <p>패션 이미지를 드래그하거나 클릭하여 로드</p>
+                <span>* 기기에 있는 로컬 패션 이미지를 Supabase DB에 추가</span>
+                
+                <input 
+                  type="file" 
+                  ref={fileInputRef}
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handleFileChange}
+                />
+              </div>
+
+              <button 
+                className="btn btn-primary" 
+                onClick={() => fileInputRef.current.click()}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <>
+                    <div className="spinner"></div> 이미지 분석 중...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-folder-open"></i> 찾기
+                  </>
+                )}
+              </button>
+
+              {uploadResult && (
+                <div className="upload-info-box">
+                  <i className="fa-solid fa-circle-check"></i>
+                  <div>
+                    <span><strong>성공적으로 업로드됨:</strong> {uploadResult.filename}</span>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                      총 DB 인덱스 수: {uploadResult.row_count}개 | 소요 시간: {uploadResult.elapsed_ms}ms
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {errorMsg && (
+                <div style={{ color: 'var(--danger)', fontSize: '0.8rem', padding: '4px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="card chat-panel">
+              <div className="card-title" style={{ justifyContent: 'space-between' }}>
+                <span><i className="fa-solid fa-comments"></i> AI 스타일링 조언</span>
+                {isLoading && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--primary)' }}>
+                    <div className="spinner spinner-primary"></div> AI가 스타일 분석 중...
+                  </div>
+                )}
+              </div>
+
+              <div className="chat-history">
+                {chatHistory.length === 0 ? (
+                  <div className="empty-chat">
+                    <div className="empty-icon">
+                      <i className="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <h3>스타일링 조언을 받아 보세요</h3>
+                    <p>
+                      왼쪽 영역에서 로컬 이미지를 추가하여 벡터 DB를 생성한 뒤,<br />
+                      아래 영역에 원하시는 룩이나 코디 코드를 입력하여 물어보세요.
+                    </p>
+                  </div>
+                ) : (
+                  chatHistory.map((msg, index) => (
+                    <div key={index} className={`message ${msg.role}`}>
+                      <div className="message-sender">
+                        {msg.role === 'user' ? '나의 질문' : msg.role === 'assistant' ? 'AI 답변' : '시스템'}
+                      </div>
+                      <div className="message-bubble">
+                        {msg.content}
+                        
+                        {msg.images && msg.images.length > 0 && (
+                          <div className="retrieved-images-container">
+                            {msg.images.map((imgData, imgIdx) => (
+                              <div key={imgIdx} className="retrieved-image-card">
+                                <img src={imgData} alt={`Retrieved fashion outfit ${imgIdx + 1}`} />
+                                <div className="retrieved-image-badge">추천 코디 {imgIdx + 1}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {msg.stats && (
+                        <div className="performance-badge">
+                          <i className="fa-solid fa-bolt"></i>
+                          <span>
+                            조회된 DB 행 수: {msg.stats.db_row_count}개 | 검색 속도: {msg.stats.retrieval_time_ms}ms | 총 응답 시간: {msg.stats.total_time_ms}ms
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+                
+                {isLoading && (
+                  <div className="message assistant">
+                    <div className="message-sender">AI 답변</div>
+                    <div className="message-bubble" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div className="spinner spinner-primary"></div>
+                      AI 질문중입니다...
+                    </div>
+                  </div>
+                )}
+                
+                <div ref={chatEndRef} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>스타일링 조언을 받아 보세요</label>
+                  <textarea
+                    className="textarea-field"
+                    value={queryText}
+                    onChange={(e) => setQueryText(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="예: 하늘색 계열의 캐주얼한 여름 코디 추천해줘 (Enter를 눌러 질문)"
+                    disabled={isLoading}
+                  />
+                </div>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleSubmitQuery}
+                  disabled={isLoading || !queryText.trim()}
+                  style={{ alignSelf: 'flex-end', minWidth: '130px' }}
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="spinner"></div> 처리 중...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-paper-plane"></i> 조언 받기
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
