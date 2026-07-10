@@ -530,7 +530,7 @@
 
     function App() {
       const [apiBaseUrl, setApiBaseUrl] = useState(
-        safeLocalStorage.getItem("fashion_rag_api_url") || "http://localhost:8000"
+        safeLocalStorage.getItem("fashion_rag_api_url") || "http://127.0.0.1:8000"
       );
       const [showSettings, setShowSettings] = useState(false);
       const [chatHistory, setChatHistory] = useState([]);
@@ -739,11 +739,11 @@
                   className="input-field" 
                   value={apiBaseUrl}
                   onChange={handleApiUrlChange}
-                  placeholder="예: http://localhost:8000"
+                  placeholder="예: http://127.0.0.1:8000"
                 />
               </div>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                * 로컬 테스트 시 <code>http://localhost:8000</code>을 지정하고, Render 배포 시 Render 웹 서비스 주소를 지정하세요.
+                * 로컬 테스트 시 <code>http://127.0.0.1:8000</code>을 지정하고, 배포 시 Cloud Run 서비스 주소를 지정하세요.
               </p>
             </div>
           )}
