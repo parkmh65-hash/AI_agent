@@ -32,6 +32,7 @@
     const [uploadResult, setUploadResult] = useState(null);
     const [dragActive, setDragActive] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
+    const [selectedImage, setSelectedImage] = useState(null);
     
     const fileInputRef = useRef(null);
     const chatEndRef = useRef(null);
@@ -358,7 +359,7 @@
                       {msg.images && msg.images.length > 0 && (
                         <div className="retrieved-images-container">
                           {msg.images.map((imgData, imgIdx) => (
-                            <div key={imgIdx} className="retrieved-image-card">
+                            <div key={imgIdx} className="retrieved-image-card" onClick={() => setSelectedImage(imgData)} style={{ cursor: 'zoom-in' }}>
                               <img src={imgData} alt={`Retrieved fashion outfit ${imgIdx + 1}`} />
                               <div className="retrieved-image-badge">추천 코디 {imgIdx + 1}</div>
                             </div>
@@ -426,6 +427,17 @@
             </div>
           </div>
         </div>
+
+        {selectedImage && (
+          <div className="image-modal-overlay" onClick={() => setSelectedImage(null)}>
+            <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
+              <button className="image-modal-close" onClick={() => setSelectedImage(null)}>
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+              <img src={selectedImage} alt="Fashion coordinate full size" />
+            </div>
+          </div>
+        )}
       </div>
     );
   }

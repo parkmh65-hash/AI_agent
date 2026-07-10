@@ -503,6 +503,66 @@
     .hidden {
       display: none !important;
     }
+
+    /* Image Modal Lightbox Styles */
+    .image-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      backdrop-filter: blur(8px);
+    }
+
+    .image-modal-content {
+      position: relative;
+      max-width: 90%;
+      max-height: 90%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      animation: zoomIn 0.25s ease;
+    }
+
+    .image-modal-content img {
+      max-width: 100%;
+      max-height: 90vh;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .image-modal-close {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      background: none;
+      border: none;
+      color: white;
+      font-size: 2rem;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .image-modal-close:hover {
+      color: var(--accent);
+    }
+
+    @keyframes zoomIn {
+      from {
+        transform: scale(0.95);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
   </style>
 </head>
 <body>
@@ -540,6 +600,7 @@
       const [uploadResult, setUploadResult] = useState(null);
       const [dragActive, setDragActive] = useState(false);
       const [errorMsg, setErrorMsg] = useState("");
+      const [selectedImage, setSelectedImage] = useState(null);
       
       const fileInputRef = useRef(null);
       const chatEndRef = useRef(null);
@@ -845,7 +906,7 @@
                         {msg.images && msg.images.length > 0 && (
                           <div className="retrieved-images-container">
                             {msg.images.map((imgData, imgIdx) => (
-                              <div key={imgIdx} className="retrieved-image-card">
+                              <div key={imgIdx} className="retrieved-image-card" onClick={() => setSelectedImage(imgData)} style={{ cursor: 'zoom-in' }}>
                                 <img src={imgData} alt={`Retrieved fashion outfit ${imgIdx + 1}`} />
                                 <div className="retrieved-image-badge">추천 코디 {imgIdx + 1}</div>
                               </div>
@@ -910,6 +971,17 @@
               </div>
             </div>
           </div>
+
+          {selectedImage && (
+            <div className="image-modal-overlay" onClick={() => setSelectedImage(null)}>
+              <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
+                <button className="image-modal-close" onClick={() => setSelectedImage(null)}>
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+                <img src={selectedImage} alt="Fashion coordinate full size" />
+              </div>
+            </div>
+          )}
         </div>
       );
     }
