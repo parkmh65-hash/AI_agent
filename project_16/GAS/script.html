@@ -1,0 +1,339 @@
+<script type="text/babel">
+  const { useState, useEffect } = React;
+
+  // Safe localStorage helper to prevent SecurityError inside GAS iframe sandbox
+  const safeLocalStorage = {
+    getItem: (key) => {
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        console.warn("localStorage read blocked:", e);
+        return null;
+      }
+    },
+    setItem: (key, value) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {
+        console.warn("localStorage write blocked:", e);
+      }
+    }
+  };
+
+  function App() {
+    // API URL 설정 (기본값: http://localhost:8000)
+    const [apiBaseUrl, setApiBaseUrl] = useState(
+      safeLocalStorage.getItem("langchain_server_api_url") || "http://localhost:8000"
+    );
+    const [showSettings, setShowSettings] = useState(false);
+    
+    // UI 입력 상태
+    const [topic, setTopic] = useState("");
+    const [selectedModel, setSelectedModel] = useState("OpenAIModel+소설 작성");
+    const [writeNovel, setWriteNovel] = useState(true);
+    const [writePoem, setWritePoem] = useState(false);
+    
+    // 로딩 및 결과 상태
+    const [isLoading, setIsLoading] = useState(false);
+    const [responses, setResponses] = useState(null); // { novel: "...", poem: "..." }
+    const [errorMsg, setErrorMsg] = useState("");
+
+    // API URL 변경 핸들러
+    const handleApiUrlChange = (e) => {
+      const url = e.target.value.trim().replace(/\/$/, "");
+      setApiBaseUrl(url);
+      safeLocalStorage.setItem("langchain_server_api_url", url);
+    };
+
+    // 작성 요청 보내기
+    const handleRequest = async () => {
+      if (!topic.trim()) {
+        alert("주제를 입력해 주세요.");
+        return;
+      }
+      if (!writeNovel && !writePoem) {
+        alert("작성을 원하는 항목(소설 또는 시)을 최소 하나 이상 선택해 주세요.");
+        return;
+      }
+
+      const currentTopic = topic.trim();
+      
+      // 3단계 요구사항: [나의 질문] 영역의 내용은 지우기
+      setTopic("");
+      setIsLoading(true);
+      setErrorMsg("");
+      setResponses(null);
+
+      // 모델 선택에 따른 계열 판단
+      // “OpenAIModel+소설 작성”, “OpenAIModel+시작성” -> openai
+      // “llamaModel+소설 작성”, “llamaModel+시작성” -> llama
+      const isLlama = selectedModel.startsWith("llamaModel");
+      const modelPrefix = isLlama ? "llama" : "openai";
+
+      const requests = [];
+      let finalNovel = "";
+      let finalPoem = "";
+
+      // 3단계 요구사항: 토글된 항목을 선택된 모델 계열로 각각 수행
+      if (writeNovel) {
+        requests.push(
+          fetch(`${apiBaseUrl}/${modelPrefix}/novel/invoke`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ input: { topic: currentTopic } })
+          })
+          .then(async (res) => {
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.detail || "소설 생성 실패");
+            }
+            const data = await res.json();
+            finalNovel = data.output || "작성된 소설이 없습니다.";
+          })
+          .catch(err => {
+            console.error(err);
+            finalNovel = `⚠️ 소설 작성 중 오류가 발생했습니다: ${err.message}`;
+          })
+        );
+      }
+
+      if (writePoem) {
+        requests.push(
+          fetch(`${apiBaseUrl}/${modelPrefix}/poem/invoke`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ input: { topic: currentTopic } })
+          })
+          .then(async (res) => {
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.detail || "시 생성 실패");
+            }
+            const data = await res.json();
+            finalPoem = data.output || "작성된 시가 없습니다.";
+          })
+          .catch(err => {
+            console.error(err);
+            finalPoem = `⚠️ 시 작성 중 오류가 발생했습니다: ${err.message}`;
+          })
+        );
+      }
+
+      try {
+        await Promise.all(requests);
+        setResponses({
+          novel: finalNovel,
+          poem: finalPoem
+        });
+      } catch (e) {
+        setErrorMsg("API 호출 도중 예기치 못한 에러가 발생했습니다.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    return (
+      <div className="app-container">
+        {/* Header Section */}
+        <header>
+          <div className="header-logo">
+            <i className="fa-solid fa-pen-nib"></i>
+            <div>
+              <h1>시 소설 쓰기</h1>
+              <div className="subtitle">AI Creative Writing Assistant (Langchain & Langserve)</div>
+            </div>
+          </div>
+          <div className="header-actions">
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setShowSettings(!showSettings)}
+              style={{ padding: '8px 12px' }}
+            >
+              <i className="fa-solid fa-gear"></i> 설정
+            </button>
+          </div>
+        </header>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <div className="card settings-card">
+            <div className="card-title" style={{ fontSize: '0.95rem', borderBottom: 'none', paddingBottom: 0 }}>
+              <i className="fa-solid fa-network-wired"></i> API 주소 설정
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <input 
+                type="text" 
+                className="input-field" 
+                value={apiBaseUrl}
+                onChange={handleApiUrlChange}
+                placeholder="예: http://localhost:8000"
+              />
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              * 로컬 테스트 시 <code>http://localhost:8000</code>을 사용하고, Render 배포 시 해당 배포 주소를 지정하세요.
+            </p>
+          </div>
+        )}
+
+        {/* Main Interface Grid */}
+        <div className="main-grid">
+          {/* Left Column: Controls */}
+          <div className="card">
+            <div className="card-title">
+              <i className="fa-solid fa-sliders"></i> 설정 및 주제 입력
+            </div>
+
+            {/* 모델 선택 */}
+            <div className="input-group">
+              <label className="input-label">수행 모델 선택하기</label>
+              <select 
+                className="input-field"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+              >
+                <option value="OpenAIModel+소설 작성">OpenAIModel+소설 작성</option>
+                <option value="OpenAIModel+시작성">OpenAIModel+시작성</option>
+                <option value="llamaModel+소설 작성">llamaModel+소설 작성</option>
+                <option value="llamaModel+시작성">llamaModel+시작성</option>
+              </select>
+            </div>
+
+            {/* 작성을 원하는 항목 선택하기 */}
+            <div className="input-group">
+              <label className="input-label">작성을 원하는 항목 선택하기</label>
+              
+              <div className="switch-container">
+                <div className="switch-label">
+                  <i className="fa-solid fa-book"></i>
+                  <span>소설</span>
+                </div>
+                <label className="switch">
+                  <input 
+                    type="checkbox" 
+                    checked={writeNovel} 
+                    onChange={(e) => setWriteNovel(e.target.checked)}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+
+              <div className="switch-container">
+                <div className="switch-label">
+                  <i className="fa-solid fa-feather-pointed"></i>
+                  <span>시</span>
+                </div>
+                <label className="switch">
+                  <input 
+                    type="checkbox" 
+                    checked={writePoem} 
+                    onChange={(e) => setWritePoem(e.target.checked)}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            {/* 주제 입력 */}
+            <div className="input-group">
+              <label className="input-label">주제를 입력하기</label>
+              <textarea 
+                className="textarea-field"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="예: 푸른 가을 하늘 아래 피어난 코스모스"
+                disabled={isLoading}
+              />
+            </div>
+
+            {/* 작성요청 보내기 버튼 */}
+            <button 
+              className="btn btn-primary"
+              onClick={handleRequest}
+              disabled={isLoading || !topic.trim()}
+            >
+              {isLoading ? (
+                <>
+                  <div className="spinner"></div> 작성 중...
+                </>
+              ) : (
+                <>
+                  <i className="fa-solid fa-paper-plane"></i> 작성요청 보내기
+                </>
+              )}
+            </button>
+
+            {errorMsg && (
+              <div style={{ color: 'var(--danger)', fontSize: '0.8rem', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <i className="fa-solid fa-triangle-exclamation"></i>
+                <span>{errorMsg}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Output Board */}
+          <div className="card chat-panel">
+            <div className="card-title">
+              <i className="fa-solid fa-file-invoice"></i> 작품 응답 영역
+            </div>
+
+            <div className="chat-history">
+              {/* 3단계 요구사항: "AI 질문중입니다" 표시 */}
+              {isLoading && (
+                <div className="loading-container">
+                  <div className="spinner"></div>
+                  <h3>AI 질문중입니다</h3>
+                  <p style={{ fontSize: '0.85rem' }}>선택하신 작품 형식을 AI가 창작하고 있습니다. 잠시만 기다려 주세요.</p>
+                </div>
+              )}
+
+              {!isLoading && !responses && (
+                <div className="empty-chat">
+                  <div className="empty-icon">
+                    <i className="fa-solid fa-wand-magic-sparkles"></i>
+                  </div>
+                  <h3>창작된 작품이 여기에 표시됩니다</h3>
+                  <p>
+                    왼쪽 패널에서 수행할 모델, 장르(소설/시), 그리고 주제를 입력하신 후<br />
+                    <strong>[작성요청 보내기]</strong> 버튼을 클릭하여 아름다운 이야기를 써보세요.
+                  </p>
+                </div>
+              )}
+
+              {!isLoading && responses && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* 소설 출력 */}
+                  {writeNovel && responses.novel && (
+                    <div className="response-card active">
+                      <div className="response-title">
+                        <i className="fa-solid fa-book-open"></i> 소설 창작 결과
+                      </div>
+                      <div className="response-body">
+                        {responses.novel}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 시 출력 */}
+                  {writePoem && responses.poem && (
+                    <div className="response-card active">
+                      <div className="response-title">
+                        <i className="fa-solid fa-feather"></i> 시 창작 결과
+                      </div>
+                      <div className="response-body">
+                        {responses.poem}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mount React App
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(<App />);
+</script>
