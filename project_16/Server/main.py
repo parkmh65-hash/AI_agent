@@ -34,7 +34,7 @@ app.add_middleware(
 openai_key = os.getenv("OPENAI_API_KEY")
 openai_model = ChatOpenAI(
     model="gpt-4o-mini",
-    api_key=openai_key
+    api_key=openai_key or "missing_key"
 )
 
 # Ollama 설정 (기본적으로 localhost:11434를 바라보며, 환경변수가 있다면 지정)

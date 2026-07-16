@@ -56,7 +56,8 @@ model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
 processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
 # Initialize OpenAI
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY") or "missing_key")
+
 
 # Pydantic Schemas
 class QueryRequest(BaseModel):
