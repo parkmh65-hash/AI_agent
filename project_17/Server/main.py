@@ -56,11 +56,7 @@ if SUPABASE_URL and SUPABASE_KEY:
     except Exception as e:
         print(f"Failed to initialize Supabase client: {e}")
 
-# Initialize Embeddings
-openai_embeddings = OpenAIEmbeddings(
-    model="text-embedding-3-small",
-    api_key=OPENAI_API_KEY
-)
+# OpenAI Embeddings will be initialized lazily when needed
 
 # Define Tool Helpers
 def query_wikipedia(query: str) -> str:
@@ -82,6 +78,19 @@ def query_arxiv(query: str) -> str:
 def query_naver_news_vector_search(query: str) -> str:
     if not supabase_client:
         return "Supabase client is not configured. Cannot perform Naver News Vector Search."
+
+    # Initialize Embeddings lazily to prevent startup crashes when keys are missing
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return "OpenAI API Key is missing. Cannot perform vector embeddings."
+
+    try:
+        openai_embeddings = OpenAIEmbeddings(
+            model="text-embedding-3-small",
+            api_key=api_key
+        )
+    except Exception as e:
+        return f"Failed to initialize OpenAI Embeddings: {str(e)}"
 
     # 1. Scrape Naver News using robust DOM-walking selector logic
     url = "https://search.naver.com/search.naver"
