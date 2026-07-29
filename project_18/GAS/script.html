@@ -1,0 +1,492 @@
+<script type="text/babel">
+  const { useState, useEffect } = React;
+
+  // Safe localStorage helper to prevent SecurityError inside GAS iframe sandbox
+  const safeLocalStorage = {
+    getItem: (key) => {
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        console.warn("localStorage read blocked:", e);
+        return null;
+      }
+    },
+    setItem: (key, value) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {
+        console.warn("localStorage write blocked:", e);
+      }
+    }
+  };
+
+  function App() {
+    // API URL 설정 (기본값: http://localhost:8000)
+    const [apiBaseUrl, setApiBaseUrl] = useState(
+      safeLocalStorage.getItem("recipe_agent_api_url") || "https://project-18-service-538192513096.us-central1.run.app"
+    );
+    const [showSettings, setShowSettings] = useState(false);
+    
+    // UI 입력 상태
+    const [query, setQuery] = useState("");
+    const [selectedModel, setSelectedModel] = useState("gemini");
+    const [useIngredients, setUseIngredients] = useState(true);
+    const [useSteps, setUseSteps] = useState(true);
+    const [useTips, setUseTips] = useState(true);
+    
+    // 에이전트 실행 상태
+    const [threadId, setThreadId] = useState(null);
+    const [status, setStatus] = useState(null); // 'pending_approval' or 'completed'
+    const [recipeDraft, setRecipeDraft] = useState(null); // { ingredients?, steps?, tips? }
+    const [recipeFinal, setRecipeFinal] = useState(null); // { ingredients?, steps?, tips? }
+    const [feedback, setFeedback] = useState("");
+    const [mermaidCode, setMermaidCode] = useState("");
+    
+    // 로딩 및 에러 상태
+    const [isLoading, setIsLoading] = useState(false);
+    const [isActionLoading, setIsActionLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
+
+    // API URL 변경 핸들러
+    const handleApiUrlChange = (e) => {
+      const url = e.target.value.trim().replace(/\/$/, "");
+      setApiBaseUrl(url);
+      safeLocalStorage.setItem("recipe_agent_api_url", url);
+    };
+
+    // Mermaid 렌더링 효과
+    useEffect(() => {
+      const renderGraph = async () => {
+        const container = document.getElementById("mermaid-graph-container");
+        if (!container || !mermaidCode) return;
+        try {
+          container.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px"></div>';
+          const cleanCode = mermaidCode.trim();
+          const id = "mermaid-svg-" + Math.floor(Math.random() * 1000000);
+          const { svg } = await mermaid.render(id, cleanCode);
+          container.innerHTML = svg;
+        } catch (err) {
+          console.error("Mermaid render error:", err);
+          container.innerHTML = `
+            <div style="color:var(--danger);font-size:0.8rem;text-align:center;padding:10px">
+              <i class="fa-solid fa-triangle-exclamation"></i> 그래프 렌더링 실패
+            </div>
+          `;
+        }
+      };
+      renderGraph();
+    }, [mermaidCode]);
+
+    // 레시피 초안 작성 요청 시작
+    const handleStartRequest = async () => {
+      if (!query.trim()) {
+        alert("요리 이름을 입력해 주세요.");
+        return;
+      }
+      if (!useIngredients && !useSteps && !useTips) {
+        alert("작성하고 싶은 항목(재료 목록, 조리 순서, 팁)을 최소 하나 이상 선택해 주세요.");
+        return;
+      }
+
+      const activeSections = [];
+      if (useIngredients) activeSections.push("ingredients");
+      if (useSteps) activeSections.push("steps");
+      if (useTips) activeSections.push("tips");
+
+      setIsLoading(true);
+      setErrorMsg("");
+      setRecipeDraft(null);
+      setRecipeFinal(null);
+      setThreadId(null);
+      setStatus(null);
+      setMermaidCode("");
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/agent/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: query.trim(),
+            sections: activeSections,
+            model: selectedModel
+          })
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || "레시피 초안 작성 실패");
+        }
+
+        const data = await response.json();
+        setThreadId(data.thread_id);
+        setStatus(data.status);
+        setRecipeDraft(data.recipe_draft || {});
+        setRecipeFinal(data.recipe_final || {});
+        setMermaidCode(data.mermaid || "");
+      } catch (err) {
+        console.error(err);
+        setErrorMsg(`⚠️ 오류: ${err.message}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Human-in-the-Loop 피드백 또는 승인 제출
+    const handleApproveAction = async (isApproved) => {
+      if (!isApproved && !feedback.trim()) {
+        alert("수정 피드백 내용을 입력해 주세요.");
+        return;
+      }
+
+      setIsActionLoading(true);
+      setErrorMsg("");
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/agent/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            thread_id: threadId,
+            approved: isApproved,
+            feedback: isApproved ? "" : feedback.trim()
+          })
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || "승인/피드백 제출 실패");
+        }
+
+        const data = await response.json();
+        setStatus(data.status);
+        setRecipeDraft(data.recipe_draft || {});
+        setRecipeFinal(data.recipe_final || {});
+        setMermaidCode(data.mermaid || "");
+        if (!isApproved) {
+          setFeedback(""); // 피드백 제출 후 초기화
+        }
+      } catch (err) {
+        console.error(err);
+        setErrorMsg(`⚠️ 동작 수행 중 오류: ${err.message}`);
+      } finally {
+        setIsActionLoading(false);
+      }
+    };
+
+    // 초기 상태로 리셋
+    const handleReset = () => {
+      setQuery("");
+      setRecipeDraft(null);
+      setRecipeFinal(null);
+      setThreadId(null);
+      setStatus(null);
+      setMermaidCode("");
+      setErrorMsg("");
+      setFeedback("");
+    };
+
+    return (
+      <div className="app-container">
+        {/* Header Section */}
+        <header>
+          <div className="header-logo">
+            <i className="fa-solid fa-utensils"></i>
+            <div>
+              <h1>LangGraph AI 에이전트(요리 레시피)</h1>
+              <div className="subtitle">LangGraph StateGraph, MemorySaver & Human-in-the-Loop Workflow</div>
+            </div>
+          </div>
+          <div className="header-actions">
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setShowSettings(!showSettings)}
+              style={{ padding: '8px 12px' }}
+            >
+              <i className="fa-solid fa-gear"></i> 백엔드 주소
+            </button>
+          </div>
+        </header>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <div className="card settings-card">
+            <div className="card-title" style={{ fontSize: '0.95rem', borderBottom: 'none', paddingBottom: 0 }}>
+              <i className="fa-solid fa-network-wired"></i> API 주소 설정
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <input 
+                type="text" 
+                className="input-field" 
+                value={apiBaseUrl}
+                onChange={handleApiUrlChange}
+                placeholder="예: http://localhost:8000"
+              />
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              * 로컬 테스트 시 <code>http://localhost:8000</code>을 사용하고, Google Cloud Run 배포 시 해당 배포 주소를 지정하세요.
+            </p>
+          </div>
+        )}
+
+        {/* Main Interface Grid */}
+        <div className="main-grid">
+          {/* Left Column: Controls */}
+          <div className="card">
+            <div className="card-title">
+              <i className="fa-solid fa-sliders"></i> 설정 및 입력
+            </div>
+
+            {/* 수행 모델 선택하기 */}
+            <div className="input-group">
+              <label className="input-label">수행 모델 선택하기</label>
+              <select 
+                className="input-field"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={isLoading || threadId}
+              >
+                <option value="gemini">Google Gemini 1.5 Flash</option>
+                <option value="openai">OpenAI GPT-4o-mini</option>
+              </select>
+            </div>
+
+            {/* 작성을 원하는 항목 선택하기 */}
+            <div className="input-group">
+              <label className="input-label">작성을 원하는 항목 선택하기</label>
+              
+              {/* Ingredients */}
+              <div className="switch-container">
+                <div className="switch-label">
+                  <i className="fa-solid fa-carrot"></i>
+                  <span>재료 목록</span>
+                </div>
+                <label className="switch">
+                  <input 
+                    type="checkbox" 
+                    checked={useIngredients} 
+                    onChange={(e) => setUseIngredients(e.target.checked)}
+                    disabled={isLoading || threadId}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+
+              {/* Steps */}
+              <div className="switch-container">
+                <div className="switch-label">
+                  <i className="fa-solid fa-list-ol"></i>
+                  <span>조리 순서</span>
+                </div>
+                <label className="switch">
+                  <input 
+                    type="checkbox" 
+                    checked={useSteps} 
+                    onChange={(e) => setUseSteps(e.target.checked)}
+                    disabled={isLoading || threadId}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+
+              {/* Tips */}
+              <div className="switch-container">
+                <div className="switch-label">
+                  <i className="fa-solid fa-lightbulb"></i>
+                  <span>팁 및 주의사항</span>
+                </div>
+                <label className="switch">
+                  <input 
+                    type="checkbox" 
+                    checked={useTips} 
+                    onChange={(e) => setUseTips(e.target.checked)}
+                    disabled={isLoading || threadId}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            {/* 질의하기 입력 */}
+            <div className="input-group">
+              <label className="input-label">요리 이름 입력</label>
+              <textarea 
+                className="textarea-field"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="어떤 요리의 레시피를 알고 싶으신가요? (예: 떡볶이, 돼지고기 김치찌개 등)"
+                disabled={isLoading || threadId}
+              />
+            </div>
+
+            {/* 요청 보내기 / 다시 하기 버튼 */}
+            {!threadId ? (
+              <button 
+                className="btn btn-primary"
+                onClick={handleStartRequest}
+                disabled={isLoading || !query.trim()}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="spinner"></div> 생성 중...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-paper-plane"></i> 요청 보내기
+                  </>
+                )}
+              </button>
+            ) : (
+              <button 
+                className="btn btn-secondary"
+                onClick={handleReset}
+                disabled={isActionLoading}
+              >
+                <i className="fa-solid fa-rotate-left"></i> 처음부터 다시 하기
+              </button>
+            )}
+
+            {errorMsg && (
+              <div style={{ color: 'var(--danger)', fontSize: '0.8rem', display: 'flex', gap: '6px', alignItems: 'center', marginTop: '10px' }}>
+                <i className="fa-solid fa-triangle-exclamation"></i>
+                <span>{errorMsg}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Display Panel */}
+          <div className="display-column">
+            {/* Output Board */}
+            <div className="card chat-panel">
+              <div className="card-title">
+                <i className="fa-solid fa-receipt"></i> 실행 및 응답 영역
+              </div>
+
+              {/* 로딩 표시 */}
+              {isLoading && (
+                <div className="loading-container">
+                  <div className="spinner"></div>
+                  <h3>AI 질문중입니다</h3>
+                  <p style={{ fontSize: '0.85rem' }}>에이전트가 레시피 정보를 수집하여 초안을 작성하고 있습니다.</p>
+                </div>
+              )}
+
+              {/* 초기 상태 */}
+              {!isLoading && !threadId && (
+                <div className="empty-chat">
+                  <div className="empty-icon">
+                    <i className="fa-solid fa-kitchen-set"></i>
+                  </div>
+                  <h3>레시피 생성 결과가 여기에 표시됩니다</h3>
+                  <p>
+                    왼쪽 패널에 요리 이름과 생성 항목을 선택하고<br />
+                    <strong>[요청 보내기]</strong>를 클릭하세요. Human-in-the-Loop 단계를 거쳐 요리법이 완성됩니다.
+                  </p>
+                </div>
+              )}
+
+              {/* 1. 초안 검토 상태 (Human-in-the-loop) */}
+              {!isLoading && threadId && status === "pending_approval" && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div className="review-panel">
+                    <div className="review-header">
+                      <i className="fa-solid fa-circle-question"></i>
+                      <span>👨‍🍳 레시피 검토 및 피드백 (Human-in-the-Loop)</span>
+                    </div>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      수집된 레시피 초안입니다. 마음에 들면 [승인 및 레시피 완성], 수정할 부분이 있다면 피드백을 작성한 뒤 [수정 요청]을 클릭하세요.
+                    </p>
+                    
+                    <textarea 
+                      className="textarea-field"
+                      style={{ minHeight: '60px' }}
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                      placeholder="예: 돼지고기 대신 닭고기를 사용하게 해줘, 2인분 기준이 아닌 4인분 기준으로 만들어줘 등"
+                      disabled={isActionLoading}
+                    />
+                    
+                    <div className="review-actions">
+                      <button 
+                        className="btn btn-success" 
+                        onClick={() => handleApproveAction(true)}
+                        disabled={isActionLoading}
+                      >
+                        {isActionLoading ? <div className="spinner"></div> : <><i className="fa-solid fa-check"></i> 승인 및 레시피 완성</>}
+                      </button>
+                      <button 
+                        className="btn btn-secondary"
+                        style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                        onClick={() => handleApproveAction(false)}
+                        disabled={isActionLoading || !feedback.trim()}
+                      >
+                        {isActionLoading ? <div className="spinner"></div> : <><i className="fa-solid fa-pen"></i> 수정 요청</>}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 초안 출력 */}
+                  {recipeDraft && Object.keys(recipeDraft).map((key) => {
+                    const title = { ingredients: "재료 목록 초안", steps: "조리 순서 초안", tips: "팁 및 주의사항 초안" }[key] || key;
+                    return (
+                      <div className="response-card active" key={key}>
+                        <div className="response-title">
+                          <i className="fa-solid fa-list-check"></i> {title}
+                        </div>
+                        <div className="response-body">
+                          {recipeDraft[key]}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 2. 최종 완료 상태 */}
+              {!isLoading && threadId && status === "completed" && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ padding: '12px 18px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--success)', borderRadius: '12px', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
+                    <i className="fa-solid fa-circle-check"></i>
+                    <span>레시피가 성공적으로 승인 및 완성되었습니다!</span>
+                  </div>
+
+                  {recipeFinal && Object.keys(recipeFinal).map((key) => {
+                    const title = { ingredients: "🥗 재료 목록", steps: "🍳 조리 순서", tips: "💡 팁 및 주의사항" }[key] || key;
+                    return (
+                      <div className="response-card active" key={key} style={{ borderColor: 'var(--success)' }}>
+                        <div className="response-title" style={{ color: 'var(--success)' }}>
+                          <i className="fa-solid fa-check-double"></i> {title}
+                        </div>
+                        <div className="response-body" style={{ whiteSpace: 'pre-wrap' }}>
+                          {recipeFinal[key]}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Workflow Graph Visualizer */}
+            {mermaidCode && (
+              <div className="visualizer-card">
+                <div className="card-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+                  <i className="fa-solid fa-diagram-project"></i> 워크플로 그래프 시각화 (LangGraph Flowchart)
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  현재 스레드에서 AI 에이전트의 상태 흐름입니다. breakpoint에 의해 중단되거나 반복되는 사이클을 나타냅니다.
+                </p>
+                <div className="graph-container" id="mermaid-graph-container">
+                  {/* Rendered SVG will be placed here */}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mount React App
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(<App />);
+</script>
