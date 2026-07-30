@@ -1,0 +1,655 @@
+<script type="text/babel">
+  const { useState, useEffect } = React;
+
+  // Safe localStorage helper to prevent SecurityError inside Google Apps Script sandboxed iframe
+  const safeLocalStorage = {
+    getItem: (key) => {
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        console.warn("localStorage read blocked:", e);
+        return null;
+      }
+    },
+    setItem: (key, value) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {
+        console.warn("localStorage write blocked:", e);
+      }
+    }
+  };
+
+  // Simple Markdown to HTML parser for rendering the outputs
+  function renderMarkdown(md) {
+    if (!md) return "<p>결과가 없습니다.</p>";
+    
+    // Clean and split lines
+    let html = md
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+    // Headings
+    html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+    // Bold
+    html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+    html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
+
+    // Blockquotes
+    html = html.replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>');
+
+    // Code blocks
+    html = html.replace(/\`\`\`([\s\S]*?)\`\`\`/gim, '<pre><code>$1</code></pre>');
+    html = html.replace(/\`(.*?)\`/gim, '<code>$1</code>');
+
+    // List items
+    html = html.replace(/^\s*\-\s+(.*$)/gim, '<li>$1</li>');
+    html = html.replace(/^\s*\*\s+(.*$)/gim, '<li>$1</li>');
+    
+    // Wrap consecutive list items in <ul>
+    // This is a naive parser but works nicely for clean agent output layouts
+    html = html.replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>');
+    html = html.replace(/<\/ul>\s*<ul>/gim, '');
+
+    // Paragraphs
+    html = html.replace(/^([^<>\n]+.*$)/gim, '<p>$1</p>');
+    
+    // Fix duplicate tags or empty paragraphs
+    html = html.replace(/<p><\/p>/gim, '');
+
+    return html;
+  }
+
+  function App() {
+    // API URL configuration (Default to local development first, can be changed via settings panel)
+    const [apiBaseUrl, setApiBaseUrl] = useState(
+      safeLocalStorage.getItem("multi_agent_api_url") || "https://project-20-service-538192513096.us-central1.run.app"
+    );
+    const [showSettings, setShowSettings] = useState(false);
+    
+    // UI input states
+    const [topicInput, setTopicInput] = useState("");
+    const [selectedModel, setSelectedModel] = useState("openai");
+    const [selectedTasks, setSelectedTasks] = useState({
+      plan: true,
+      write: true,
+      edit: true,
+      translate: true
+    });
+    
+    // Workflow States
+    const [threadId, setThreadId] = useState(null);
+    const [status, setStatus] = useState("idle"); // 'idle', 'running', 'pending_approval', 'completed'
+    const [currentQuery, setCurrentQuery] = useState("");
+    const [retrievedDocs, setRetrievedDocs] = useState([]);
+    const [feedback, setFeedback] = useState("");
+    const [mermaidCode, setMermaidCode] = useState("");
+    
+    // Logs Console State
+    const [logs, setLogs] = useState([]);
+    
+    // Final Agent Outputs
+    const [plannerOutput, setPlannerOutput] = useState("");
+    const [writerOutput, setWriterOutput] = useState("");
+    const [editorOutput, setEditorOutput] = useState("");
+    const [translationOutput, setTranslationOutput] = useState("");
+    
+    // Active output view tab
+    const [activeTab, setActiveTab] = useState("translated");
+    
+    // DB Seed Loading status
+    const [isSeeding, setIsSeeding] = useState(false);
+    
+    // Helper to log actions to console pane
+    const addLog = (text, type = "info") => {
+      const timestamp = new Date().toLocaleTimeString();
+      setLogs((prev) => [...prev, { timestamp, text, type }]);
+    };
+
+    // Auto-scroll logs to bottom
+    useEffect(() => {
+      const consoleElem = document.getElementById("console-logs");
+      if (consoleElem) {
+        consoleElem.scrollTop = consoleElem.scrollHeight;
+      }
+    }, [logs]);
+
+    // Save API URL helper
+    const handleApiUrlChange = (e) => {
+      const url = e.target.value.trim().replace(/\/$/, "");
+      setApiBaseUrl(url);
+      safeLocalStorage.setItem("multi_agent_api_url", url);
+    };
+
+    // Render Mermaid Graph
+    useEffect(() => {
+      const renderGraph = async () => {
+        const container = document.getElementById("mermaid-graph-container");
+        if (!container || !mermaidCode) return;
+        try {
+          container.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px"></div>';
+          const cleanCode = mermaidCode.trim();
+          const id = "mermaid-svg-" + Math.floor(Math.random() * 1000000);
+          const { svg } = await mermaid.render(id, cleanCode);
+          container.innerHTML = svg;
+        } catch (err) {
+          console.error("Mermaid render error:", err);
+          container.innerHTML = `
+            <div style="color:var(--danger);font-size:0.8rem;text-align:center;padding:10px">
+              <i class="fa-solid fa-triangle-exclamation"></i> 에이전트 그래프 렌더링 실패
+            </div>
+          `;
+        }
+      };
+      renderGraph();
+    }, [mermaidCode, status]);
+
+    // Database Seeding
+    const handleDbSeed = async () => {
+      setIsSeeding(true);
+      addLog("Supabase 데이터베이스 시딩 작업 요청 중...", "info");
+      try {
+        const res = await fetch(`${apiBaseUrl}/db/seed`, {
+          method: "POST"
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || "시딩 작업 중 오류 발생");
+        }
+        addLog(`✅ 성공: ${data.message}`, "success");
+      } catch (err) {
+        addLog(`⚠️ 데이터베이스 시딩 실패: ${err.message}`, "error");
+      } finally {
+        setIsSeeding(false);
+      }
+    };
+
+    // Step 1: Start Workflow
+    const handleStartRequest = async () => {
+      if (!topicInput.trim()) {
+        alert("작성을 원하는 블로그 주제를 입력해 주세요.");
+        return;
+      }
+      
+      setStatus("running");
+      setThreadId(null);
+      setRetrievedDocs([]);
+      setCurrentQuery("");
+      setFeedback("");
+      setMermaidCode("");
+      
+      // Clear previous outputs
+      setPlannerOutput("");
+      setWriterOutput("");
+      setEditorOutput("");
+      setTranslationOutput("");
+      
+      setLogs([]);
+      addLog("🚀 블로그 생성 워크플로를 시작합니다.", "info");
+      addLog(`주제: "${topicInput.trim()}"`, "info");
+      addLog(`모델: ${selectedModel.toUpperCase()}`, "info");
+      addLog("AI 질문중입니다", "warning");
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/agent/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: topicInput.trim(),
+            model: selectedModel
+          })
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || "워크플로 시작 요청 실패");
+        }
+
+        const data = await response.json();
+        setThreadId(data.thread_id);
+        setStatus(data.status);
+        setCurrentQuery(data.current_query);
+        setRetrievedDocs(data.retrieved_documents);
+        if (data.mermaid) setMermaidCode(data.mermaid);
+        
+        addLog(`✅ 1단계 완료: 질문 최적화 및 Supabase RAG 검색 종료.`, "success");
+        addLog(`최적화 검색어: "${data.current_query}"`, "info");
+        addLog(`수집된 문서: ${data.retrieved_documents.length}개`, "info");
+        
+        if (data.status === "pending_approval") {
+          addLog("⚠️ Human-in-the-Loop 중단점 도달. 사용자의 승인이 대기 중입니다.", "warning");
+        }
+      } catch (err) {
+        addLog(`❌ 오류 발생: ${err.message}`, "error");
+        setStatus("idle");
+      }
+    };
+
+    // Resume: Approve
+    const handleApprove = async () => {
+      if (!threadId) return;
+      
+      setStatus("running");
+      addLog("👍 검색 결과를 승인했습니다. CrewAI 다중 에이전트 협업 실행 요청 중...", "info");
+      addLog("콘텐츠 기획자, 작가, 편집자, 번역가 에이전트 실행 시작 (1~2분 소요)...", "warning");
+      
+      try {
+        const response = await fetch(`${apiBaseUrl}/agent/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            thread_id: threadId,
+            approved: true,
+            feedback: feedback
+          })
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || "승인 요청 실패");
+        }
+
+        const data = await response.json();
+        setStatus(data.status);
+        if (data.mermaid) setMermaidCode(data.mermaid);
+        
+        // Populate agent outputs
+        setPlannerOutput(data.planner_output);
+        setWriterOutput(data.writer_output);
+        setEditorOutput(data.editor_output);
+        setTranslationOutput(data.translation_output);
+        
+        addLog("✅ CrewAI 다중 에이전트 작업 완료!", "success");
+        addLog("블로그 기획, 본문 작성, 편집 및 한국어 번역 완료.", "success");
+        addLog("최종 파일 'translate-blog.md'가 서버 실행 경로에 정상 저장되었습니다.", "success");
+      } catch (err) {
+        addLog(`❌ 다중 에이전트 실행 실패: ${err.message}`, "error");
+        setStatus("pending_approval");
+      }
+    };
+
+    // Resume: Reject and Loop Back (Rewrite)
+    const handleReject = async () => {
+      if (!threadId) return;
+      
+      if (!feedback.trim()) {
+        alert("재작성(피드백) 의견을 입력해 주세요. 피드백 없이 재요청을 보낼 수 없습니다.");
+        return;
+      }
+      
+      setStatus("running");
+      addLog("🔄 피드백을 전달하여 쿼리 재작성을 요청했습니다.", "info");
+      addLog(`피드백 내용: "${feedback}"`, "info");
+      
+      try {
+        const response = await fetch(`${apiBaseUrl}/agent/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            thread_id: threadId,
+            approved: false,
+            feedback: feedback
+          })
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || "재작성 요청 실패");
+        }
+
+        const data = await response.json();
+        setStatus(data.status);
+        setCurrentQuery(data.current_query);
+        setRetrievedDocs(data.retrieved_documents);
+        setFeedback(""); // clear feedback input for next iteration
+        if (data.mermaid) setMermaidCode(data.mermaid);
+        
+        addLog("✅ 피드백 반영 완료 및 다시 중단점 도달. 새로운 검색 결과를 확인하세요.", "success");
+        addLog(`새로운 검색어: "${data.current_query}"`, "info");
+        addLog(`새로 수집된 문서: ${data.retrieved_documents.length}개`, "info");
+      } catch (err) {
+        addLog(`❌ 재작성 실행 중 오류: ${err.message}`, "error");
+        setStatus("pending_approval");
+      }
+    };
+
+    const toggleTask = (key) => {
+      setSelectedTasks((prev) => ({
+        ...prev,
+        [key]: !prev[key]
+      }));
+    };
+
+    return (
+      <div className="app-container">
+        {/* Header Section */}
+        <header>
+          <div className="header-logo">
+            <i className="fa-solid fa-people-group"></i>
+            <div>
+              <h1>다중 에이전트 블로그 작성기</h1>
+              <div className="subtitle">CrewAI & LangGraph & Supabase RAG</div>
+            </div>
+          </div>
+          <div className="header-actions">
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setShowSettings(!showSettings)}
+              title="API 환경 설정"
+            >
+              <i className="fa-solid fa-cog"></i> 설정
+            </button>
+            <button 
+              className="btn btn-secondary"
+              onClick={handleDbSeed}
+              disabled={isSeeding || status === "running"}
+            >
+              {isSeeding ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-database"></i>} DB 구축
+            </button>
+            <span className={`btn badge-status ${status}`}>
+              {status === "idle" && "대기중"}
+              {status === "running" && "실행중"}
+              {status === "pending_approval" && "승인 대기"}
+              {status === "completed" && "완료"}
+            </span>
+          </div>
+        </header>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <div className="settings-panel">
+            <div className="form-group">
+              <label className="form-label">FastAPI 서버 엔드포인트 URL</label>
+              <input 
+                type="text" 
+                className="input-field" 
+                value={apiBaseUrl} 
+                onChange={handleApiUrlChange} 
+                placeholder="예: https://project-20-service-xxxx.run.app"
+              />
+              <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                로컬 또는 배포된 FastAPI 서버 주소를 기입해 주세요. (로컬 기본: http://localhost:8080)
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Workspace Layout */}
+        <div className="grid-layout">
+          
+          {/* Left Panel: Inputs & Operations */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            
+            {/* Input Card */}
+            <div className="card accented">
+              <h2 className="card-title">
+                <i className="fa-solid fa-pen-nib"></i> 블로그 주제 입력
+              </h2>
+              
+              <div className="form-group">
+                <label className="form-label">질의하기 (블로그 작성 주제)</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  value={topicInput} 
+                  onChange={(e) => setTopicInput(e.target.value)} 
+                  placeholder="예: AI 에이전트의 비즈니스 비전과 CrewAI 협업"
+                  disabled={status === "running"}
+                />
+              </div>
+
+              {/* Tasks to Toggle */}
+              <div className="form-group">
+                <label className="form-label">작성을 원하는 항목 선택하기</label>
+                <div className="toggle-group">
+                  <div className={`toggle-item ${selectedTasks.plan ? "active" : ""}`} onClick={() => toggleTask("plan")}>
+                    <span>콘텐츠 기획안 (Planner)</span>
+                    <span className="badge">기획 에이전트</span>
+                  </div>
+                  <div className={`toggle-item ${selectedTasks.write ? "active" : ""}`} onClick={() => toggleTask("write")}>
+                    <span>블로그 초안 (Writer)</span>
+                    <span className="badge">작가 에이전트</span>
+                  </div>
+                  <div className={`toggle-item ${selectedTasks.edit ? "active" : ""}`} onClick={() => toggleTask("edit")}>
+                    <span>최종 편집본 (Editor)</span>
+                    <span className="badge">편집 에이전트</span>
+                  </div>
+                  <div className={`toggle-item ${selectedTasks.translate ? "active" : ""}`} onClick={() => toggleTask("translate")}>
+                    <span>한국어 번역본 (Translator)</span>
+                    <span className="badge">번역 에이전트</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Model Choice */}
+              <div className="form-group">
+                <label className="form-label">수행 모델 선택하기</label>
+                <div className="radio-group">
+                  <div 
+                    className={`radio-card ${selectedModel === "openai" ? "active" : ""}`}
+                    onClick={() => status !== "running" && setSelectedModel("openai")}
+                  >
+                    <i className="fa-solid fa-cube"></i>
+                    <span>GPT-4o-Mini</span>
+                  </div>
+                  <div 
+                    className={`radio-card ${selectedModel === "gemini" ? "active" : ""}`}
+                    onClick={() => status !== "running" && setSelectedModel("gemini")}
+                  >
+                    <i className="fa-solid fa-sparkles"></i>
+                    <span>Gemini-Flash</span>
+                  </div>
+                  <div 
+                    className={`radio-card ${selectedModel === "ollama" ? "active" : ""}`}
+                    onClick={() => status !== "running" && setSelectedModel("ollama")}
+                  >
+                    <i className="fa-solid fa-robot"></i>
+                    <span>Ollama (Llama3)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Start Button */}
+              <button 
+                className="btn btn-primary"
+                onClick={handleStartRequest}
+                disabled={status === "running" || !topicInput.trim()}
+                style={{ width: "100%", padding: "14px" }}
+              >
+                {status === "running" && threadId === null ? (
+                  <><i className="fa-solid fa-spinner fa-spin"></i> 워크플로 시작 중...</>
+                ) : (
+                  <><i className="fa-solid fa-paper-plane"></i> 요청 보내기</>
+                )}
+              </button>
+            </div>
+
+            {/* Logging Console Card */}
+            <div className="card">
+              <h2 className="card-title">
+                <i className="fa-solid fa-terminal"></i> 실행 로그 및 콘솔
+              </h2>
+              <div className="logs-console" id="console-logs">
+                {logs.length === 0 ? (
+                  <div className="log-line">
+                    <span className="log-timestamp">[--:--:--]</span>
+                    <span className="log-text info">대기 중... 주제를 입력하고 요청을 보내주세요.</span>
+                  </div>
+                ) : (
+                  logs.map((log, index) => (
+                    <div key={index} className="log-line">
+                      <span className="log-timestamp">[{log.timestamp}]</span>
+                      <span className={`log-text ${log.type}`}>{log.text}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Right Panel: Approval & Results */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            
+            {/* Human-in-the-Loop Interruption Area */}
+            {status === "pending_approval" && (
+              <div className="approval-panel">
+                <h3 style={{ color: "var(--warning)", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <i className="fa-solid fa-user-check"></i> RAG 검색 결과 승인 요청
+                </h3>
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div>
+                    <span className="form-label" style={{ fontSize: "0.75rem" }}>재작성된 검색 쿼리</span>
+                    <div style={{ backgroundColor: "var(--bg-tertiary)", padding: "10px 14px", borderRadius: "8px", fontSize: "0.9rem", border: "1px solid var(--border-color)", fontWeight: 600 }}>
+                      {currentQuery}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="form-label" style={{ fontSize: "0.75rem" }}>Supabase 수집 참고 데이터</span>
+                    <div style={{ maxHeight: "200px", overflowY: "auto", marginTop: "4px" }}>
+                      {retrievedDocs.map((doc, idx) => (
+                        <div key={idx} className="doc-card">
+                          <div className="doc-card-header">
+                            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)" }}>문서 #{idx + 1}</span>
+                            <a href={doc.source} target="_blank" rel="noopener noreferrer" className="doc-source">
+                              <i className="fa-solid fa-link"></i> 출처 링크
+                            </a>
+                          </div>
+                          <div className="doc-content">{doc.content}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">수정 의견 (피드백 - 거절 시 필수 입력)</label>
+                  <textarea
+                    className="input-field textarea-field"
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    placeholder="검색 쿼리를 수정하고 싶거나, 특정 사실을 강조해 줄 것을 원하시면 피드백을 적고 [재작성 요청]을 눌러주세요. 문제 없다면 바로 [승인 및 작성 시작]을 누르면 됩니다."
+                  />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <button className="btn btn-secondary" onClick={handleReject}>
+                    <i className="fa-solid fa-arrows-rotate"></i> 쿼리 재작성 요청
+                  </button>
+                  <button className="btn btn-success" onClick={handleApprove}>
+                    <i className="fa-solid fa-check"></i> 승인 및 블로그 작성 시작
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Loading Spinner for Crew Execution */}
+            {status === "running" && threadId !== null && (
+              <div className="card" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px" }}>
+                <div className="spinner"></div>
+                <h3 style={{ marginTop: "16px", fontFamily: "var(--font-heading)" }}>CrewAI 에이전트 협업 실행 중...</h3>
+                <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", textAlign: "center", maxWidth: "400px", marginTop: "8px" }}>
+                  기획자(Planner), 작가(Writer), 편집자(Editor), 번역가(Translator) 에이전트들이 협력하여 문서를 가공하고 번역하고 있습니다. 평균 약 45초~1분 30초 정도 소요됩니다. 잠시만 기다려주세요.
+                </p>
+              </div>
+            )}
+
+            {/* Results Card */}
+            {(plannerOutput || writerOutput || editorOutput || translationOutput) && (
+              <div className="card">
+                <h2 className="card-title">
+                  <i className="fa-solid fa-file-invoice"></i> 생성 결과물
+                </h2>
+
+                {/* Tabs */}
+                <div className="tabs-container">
+                  {selectedTasks.translate && translationOutput && (
+                    <button 
+                      className={`tab-button ${activeTab === "translated" ? "active" : ""}`}
+                      onClick={() => setActiveTab("translated")}
+                    >
+                      <i className="fa-solid fa-language"></i> 최종 번역본
+                    </button>
+                  )}
+                  {selectedTasks.edit && editorOutput && (
+                    <button 
+                      className={`tab-button ${activeTab === "editor" ? "active" : ""}`}
+                      onClick={() => setActiveTab("editor")}
+                    >
+                      <i className="fa-solid fa-user-edit"></i> 에디터 편집본
+                    </button>
+                  )}
+                  {selectedTasks.write && writerOutput && (
+                    <button 
+                      className={`tab-button ${activeTab === "writer" ? "active" : ""}`}
+                      onClick={() => setActiveTab("writer")}
+                    >
+                      <i className="fa-solid fa-keyboard"></i> 작가 초안
+                    </button>
+                  )}
+                  {selectedTasks.plan && plannerOutput && (
+                    <button 
+                      className={`tab-button ${activeTab === "planner" ? "active" : ""}`}
+                      onClick={() => setActiveTab("planner")}
+                    >
+                      <i className="fa-solid fa-map"></i> 기획안
+                    </button>
+                  )}
+                  <button 
+                    className={`tab-button ${activeTab === "workflow" ? "active" : ""}`}
+                    onClick={() => setActiveTab("workflow")}
+                  >
+                    <i className="fa-solid fa-diagram-project"></i> 실행 그래프
+                  </button>
+                </div>
+
+                {/* Tab Contents */}
+                <div className={`tab-content ${activeTab === "translated" && selectedTasks.translate && translationOutput ? "active" : ""}`}>
+                  <div className="markdown-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(translationOutput) }} />
+                </div>
+                <div className={`tab-content ${activeTab === "editor" && selectedTasks.edit && editorOutput ? "active" : ""}`}>
+                  <div className="markdown-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(editorOutput) }} />
+                </div>
+                <div className={`tab-content ${activeTab === "writer" && selectedTasks.write && writerOutput ? "active" : ""}`}>
+                  <div className="markdown-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(writerOutput) }} />
+                </div>
+                <div className={`tab-content ${activeTab === "planner" && selectedTasks.plan && plannerOutput ? "active" : ""}`}>
+                  <div className="markdown-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(plannerOutput) }} />
+                </div>
+                <div className={`tab-content ${activeTab === "workflow" ? "active" : ""}`}>
+                  <div className="mermaid-card">
+                    <div id="mermaid-graph-container"></div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Workflow Diagram Preview (Initial or during design) */}
+            {status !== "running" && status !== "pending_approval" && !plannerOutput && mermaidCode && (
+              <div className="card">
+                <h2 className="card-title">
+                  <i className="fa-solid fa-diagram-project"></i> 워크플로 실행 구조
+                </h2>
+                <div className="mermaid-card">
+                  <div id="mermaid-graph-container"></div>
+                </div>
+              </div>
+            )}
+
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // Render the App
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(<App />);
+</script>
