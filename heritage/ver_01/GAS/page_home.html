@@ -126,8 +126,8 @@
 
       <!-- 최종 종합 생성 보고서 텍스트 렌더링 영역 (②~⑨ 마크다운 렌더러) -->
       <div style="border-top: 1px solid var(--border-color); padding-top: 20px;">
-        <h4 style="font-size: 1rem; color: var(--accent-cyan); margin-bottom: 10px; font-weight: 700;">📝 에이전트 최종 종합 마크다운 보고서</h4>
-        <div id="agenticOutputText" style="background: rgba(11,19,43,0.7); border: 1px solid rgba(56,189,248,0.3); border-radius: var(--radius-md); padding: 20px; line-height: 1.7; white-space: pre-wrap; font-size: 0.95rem; color: #e2e8f0; max-height: 300px; overflow-y: auto; font-family: 'Noto Sans KR', sans-serif;"></div>
+        <h4 style="font-size: 1rem; color: var(--accent-cyan); margin-bottom: 10px; font-weight: 700;">📝 AI 추천 결과 분석 보고서 창</h4>
+        <div id="agenticOutputText" style="background: rgba(11,19,43,0.7); border: 1px solid rgba(56,189,248,0.3); border-radius: var(--radius-md); padding: 20px; line-height: 1.7; white-space: normal; font-size: 0.95rem; color: #e2e8f0; max-height: 650px; overflow-y: auto; font-family: 'Noto Sans KR', sans-serif;"></div>
       </div>
 
       <!-- RAG Feedback Loop 신뢰성 지표 영역 -->
@@ -410,38 +410,82 @@
     var outputText = document.getElementById('agenticOutputText');
     if (!outputText) return;
     
-    var heritagesList = data.heritages.map(function(h, idx) {
-      return (idx + 1) + '. **' + h.heritage_name + '**\n' +
-             '   - **주소**: ' + h.address + '\n' +
-             '   - **유형**: ' + h.category + '\n' +
-             '   - **설명**: ' + h.description + '\n' +
-             '   - **적합도 점수**: ' + h.personalization_score + '점\n' +
-             '   - **추천 사유**: ' + h.personalization_reason;
-    }).join('\n\n');
+    var heritagesHtml = data.heritages.map(function(h, idx) {
+      return '<div class="glass-card" style="margin-bottom: 12px; border-left: 4px solid var(--accent-cyan); padding: 16px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; gap: 8px;">' +
+               '<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 6px;">' +
+                 '<span style="color: #fff; font-weight: 700; font-size: 1.05rem;">🏛️ ' + (idx + 1) + '. ' + h.heritage_name + '</span>' +
+                 '<span class="badge" style="background: rgba(0, 245, 212, 0.15); color: var(--accent-cyan); font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem;">적합도 ' + h.personalization_score + '점</span>' +
+               '</div>' +
+               '<div style="font-size: 0.86rem; color: var(--text-sub); display: flex; flex-direction: column; gap: 4px;">' +
+                 '<div>📍 <strong>위치 소재지</strong>: ' + h.address + '</div>' +
+                 '<div>🏷️ <strong>문화재 분류</strong>: ' + h.category + '</div>' +
+                 '<div style="line-height: 1.5; margin-top: 4px; color: #cbd5e1;">' + h.description + '</div>' +
+                 '<div style="margin-top: 6px; padding: 10px; background: rgba(56,189,248,0.06); border-radius: 6px; font-size: 0.82rem; color: #93c5fd; border: 1px solid rgba(56,189,248,0.15);">' +
+                   '💡 <strong>AI 맞춤 추천 사유</strong>: ' + h.personalization_reason +
+                 '</div>' +
+               '</div>' +
+             '</div>';
+    }).join('');
 
-    var attractionsList = data.attractions.map(function(a, idx) {
-      return '   - **' + a.name + '** (인접유산: ' + a.linked_heritage + ', 거리: ' + a.distance_km.toFixed(1) + 'km) - ' + a.description;
-    }).join('\n');
+    var attractionsHtml = data.attractions.map(function(a, idx) {
+      return '<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px;">' +
+               '<div style="display: flex; align-items: center; gap: 8px;">' +
+                 '<span style="font-size: 1.1rem;">🧭</span>' +
+                 '<div>' +
+                   '<strong style="color: #fff; font-size: 0.88rem;">' + a.name + '</strong>' +
+                   '<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">인접 유산: ' + a.linked_heritage + '</div>' +
+                 '</div>' +
+               '</div>' +
+               '<span style="font-size: 0.85rem; color: var(--accent-amber); font-weight: 700;">' + a.distance_km.toFixed(1) + ' km</span>' +
+             '</div>';
+    }).join('');
 
-    var scheduleList = data.schedule.map(function(item) {
-      return '   - **' + item.arrival_time + ' - ' + item.departure_time + '**: ' + item.place_name + ' (이동: ' + item.travel_minutes_from_previous + '분, 체류: ' + item.stay_minutes + '분)\n' +
-             '     * ' + item.reason;
-    }).join('\n');
+    var scheduleHtml = data.schedule.map(function(item, idx) {
+      var textColor = 'var(--accent-cyan)';
+      if (item.place_type === 'food') { textColor = 'var(--accent-amber)'; }
+      if (item.place_type === 'cafe') { textColor = '#34d399'; }
+      
+      var travelMinutesText = item.travel_minutes_from_previous ? '🚗 ' + item.travel_minutes_from_previous + '분 이동' : '🚩 출발';
+      
+      return '<div style="display: flex; gap: 14px; position: relative; padding-bottom: 14px;">' +
+               (idx < data.schedule.length - 1 ? '<div style="position: absolute; left: 12px; top: 24px; bottom: 0; width: 2px; background: rgba(255,255,255,0.1);"></div>' : '') +
+               '<div style="width: 24px; height: 24px; border-radius: 50%; background: ' + textColor + '; color: #111; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.78rem; z-index: 2;">' + (idx + 1) + '</div>' +
+               '<div style="flex: 1; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">' +
+                 '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">' +
+                   '<strong style="font-size: 0.92rem; color: #fff;">' + item.place_name + '</strong>' +
+                   '<span style="font-size: 0.8rem; color: ' + textColor + '; font-weight: bold;">' + item.arrival_time + ' - ' + item.departure_time + '</span>' +
+                 '</div>' +
+                 '<div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 6px;">' +
+                   '⏱️ 체류: ' + item.stay_minutes + '분 | <span style="color: var(--accent-amber);">' + travelMinutesText + '</span>' +
+                 '</div>' +
+                 '<p style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.4; margin: 0;">' + item.reason + '</p>' +
+               '</div>' +
+             '</div>';
+    }).join('');
 
-    var mdText = '### ⚡ AI 추천 문화유산 및 맞춤 코스 리포트\n\n' +
-                 '---\n\n' +
-                 '#### ① 🏛️ 추천 문화유산 5곳\n' + heritagesList + '\n\n' +
-                 '---\n\n' +
-                 '#### ② 🧭 주변 주요 관광 정보\n' + attractionsList + '\n\n' +
-                 '---\n\n' +
-                 '#### ③ 🚗 AI 추천 최적 동선일정\n' + scheduleList + '\n\n' +
-                 '---\n\n' +
-                 '#### 📊 이동 및 요약 통계\n' +
-                 '- **총 이동거리**: 약 ' + data.map.total_distance_km.toFixed(1) + ' km\n' +
-                 '- **총 예상 소요시간**: ' + data.map.total_duration_minutes + ' 분\n' +
-                 '- **기상 가이드**: ' + data.real_time_info.weather.weather + ' (' + data.real_time_info.weather.recommended_season + ' 탐방 권장)\n';
-                 
-    outputText.innerText = mdText;
+    var htmlContent = 
+      '<div style="display: flex; flex-direction: column; gap: 24px; font-family: \'Noto Sans KR\', sans-serif;">' +
+        '<div>' +
+          '<h5 style="color: var(--accent-cyan); font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; border-left: 3px solid var(--accent-cyan); padding-left: 8px;">🏛️ AI 추천 세종시 핵심 문화유산 5선</h5>' +
+          '<div style="display: flex; flex-direction: column; gap: 10px;">' + heritagesHtml + '</div>' +
+        '</div>' +
+        '<div>' +
+          '<h5 style="color: var(--accent-amber); font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; border-left: 3px solid var(--accent-amber); padding-left: 8px;">🧭 주변 추천 명소 (한국관광공사 TourAPI 연계)</h5>' +
+          '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">' + attractionsHtml + '</div>' +
+        '</div>' +
+        '<div>' +
+          '<h5 style="color: #34d399; font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; border-left: 3px solid #34d399; padding-left: 8px;">🚗 추천 당일 최적 여행 일정 동선</h5>' +
+          '<div style="display: flex; flex-direction: column; margin-top: 10px;">' + scheduleHtml + '</div>' +
+        '</div>' +
+        '<div style="background: rgba(56,189,248,0.04); border: 1px solid rgba(56,189,248,0.15); padding: 14px; border-radius: 8px; font-size: 0.85rem; color: #93c5fd; display: flex; flex-direction: column; gap: 4px;">' +
+          '<strong>📊 일정 요약 요율표</strong>' +
+          '<div>• 총 예상 이동거리: 약 ' + data.map.total_distance_km.toFixed(1) + ' km</div>' +
+          '<div>• 총 예상 이동/체류 시간: 약 ' + data.map.total_duration_minutes + ' 분</div>' +
+          '<div>• 기상 상황 추천사: ' + data.real_time_info.weather.weather + ' (' + data.real_time_info.weather.recommended_season + ' 추천)</div>' +
+        '</div>' +
+      '</div>';
+      
+    outputText.innerHTML = htmlContent;
     document.getElementById('homeAgenticConfidenceText').innerText = (data.validation.score * 100).toFixed(1) + '%';
   }
 
