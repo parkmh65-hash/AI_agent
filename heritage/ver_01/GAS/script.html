@@ -5,7 +5,7 @@
     function getServerUrl(path) {
         var baseUrl = (typeof window !== 'undefined' && window.CLOUD_RUN_SERVER_URL)
             ? window.CLOUD_RUN_SERVER_URL
-            : 'https://heritage-min-503408.us-central1.run.app';
+            : 'https://heritage-538192513096.us-central1.run.app';
         if (!path) return baseUrl;
         if (!path.startsWith('/')) path = '/' + path;
         return baseUrl.replace(/\/$/, '') + path;

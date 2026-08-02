@@ -11,10 +11,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script>
     // Server Backend Endpoint Configuration (Cloud Run / NestJS Server)
-    window.CLOUD_RUN_SERVER_URL = "<?= (typeof getCloudRunBackendUrl === 'function') ? getCloudRunBackendUrl() : 'https://heritage-min-503408.us-central1.run.app' ?>";
+    window.CLOUD_RUN_SERVER_URL = "<?= (typeof getCloudRunBackendUrl === 'function') ? getCloudRunBackendUrl() : 'https://heritage-538192513096.us-central1.run.app' ?>";
     
     function getServerUrl(path) {
-      var baseUrl = window.CLOUD_RUN_SERVER_URL || 'https://heritage-min-503408.us-central1.run.app';
+      var baseUrl = window.CLOUD_RUN_SERVER_URL || 'https://heritage-538192513096.us-central1.run.app';
       if (!path) return baseUrl;
       if (!path.startsWith('/')) path = '/' + path;
       return baseUrl.replace(/\/$/, '') + path;

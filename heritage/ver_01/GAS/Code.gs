@@ -48,10 +48,10 @@ function getProp(key, defaultVal) {
 }
 
 /**
- * Get Google Cloud Run Service Backend URL (Project: heritage-503408, Service: heritage-min, Region: us-central1)
+ * Get Google Cloud Run Service Backend URL (Project: my-second-project-502012, Service: heritage, Region: us-central1)
  */
 function getCloudRunBackendUrl() {
-  return getProp("CLOUD_RUN_URL", "https://heritage-min-503408.us-central1.run.app");
+  return getProp("CLOUD_RUN_URL", "https://heritage-538192513096.us-central1.run.app");
 }
 
 /**

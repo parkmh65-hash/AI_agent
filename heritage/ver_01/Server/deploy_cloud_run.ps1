@@ -1,7 +1,7 @@
 # Google Cloud Run Deploy Script for heritage-min (Project: heritage-503408, Region: us-central1)
 Param(
-    [string]$ProjectId = "heritage-503408",
-    [string]$ServiceName = "heritage-min",
+    [string]$ProjectId = "my-second-project-502012",
+    [string]$ServiceName = "heritage",
     [string]$Region = "us-central1"
 )
 

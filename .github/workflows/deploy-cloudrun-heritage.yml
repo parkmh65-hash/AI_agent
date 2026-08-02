@@ -32,7 +32,7 @@ jobs:
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: heritage
-          project_id: heritage-503408
+          project_id: my-second-project-502012
           region: us-central1
           source: ./heritage/ver_01/Server
           flags: '--allow-unauthenticated'
