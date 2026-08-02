@@ -36,13 +36,12 @@ except Exception as e:
     print(f"Neo4j connection warning: {e}")
 
 def get_supabase() -> Client:
-    global supabase_client
-    if supabase_client is None and create_client and settings.SUPABASE_URL and settings.SUPABASE_KEY:
-        try:
-            supabase_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-        except Exception as e:
-            print(f"Supabase client connection error: {e}")
-    return supabase_client
+    try:
+        if create_client and settings.SUPABASE_URL and settings.SUPABASE_KEY and "your-supabase" not in settings.SUPABASE_URL:
+            return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+    except Exception as e:
+        print(f"Supabase client connection error: {e}")
+    return None
 
 def get_neo4j():
     return neo4j_driver
