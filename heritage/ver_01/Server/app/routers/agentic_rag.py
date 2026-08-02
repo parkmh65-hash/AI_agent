@@ -6,6 +6,7 @@ Agentic RAG 정보검색 시스템 API 엔드포인트
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
+from app.config import settings
 from app.services.agentic_rag_service import run_agentic_rag, run_travel_plan, get_mermaid_graph_definition
 
 router = APIRouter(tags=["agentic-rag"])
