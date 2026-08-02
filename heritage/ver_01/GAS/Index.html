@@ -120,6 +120,7 @@
         if (tabId === 'search' && typeof window.renderSearchView === 'function') window.renderSearchView();
         if (tabId === 'course' && typeof window.renderCourseView === 'function') window.renderCourseView();
         if (tabId === 'mypage' && typeof window.renderMyPageView === 'function') window.renderMyPageView();
+        if (tabId === 'agentic_rag' && typeof window.ensureKakaoMapsLoaded === 'function') window.ensureKakaoMapsLoaded();
         if (tabId === 'admin' && typeof window.renderAdminView === 'function') window.renderAdminView();
       } catch (err) {
         console.warn('Tab view render notice:', err);
@@ -168,9 +169,14 @@
           🧭 4. 당일 관광 코스 만들기
         </button>
 
-        <!-- 5. 관리자 페이지 (관리자에게만 노출) -->
+        <!-- 5. AI 스마트 플래너 -->
+        <button id="nav_agentic_rag" class="gas-nav-item" onclick="navigateTo('agentic_rag')">
+          ⚡ 5. AI 스마트 플래너
+        </button>
+
+        <!-- 6. 관리자 페이지 (관리자에게만 노출) -->
         <button id="nav_admin" class="gas-nav-item" onclick="navigateTo('admin')" style="margin-top: 12px; border-top: 1px solid var(--border-color); color: var(--accent-rose);">
-          🔒 5. 관리자 센터
+          🔒 6. 관리자 센터
         </button>
       </nav>
 
@@ -200,6 +206,9 @@
 
       <!-- 6. 문화유산 코스 만들기 -->
       <?!= include('page_course') ?>
+
+      <!-- AI 스마트 플래너 -->
+      <?!= include('page_agentic_rag') ?>
 
       <!-- 7. 나만의 문화유산 (보관함) -->
       <?!= include('page_mypage') ?>
