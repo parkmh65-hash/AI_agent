@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>세종특별자치시 문화유산 스마트 플랫폼 (GAS WebApp)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    // Server Backend Endpoint Configuration (Cloud Run / NestJS Server)
+    window.CLOUD_RUN_SERVER_URL = "<?= (typeof getCloudRunBackendUrl === 'function') ? getCloudRunBackendUrl() : 'https://heritage-min-503408.us-central1.run.app' ?>";
+    
+    function getServerUrl(path) {
+      var baseUrl = window.CLOUD_RUN_SERVER_URL || 'https://heritage-min-503408.us-central1.run.app';
+      if (!path) return baseUrl;
+      if (!path.startsWith('/')) path = '/' + path;
+      return baseUrl.replace(/\/$/, '') + path;
+    }
+
+    // Global Safe Fail-safe Guard & Fallback for navigateTo, view renderers and OAuth script dialogs
+    window.onerror = function(msg, url, line, col, error) {
+      console.warn("GCP/WebApp Guarded Exception Ignored:", msg, "at line:", line);
+      return true;
+    };
+
+    // Early declaration of showToast to prevent ReferenceErrors during early DOM rendering
+    window.showToast = window.showToast || function(msg) {
+      var container = document.getElementById('toastContainer');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        document.body.appendChild(container);
+      }
+      var toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerText = msg;
+      container.appendChild(toast);
+      setTimeout(function () {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 3000);
+    };
+
+    window.appState = window.appState || {
+      currentTab: 'home',
+      officialHeritages: [],
+      citizenHeritages: [],
+      selectedHeritageDetail: null,
+      courseList: [],
+      savedCourses: [],
+      myCitizenSubmissions: [],
+      likesMap: {},
+      previousTab: 'home',
+      scrollPositionMap: {}
+    };
+    var appState = window.appState;
+
+    window.renderHomeView = window.renderHomeView || function() {};
+    window.renderStatusOfficialView = window.renderStatusOfficialView || function() {};
+    window.renderStatusCitizenView = window.renderStatusCitizenView || function() {};
+    window.renderSearchView = window.renderSearchView || function() {};
+    window.renderSearchDetailView = window.renderSearchDetailView || function() {};
+    window.renderCourseView = window.renderCourseView || function() {};
+    window.renderMyPageView = window.renderMyPageView || function() {};
+    window.renderMyPageDetailView = window.renderMyPageDetailView || function() {};
+    window.renderReviewView = window.renderReviewView || function() {};
+    window.renderAdminView = window.renderAdminView || function() {};
+
+    window.openCitizenReportModal = window.openCitizenReportModal || function() {
+      var modal = document.getElementById('citizenReportModal');
+      if (modal) modal.style.display = 'flex';
+      else if (typeof window.openCitizenReportModalImpl === 'function') window.openCitizenReportModalImpl();
+    };
+    window.closeCitizenReportModal = window.closeCitizenReportModal || function() {
+      var modal = document.getElementById('citizenReportModal');
+      if (modal) modal.style.display = 'none';
+      else if (typeof window.closeCitizenReportModalImpl === 'function') window.closeCitizenReportModalImpl();
+    };
+
+    window.navigateTo = function(tabId, paramData) {
+      console.log("Navigating to tab:", tabId);
+      var mainEl = document.querySelector('.gas-main');
+      if (mainEl && window.appState) {
+        window.appState.scrollPositionMap = window.appState.scrollPositionMap || {};
+        window.appState.scrollPositionMap[window.appState.currentTab] = mainEl.scrollTop;
+      }
+      if (window.appState) {
+        window.appState.previousTab = window.appState.currentTab;
+        window.appState.currentTab = tabId;
+      }
+
+      var sections = document.querySelectorAll('.tab-section');
+      for (var i = 0; i < sections.length; i++) {
+        sections[i].classList.remove('active');
+        sections[i].style.display = 'none';
+      }
+
+      var navBtns = document.querySelectorAll('.gas-nav-item');
+      for (var j = 0; j < navBtns.length; j++) {
+        navBtns[j].classList.remove('active');
+      }
+
+      var targetTabEl = document.getElementById('page_' + tabId);
+      if (targetTabEl) {
+        targetTabEl.classList.add('active');
+        targetTabEl.style.display = 'block';
+      }
+
+      var navBtn = document.getElementById('nav_' + tabId);
+      if (navBtn) {
+        navBtn.classList.add('active');
+      }
+
+      try {
+        if (tabId === 'home' && typeof window.renderHomeView === 'function') window.renderHomeView();
+        if (tabId === 'status_official' && typeof window.renderStatusOfficialView === 'function') window.renderStatusOfficialView();
+        if (tabId === 'status_citizen' && typeof window.renderStatusCitizenView === 'function') window.renderStatusCitizenView();
+        if (tabId === 'search' && typeof window.renderSearchView === 'function') window.renderSearchView();
+        if (tabId === 'course' && typeof window.renderCourseView === 'function') window.renderCourseView();
+        if (tabId === 'mypage' && typeof window.renderMyPageView === 'function') window.renderMyPageView();
+        if (tabId === 'admin' && typeof window.renderAdminView === 'function') window.renderAdminView();
+      } catch (err) {
+        console.warn('Tab view render notice:', err);
+      }
+    };
+  </script>
+  
+  <?!= include('style') ?>
+</head>
+<body>
+  <div class="gas-app-container">
+    <!-- 좌측 공통 메뉴 (모든 화면 공통) -->
+    <aside class="gas-sidebar">
+      <div class="gas-brand">
+        <!-- 홈버튼: 항상 상단 고정해 1번 홈화면으로 복귀 -->
+        <div class="gas-logo" onclick="navigateTo('home')" style="cursor: pointer;" title="홈으로 이동">지키미</div>
+        <div onclick="navigateTo('home')" style="cursor: pointer;">
+          <h2 style="font-size: 1rem; font-weight: 800;">세종시 문화유산</h2>
+          <p style="font-size: 0.7rem; color: var(--accent-cyan);">스마트 문화유산 지키미 WebApp</p>
+        </div>
+      </div>
+
+      <nav class="gas-nav-menu">
+        <button id="nav_home" class="gas-nav-item active" onclick="navigateTo('home')">
+          🏠 당신을 위한 문화유산 추천
+        </button>
+
+        <!-- 1. 문화유산 현황 (하위: 국가/지자체, 시민 문화유산) -->
+        <div style="margin: 4px 0;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); padding: 4px 12px; font-weight: 700;">🏛️ 문화유산 현황</div>
+          <button id="nav_status_official" class="gas-nav-item" onclick="navigateTo('status_official')" style="padding-left: 24px; font-size: 0.88rem;">
+            📜 1. 국가/지자체 문화유산
+          </button>
+          <button id="nav_status_citizen" class="gas-nav-item" onclick="navigateTo('status_citizen')" style="padding-left: 24px; font-size: 0.88rem;">
+            🌱 2. 시민 제보 문화유산
+          </button>
+        </div>
+
+        <!-- 3. 세종시 문화유산 검색 -->
+        <button id="nav_search" class="gas-nav-item" onclick="navigateTo('search')">
+          🔍 3. 세종시 문화유산
+        </button>
+
+        <!-- 4. 당일 관광 코스 만들기 -->
+        <button id="nav_course" class="gas-nav-item" onclick="navigateTo('course')">
+          🧭 4. 당일 관광 코스 만들기
+        </button>
+
+        <!-- 5. 관리자 페이지 (관리자에게만 노출) -->
+        <button id="nav_admin" class="gas-nav-item" onclick="navigateTo('admin')" style="margin-top: 12px; border-top: 1px solid var(--border-color); color: var(--accent-rose);">
+          🔒 5. 관리자 센터
+        </button>
+      </nav>
+
+      <!-- Sidebar Footer -->
+      <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border-color); font-size: 0.72rem; color: var(--text-muted);">
+        세종특별자치시 문화유산 GAS v1.0<br>
+        Powered by Google Sheets DB & Gemini AI
+      </div>
+    </aside>
+
+    <!-- Main Dynamic Screen Content Shell -->
+    <main class="gas-main">
+      <!-- 1. 홈화면 -->
+      <?!= include('page_home') ?>
+
+      <!-- 2. 문화유산 현황 (국가/지자체) -->
+      <?!= include('page_status_official') ?>
+
+      <!-- 3. 문화유산 현황 (시민 문화유산) -->
+      <?!= include('page_status_citizen') ?>
+
+      <!-- 4. 문화유산 검색 -->
+      <?!= include('page_search') ?>
+
+      <!-- 5. 문화유산 검색 상세정보 -->
+      <?!= include('page_search_detail') ?>
+
+      <!-- 6. 문화유산 코스 만들기 -->
+      <?!= include('page_course') ?>
+
+      <!-- 7. 나만의 문화유산 (보관함) -->
+      <?!= include('page_mypage') ?>
+
+      <!-- 8. 나만의 문화유산 (상세보기/AI 여행잡지) -->
+      <?!= include('page_mypage_detail') ?>
+
+      <!-- 9. 나만의 문화유산 (후기쓰기) -->
+      <?!= include('page_review') ?>
+
+      <!-- 7. 관리자 페이지 (Agentic RAG 통합) -->
+      <?!= include('page_admin') ?>
+    </main>
+  </div>
+
+  <!-- Toast Message Box Container -->
+  <div id="toastContainer"></div>
+
+  <?!= include('script') ?>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof navigateTo === 'function') {
+        navigateTo('home');
+      }
+    });
+  </script>
+</body>
+</html>

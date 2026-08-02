@@ -1,0 +1,101 @@
+<!-- page_agentic_rag.html - Agentic RAG 정보검색 시스템 -->
+<section id="page_agentic_rag" class="tab-section">
+  <div style="margin-bottom: 24px;">
+    <h1 class="page-title">⚡ Agentic RAG 정보검색 시스템</h1>
+    <p class="page-desc">질문 수신 ➔ 문서 검색(Retrieve) ➔ 관련성 평가(Grade) ➔ 질문 재작성(Rewrite) ➔ 최종 답변 생성(Generate)</p>
+  </div>
+
+  <!-- 1단계: [입력 UI] -->
+  <div class="glass-card" style="margin-bottom: 24px;">
+    <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--accent-cyan); margin-bottom: 14px;">
+      💬 질의하기 영역 (1단계)
+    </h3>
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <label style="display: block; font-size: 0.9rem; color: var(--text-sub); margin-bottom: 6px; font-weight: 600;">
+          AI 질문 입력하기 <span style="color: var(--accent-cyan)">*</span>
+        </label>
+        <textarea id="agenticQueryInput" rows="3" placeholder="예: 세종시 문화유산 보존 사업 및 유산 탐방 코스 추천 분석 결과를 알려주세요." style="width: 100%; padding: 14px; border-radius: var(--radius-md); background: rgba(0,0,0,0.35); border: 1px solid var(--border-color); color: #fff; font-size: 0.98rem; outline: none;">세종 연기아문 및 비암사 문화유산 보존과 문화적 파급 효과 분석</textarea>
+      </div>
+
+      <!-- [작성을 원하는 항목 선택하기] 토글/체크박스 -->
+      <div>
+        <label style="display: block; font-size: 0.9rem; color: var(--text-sub); margin-bottom: 8px; font-weight: 600;">
+          [작성을 원하는 항목 선택하기] 토글 항목:
+        </label>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-color); cursor: pointer;">
+            <input type="checkbox" class="agentic-toggle-item" value="웹 크롤링 데이터 (문화재청 / 세종시 문화유산 DB)" checked />
+            <span>🌐 WebBaseLoader 크롤링</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-color); cursor: pointer;">
+            <input type="checkbox" class="agentic-toggle-item" value="텍스트 청크 분할 (RecursiveCharacterTextSplitter)" checked />
+            <span>✂️ 텍스트 분할 (Chunk:300)</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-color); cursor: pointer;">
+            <input type="checkbox" class="agentic-toggle-item" value="벡터스토어 & Retriever (Supabase pgvector)" checked />
+            <span>🗄️ Supabase VectorStore</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-color); cursor: pointer;">
+            <input type="checkbox" class="agentic-toggle-item" value="문서 평가 & 질문 재작성 (Grade & Rewrite)" checked />
+            <span>🔄 Grade & Rewrite 노드</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- [수행 모델 선택하기] 드롭다운 -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+        <div>
+          <label style="display: block; font-size: 0.9rem; color: var(--text-sub); margin-bottom: 6px; font-weight: 600;">
+            [수행 모델 선택하기] 모델 선택:
+          </label>
+          <select id="agenticModelSelect" style="width: 100%; padding: 12px 14px; border-radius: var(--radius-md); background: #151e36; border: 1px solid var(--border-color); color: #fff; font-size: 0.95rem; outline: none;">
+            <option value="gpt-4o">OpenAI GPT-4o (Agentic RAG 권장)</option>
+            <option value="gpt-4o-mini">OpenAI GPT-4o-mini (경량화 모델)</option>
+            <option value="gemini-1.5-flash">Google Gemini 1.5 Flash</option>
+            <option value="claude-3.5-sonnet">Anthropic Claude 3.5 Sonnet</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- [요청 보내기] 버튼 -->
+      <button id="sendAgenticRAGBtn" class="btn-primary" style="padding: 16px 28px; font-size: 1.05rem; justify-content: center; margin-top: 6px;" onclick="sendAgenticRAGRequest()">
+        🚀 요청 보내기 (Agentic RAG 실행)
+      </button>
+    </div>
+  </div>
+
+  <!-- 3단계 & 4단계: [응답] 영역 및 LangGraph 워크플로 시각화 -->
+  <div id="agenticResponseContainer" class="glass-card" style="display: none; flex-direction: column; gap: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+      <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--accent-cyan);">
+        📥 [응답] Agentic RAG 결과 및 모니터링
+      </h3>
+      <span id="agenticStatusBadge" class="badge badge-dong" style="padding: 6px 14px;">AI 질문중입니다...</span>
+    </div>
+
+    <!-- 단계별 수행 로그 표시 -->
+    <div id="agenticStepsLogArea" style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; font-size: 0.88rem; display: flex; flex-direction: column; gap: 8px;"></div>
+
+    <!-- 선택 토글 & 수행 모델 요약 바 -->
+    <div id="agenticConfigSummary" style="background: rgba(72,149,239,0.12); border: 1px solid rgba(72,149,239,0.3); border-radius: var(--radius-md); padding: 14px 18px; font-size: 0.9rem; color: #fff;"></div>
+
+    <!-- 최종 응답 출력 -->
+    <div id="agenticOutputText" style="background: rgba(11,19,43,0.85); border: 1px solid rgba(0,245,212,0.3); border-radius: var(--radius-md); padding: 22px; line-height: 1.8; white-space: pre-wrap; font-size: 1.02rem; color: #e2e8f0; max-height: 480px; overflow-y: auto;"></div>
+
+    <!-- 4단계: LangGraph 워크플로 시각화 메르메이드 차트 -->
+    <div style="border-top: 1px solid var(--border-color); padding-top: 18px;">
+      <h4 style="font-size: 1rem; color: var(--accent-cyan); margin-bottom: 12px;">📊 LangGraph 워크플로 그래프 시각화 (StateGraph)</h4>
+      <div style="background: #0f172a; padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color); font-family: monospace; font-size: 0.85rem; color: #38bdf8; white-space: pre-wrap; overflow-x: auto;">
+graph TD
+    __start__([시작]) --> agent[Agent 노드: 질문 처리];
+    agent --> retrieve[Retrieve 노드: 세종 문화유산 DB 검색];
+    retrieve --> grade[grade_documents: 문서 관련성 평가];
+    grade -- yes (관련 있음) --> generate[Generate 노드: 최종 답변 생성];
+    grade -- no (관련 없음) --> rewrite[Rewrite 노드: 질문 재작성];
+    rewrite --> agent;
+    generate --> __end__([종료]);
+      </div>
+    </div>
+  </div>
+</section>

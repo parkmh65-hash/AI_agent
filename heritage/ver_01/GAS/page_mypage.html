@@ -1,0 +1,151 @@
+<!-- page_mypage.html - 7. 나만의 문화유산 (보관함) -->
+<section id="page_mypage" class="tab-section">
+  <div style="margin-bottom: 24px;">
+    <h1 class="page-title">나만의 문화유산 보관함</h1>
+    <p class="page-desc">내가 저장한 문화유산 코스와 직접 제보 추천한 문화유산의 검토 상태를 확인 관리합니다.</p>
+  </div>
+
+  <!-- Two Section Tabs: 코스 목록 vs 제보 목록 -->
+  <div style="display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+    <button id="myTabBtnCourses" class="btn-primary" onclick="switchMySubTab('courses')">
+      🚩 내가 저장한 코스 목록 (<span id="myCoursesCount">0</span>)
+    </button>
+    <button id="myTabBtnCitizen" class="btn-secondary" onclick="switchMySubTab('citizen')">
+      🌱 내가 추천한 문화유산 (<span id="myCitizenCount">0</span>)
+    </button>
+  </div>
+
+  <!-- SubTab 1: 내가 저장한 코스 목록 -->
+  <div id="mySubTabCoursesSection" style="display: block;">
+    <div id="myCoursesGrid" style="display: flex; flex-direction: column; gap: 18px;">
+      <!-- Rendered via renderMyPageView() -->
+    </div>
+  </div>
+
+  <!-- SubTab 2: 내가 추천한 문화유산 -->
+  <div id="mySubTabCitizenSection" style="display: none;">
+    <div id="myCitizenGrid" style="display: flex; flex-direction: column; gap: 14px;">
+      <!-- Rendered via renderMyPageView() -->
+    </div>
+  </div>
+</section>
+
+<script>
+  var appState = window.appState = window.appState || { officialHeritages: [], citizenHeritages: [], likesMap: {}, courseList: [], savedCourses: [] };
+
+  function renderMyPageView() {
+    if (typeof renderMyCoursesList === 'function') renderMyCoursesList();
+    if (typeof renderMyCitizenList === 'function') renderMyCitizenList();
+  }
+  window.renderMyPageViewImpl = renderMyPageView;
+  window.renderMyPageView = renderMyPageView;
+
+  function switchMySubTab(tabName) {
+    var btnC = document.getElementById('myTabBtnCourses');
+    var btnZ = document.getElementById('myTabBtnCitizen');
+    var secC = document.getElementById('mySubTabCoursesSection');
+    var secZ = document.getElementById('mySubTabCitizenSection');
+
+    if (tabName === 'courses') {
+      btnC.className = 'btn-primary';
+      btnZ.className = 'btn-secondary';
+      secC.style.display = 'block';
+      secZ.style.display = 'none';
+    } else {
+      btnC.className = 'btn-secondary';
+      btnZ.className = 'btn-primary';
+      secC.style.display = 'none';
+      secZ.style.display = 'block';
+    }
+  }
+
+  function renderMyCoursesList() {
+    var container = document.getElementById('myCoursesGrid');
+    var countEl = document.getElementById('myCoursesCount');
+    if (!container) return;
+
+    countEl.innerText = appState.savedCourses.length;
+
+    if (!appState.savedCourses.length) {
+      container.innerHTML = '<div class="glass-card" style="text-align: center; color: var(--text-sub);">저장된 코스가 없습니다. [문화유산 코스 만들기]에서 코스를 새로 만들어보세요!</div>';
+      return;
+    }
+
+    container.innerHTML = appState.savedCourses.map(function(c, idx) {
+      var itemsStr = (c.items || []).map(function(it) { return it.name; }).join(' ➔ ');
+      var courseTitle = c.course_name || c.title || '나만의 문화유산 코스';
+      var transport = c.transport || c.transport_mode || '승용차';
+      var totalTime = c.total_time_min || 60;
+      var createdAt = c.created_at || '최근';
+
+      return '<div class="glass-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">' +
+          '<div>' +
+            '<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">' +
+              '<span class="badge badge-dong">저장된 코스</span>' +
+              '<h3 id="courseTitleText_' + idx + '" style="font-size: 1.2rem; font-weight: 800; color: #fff;">' + courseTitle + '</h3>' +
+              '<button class="btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" onclick="inlineEditCourseTitle(' + idx + ')">✏️ 인라인 수정</button>' +
+            '</div>' +
+            '<p style="font-size: 0.88rem; color: var(--accent-cyan); margin-bottom: 6px;">' +
+              '📍 코스 경로: ' + itemsStr +
+            '</p>' +
+            '<p style="font-size: 0.8rem; color: var(--text-muted);">' +
+              '교통수단: ' + transport + ' | 예상 소요시간: 약 ' + totalTime + '분 | 저장일: ' + createdAt +
+            '</p>' +
+          '</div>' +
+          '<div style="display: flex; gap: 10px;">' +
+            '<button class="btn-secondary" style="font-size: 0.88rem;" onclick="openSavedCourseDetail(' + idx + ')">' +
+              '📖 상세보기 / AI 잡지' +
+            '</button>' +
+            '<button class="btn-primary" style="font-size: 0.88rem;" onclick="openSavedCourseReview(' + idx + ')">' +
+              '✍️ 후기 작성하기' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function inlineEditCourseTitle(index) {
+    var course = appState.savedCourses[index];
+    if (!course) return;
+    var currentTitle = course.course_name || course.title || '';
+    var newTitle = prompt("변경할 코스 이름을 입력하세요:", currentTitle);
+    if (newTitle && newTitle.trim()) {
+      course.course_name = newTitle.trim();
+      course.title = newTitle.trim();
+      renderMyCoursesList();
+      showToast("코스 이름이 변경되었습니다.");
+    }
+  }
+
+  function renderMyCitizenList() {
+    var container = document.getElementById('myCitizenGrid');
+    var countEl = document.getElementById('myCitizenCount');
+    if (!container) return;
+
+    var mySubmissions = appState.citizenHeritages;
+    countEl.innerText = mySubmissions.length;
+
+    if (!mySubmissions.length) {
+      container.innerHTML = '<div class="glass-card" style="text-align: center; color: var(--text-sub);">제보한 문화유산이 없습니다.</div>';
+      return;
+    }
+
+    container.innerHTML = mySubmissions.map(function(item) {
+      var badgeClass = item.status === '승인' ? 'badge-status-approved' : item.status === '반려' ? 'badge-status-rejected' : 'badge-status-pending';
+      var submitter = item.submitted_by || 'user@sejong.go.kr';
+      return '<div class="glass-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">' +
+          '<div>' +
+            '<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">' +
+              '<span class="badge ' + badgeClass + '">' + (item.status || '대기') + '</span>' +
+              '<h4 style="font-size: 1.1rem; font-weight: 700; color: #fff;">' + (item.name || '') + '</h4>' +
+            '</div>' +
+            '<p style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 4px;">📍 ' + (item.address || '') + '</p>' +
+            '<p style="font-size: 0.82rem; color: var(--text-muted);">' + (item.reason || '') + '</p>' +
+          '</div>' +
+          '<div style="font-size: 0.8rem; color: var(--text-sub);">' +
+            '제보자: ' + submitter +
+          '</div>' +
+        '</div>';
+    }).join('');
+  }
+</script>

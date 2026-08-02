@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  name         String?
+  passwordHash String?
+  role         String     @default("citizen") // citizen | admin
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  heritages    Heritage[] @relation("ReportedHeritages")
+  courses      Course[]
+  reviews      Review[]
+  likes        HeritageLike[]
+
+  @@map("users")
+}
+
+model Heritage {
+  id               String          @id @default(uuid())
+  name             String
+  era              String?
+  dong             String?
+  latitude         Float?
+  longitude        Float?
+  description      String?
+  thinkingPoint    String?         @map("thinking_point")
+  source           String          // registered | citizen
+  status           String          @default("pending") // pending | approved | rejected
+  needsImprovement Boolean         @default(false) @map("needs_improvement")
+  likeCount        Int             @default(0) @map("like_count")
+  naverMapUrl      String?         @map("naver_map_url")
+  googleMapUrl     String?         @map("google_map_url")
+  reportedById     String?         @map("reported_by")
+  reportReason     String?         @map("report_reason")
+  reviewerNote     String?         @map("reviewer_note")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  reportedBy       User?           @relation("ReportedHeritages", fields: [reportedById], references: [id])
+  images           HeritageImage[]
+  likes            HeritageLike[]
+  courseItems      CourseItem[]
+  reviews          Review[]
+
+  @@map("heritages")
+}
+
+model HeritageImage {
+  id         String   @id @default(uuid())
+  heritageId String   @map("heritage_id")
+  imageUrl   String   @map("image_url")
+  sortOrder  Int      @default(0) @map("sort_order")
+
+  heritage   Heritage @relation(fields: [heritageId], references: [id], onDelete: Cascade)
+
+  @@map("heritage_images")
+}
+
+model HeritageLike {
+  id         String   @id @default(uuid())
+  heritageId String   @map("heritage_id")
+  userId     String   @map("user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  heritage   Heritage @relation(fields: [heritageId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([heritageId, userId])
+  @@map("heritage_likes")
+}
+
+model Course {
+  id               String       @id @default(uuid())
+  userId           String?      @map("user_id")
+  title            String?
+  transportMode    String?      @map("transport_mode")
+  totalDurationMin Int?         @map("total_duration_min")
+  isPublic         Boolean      @default(false) @map("is_public")
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  user             User?        @relation(fields: [userId], references: [id])
+  courseItems      CourseItem[]
+  reviews          Review[]
+  magazines        TravelMagazine[]
+
+  @@map("courses")
+}
+
+model CourseItem {
+  id         String   @id @default(uuid())
+  courseId   String   @map("course_id")
+  heritageId String   @map("heritage_id")
+  sortOrder  Int      @map("sort_order")
+
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  heritage   Heritage @relation(fields: [heritageId], references: [id])
+
+  @@map("course_items")
+}
+
+model Review {
+  id                String        @id @default(uuid())
+  userId            String?       @map("user_id")
+  courseId          String?       @map("course_id")
+  heritageId        String?       @map("heritage_id")
+  rating            Int?
+  companionType     String?       @map("companion_type")
+  content           String?
+  isRecommended     Boolean       @default(false) @map("is_recommended")
+  isPublic          Boolean       @default(true) @map("is_public")
+  parkingAvailable  Boolean?      @map("parking_available")
+  parkingNote       String?       @map("parking_note")
+  restroomAvailable Boolean?      @map("restroom_available")
+  restroomNote      String?       @map("restroom_note")
+  nearbyRestaurant  Boolean?      @map("nearby_restaurant")
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  user              User?         @relation(fields: [userId], references: [id])
+  course            Course?       @relation(fields: [courseId], references: [id])
+  heritage          Heritage?     @relation(fields: [heritageId], references: [id])
+  images            ReviewImage[]
+
+  @@map("reviews")
+}
+
+model ReviewImage {
+  id       String @id @default(uuid())
+  reviewId String @map("review_id")
+  imageUrl String @map("image_url")
+
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("review_images")
+}
+
+model TravelMagazine {
+  id          String    @id @default(uuid())
+  courseId    String?   @map("course_id")
+  contentHtml String?   @map("content_html")
+  pdfUrl      String?   @map("pdf_url")
+  sentToEmail String?   @map("sent_to_email")
+  sentAt      DateTime? @map("sent_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  course      Course?   @relation(fields: [courseId], references: [id])
+
+  @@map("travel_magazines")
+}

@@ -1,0 +1,1004 @@
+<script>
+    /* script.html - 공통 클라이언트 JS (SPA 라우팅, google.script.run 호출, 상태 관리) */
+
+    // Server Backend Endpoint Helper Function
+    function getServerUrl(path) {
+        var baseUrl = (typeof window !== 'undefined' && window.CLOUD_RUN_SERVER_URL)
+            ? window.CLOUD_RUN_SERVER_URL
+            : 'https://heritage-min-503408.us-central1.run.app';
+        if (!path) return baseUrl;
+        if (!path.startsWith('/')) path = '/' + path;
+        return baseUrl.replace(/\/$/, '') + path;
+    }
+    if (typeof window !== 'undefined') {
+        window.getServerUrl = getServerUrl;
+    }
+
+    // Global State Stores
+    var appState = window.appState = window.appState || {
+        currentTab: 'home',
+        officialHeritages: [],
+        citizenHeritages: [],
+        selectedHeritageDetail: null,
+        courseList: [],
+        savedCourses: [],
+        myCitizenSubmissions: [],
+        likesMap: {},
+        previousTab: 'home',
+        scrollPositionMap: {}
+    };
+
+    // Initialize App on Load
+    window.onload = function () {
+        navigateTo('home');
+        fetchInitialData();
+    };
+
+    function fetchInitialData() {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run.withSuccessHandler(function (res) {
+                if (res && res.official && res.official.length > 0) appState.officialHeritages = res.official;
+                if (res && res.citizen && res.citizen.length > 0) appState.citizenHeritages = res.citizen;
+                initScreenViews();
+            }).withFailureHandler(function (err) {
+                fetchSupabaseDirectly();
+            }).getInitialWebAppData();
+        } else {
+            fetchSupabaseDirectly();
+        }
+    }
+
+    function fetchSupabaseDirectly() {
+        fetch(getServerUrl('/api/heritages'))
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                var items = data.items || data || [];
+                if (Array.isArray(items) && items.length > 0) {
+                    appState.officialHeritages = items.filter(function (x) { return x.source !== 'citizen'; });
+                    appState.citizenHeritages = items.filter(function (x) { return x.source === 'citizen'; });
+                }
+                initScreenViews();
+            })
+            .catch(function (err) {
+                console.warn('Initial server fetch notice:', err);
+                initScreenViews();
+            });
+    }
+
+    // Declared View Function Proxies in Global Scope to prevent ReferenceErrors
+    function renderHomeView() {
+        if (typeof window.renderHomeViewImpl === 'function') window.renderHomeViewImpl();
+    }
+    function renderStatusOfficialView() {
+        if (typeof window.renderStatusOfficialViewImpl === 'function') window.renderStatusOfficialViewImpl();
+    }
+    function renderStatusCitizenView() {
+        if (typeof window.renderStatusCitizenViewImpl === 'function') window.renderStatusCitizenViewImpl();
+    }
+    function renderSearchView() {
+        if (typeof window.renderSearchViewImpl === 'function') window.renderSearchViewImpl();
+    }
+    function renderSearchDetailView(item) {
+        if (typeof window.renderSearchDetailViewImpl === 'function') window.renderSearchDetailViewImpl(item);
+    }
+    function renderCourseView() {
+        if (typeof window.renderCourseViewImpl === 'function') window.renderCourseViewImpl();
+    }
+    function renderMyPageView() {
+        if (typeof window.renderMyPageViewImpl === 'function') {
+            window.renderMyPageViewImpl();
+        } else if (typeof renderMyCoursesList === 'function') {
+            renderMyCoursesList();
+            if (typeof renderMyCitizenList === 'function') renderMyCitizenList();
+        }
+    }
+    function renderMyPageDetailView(course) {
+        if (typeof window.renderMyPageDetailViewImpl === 'function') window.renderMyPageDetailViewImpl(course);
+    }
+    function renderReviewView(course) {
+        if (typeof window.renderReviewViewImpl === 'function') window.renderReviewViewImpl(course);
+    }
+    function renderAdminView() {
+        if (typeof window.renderAdminViewImpl === 'function') window.renderAdminViewImpl();
+    }
+    function openCitizenReportModal() {
+        if (typeof window.openCitizenReportModalImpl === 'function') {
+            window.openCitizenReportModalImpl();
+        } else {
+            var modal = document.getElementById('citizenReportModal');
+            if (modal) modal.style.display = 'flex';
+        }
+    }
+    function closeCitizenReportModal() {
+        if (typeof window.closeCitizenReportModalImpl === 'function') {
+            window.closeCitizenReportModalImpl();
+        } else {
+            var modal = document.getElementById('citizenReportModal');
+            if (modal) modal.style.display = 'none';
+        }
+    }
+
+    function initScreenViews() {
+        try { renderHomeView(); } catch (e) {}
+        try { renderStatusOfficialView(); } catch (e) {}
+        try { renderStatusCitizenView(); } catch (e) {}
+        try { renderSearchView(); } catch (e) {}
+        try { renderMyPageView(); } catch (e) {}
+        try { updateCountsSummary(); } catch (e) {}
+        navigateTo('home');
+    }
+
+    // SPA Tab Routing Helper
+    function navigateTo(tabId, paramData) {
+        if (tabId === 'agentic_rag') {
+            navigateTo('admin', paramData);
+            return;
+        }
+        var mainEl = document.querySelector('.gas-main');
+        if (mainEl) {
+            appState.scrollPositionMap[appState.currentTab] = mainEl.scrollTop;
+        }
+        appState.previousTab = appState.currentTab;
+        appState.currentTab = tabId;
+
+        document.querySelectorAll('.tab-section').forEach(function (el) {
+            el.classList.remove('active');
+        });
+        document.querySelectorAll('.gas-nav-item').forEach(function (el) {
+            el.classList.remove('active');
+        });
+
+        var targetTabEl = document.getElementById('page_' + tabId);
+        if (targetTabEl) {
+            targetTabEl.classList.add('active');
+        }
+
+        var navBtn = document.getElementById('nav_' + tabId);
+        if (navBtn) {
+            navBtn.classList.add('active');
+        }
+
+        // Tab specific trigger actions
+        try {
+            if (tabId === 'home') renderHomeView();
+            if (tabId === 'status_official') renderStatusOfficialView();
+            if (tabId === 'status_citizen') renderStatusCitizenView();
+            if (tabId === 'search') {
+                renderSearchView();
+                if (paramData && paramData.query) {
+                    var qInput = document.getElementById('searchQueryInput');
+                    if (qInput) {
+                        qInput.value = paramData.query;
+                        executeSearch();
+                    }
+                }
+            }
+            if (tabId === 'search_detail') {
+                if (paramData && paramData.item) {
+                    appState.selectedHeritageDetail = paramData.item;
+                    renderSearchDetailView(paramData.item);
+                }
+            }
+            if (tabId === 'course') {
+                if (paramData && paramData.addItem) {
+                    addHeritageToCourse(paramData.addItem);
+                }
+                renderCourseView();
+            }
+            if (tabId === 'mypage') renderMyPageView();
+            if (tabId === 'mypage_detail') {
+                if (paramData && paramData.course) {
+                    renderMyPageDetailView(paramData.course);
+                }
+            }
+            if (tabId === 'review') {
+                if (paramData && paramData.course) {
+                    renderReviewView(paramData.course);
+                }
+            }
+            if (tabId === 'admin') renderAdminView();
+        } catch (e) {
+            console.warn('Navigation render exception swallowed:', e);
+        }
+
+        // Scroll restoration
+        if (mainEl && appState.scrollPositionMap[tabId]) {
+            mainEl.scrollTop = appState.scrollPositionMap[tabId];
+        } else if (mainEl) {
+            mainEl.scrollTop = 0;
+        }
+    }
+
+    // Bind navigateTo globally to safeguard against GCP Console / OAuth dialog script errors
+    window.performSafeNavigation = navigateTo;
+    if (typeof window.navigateTo !== 'function') {
+        window.navigateTo = navigateTo;
+    }
+
+    function goBack() {
+        if (appState.previousTab) {
+            navigateTo(appState.previousTab);
+        } else {
+            navigateTo('home');
+        }
+    }
+
+    // Toast Feedback Helper
+    function showToast(msg) {
+        var container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toastContainer';
+            document.body.appendChild(container);
+        }
+        var toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerText = msg;
+        container.appendChild(toast);
+        setTimeout(function () {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 3000);
+    }
+
+    // Like Toggle Handler (Updates local UI & Syncs heart count +1 to Supabase DB)
+    function toggleLike(id, event, itemName) {
+        if (event) event.stopPropagation();
+        var current = appState.likesMap[id] || 0;
+        appState.likesMap[id] = current + 1;
+        if (itemName) appState.likesMap[itemName] = current + 1;
+        showToast("❤️ 좋아요를 표했습니다!");
+
+        var targetNewHeart = null;
+        var targetName = itemName || '';
+
+        // Update UI elements dynamically
+        document.querySelectorAll('.like-count-' + id).forEach(function (el) {
+            var baseVal = parseInt(el.getAttribute('data-base-likes') || '1', 10);
+            targetNewHeart = baseVal + appState.likesMap[id];
+            el.innerText = targetNewHeart;
+            if (!targetName && el.getAttribute('data-item-name')) {
+                targetName = el.getAttribute('data-item-name');
+            }
+        });
+
+        if (targetNewHeart !== null) {
+            syncHeartToSupabase(id, targetNewHeart, targetName);
+        }
+    }
+
+    function syncHeartToSupabase(id, newHeart, itemName) {
+        var supabaseUrl = 'https://nmzrxczcytkkwgpiseaj.supabase.co';
+        var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw';
+
+        if (window.appState && Array.isArray(window.appState.citizenHeritages)) {
+            window.appState.citizenHeritages.forEach(function(item) {
+                if (item.id === id || String(item.id) === String(id) || (itemName && item.name === itemName)) {
+                    item.heart = newHeart;
+                    item.recommend_count = newHeart;
+                }
+            });
+        }
+        if (window.appState && Array.isArray(window.appState.officialHeritages)) {
+            window.appState.officialHeritages.forEach(function(item) {
+                if (item.id === id || String(item.id) === String(id) || (itemName && item.name === itemName)) {
+                    item.like_count = newHeart;
+                }
+            });
+        }
+
+        // 1. 서버(Server) 경유 Supabase 반영 우선 시도
+        var serverEndpoint = (typeof getServerUrl === 'function')
+          ? getServerUrl('/api/heritages/' + encodeURIComponent(id) + '/like?like_count=' + newHeart)
+          : null;
+
+        if (serverEndpoint) {
+            fetch(serverEndpoint, { method: 'POST' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                console.log('⚡ Server API like update response:', data);
+                if (data && (data.status === 'success' || data.like_count !== undefined)) {
+                    showToast("✅ 서버 경유 Supabase DB 좋아요(" + newHeart + ") 반영 완료!");
+                } else {
+                    fallbackSupabaseDirect();
+                }
+            })
+            .catch(function(err) {
+                console.warn('Server endpoint notice, using direct Supabase fallback:', err);
+                fallbackSupabaseDirect();
+            });
+        } else {
+            fallbackSupabaseDirect();
+        }
+
+        function fallbackSupabaseDirect() {
+            var isUUID = typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+            if (isUUID) {
+                executePatch('id=eq.' + encodeURIComponent(id), { heart: newHeart, recommend_count: newHeart, like_count: newHeart }, function() {
+                    if (itemName) {
+                        executePatch('name=eq.' + encodeURIComponent(itemName), { heart: newHeart, recommend_count: newHeart, like_count: newHeart }, null);
+                    }
+                });
+            } else if (itemName) {
+                executePatch('name=eq.' + encodeURIComponent(itemName), { heart: newHeart, recommend_count: newHeart, like_count: newHeart }, null);
+            }
+        }
+
+        function executePatch(queryParam, payloadObj, fallbackFn) {
+            var patchUrl = supabaseUrl + '/rest/v1/citizen_recommendations?' + queryParam;
+            fetch(patchUrl, {
+                method: 'PATCH',
+                headers: {
+                    'apikey': supabaseKey,
+                    'Authorization': 'Bearer ' + supabaseKey,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(payloadObj)
+            })
+            .then(function(res) {
+                return res.text().then(function(txt) {
+                    console.log('Supabase DB PATCH (' + queryParam + ') status:', res.status, 'body:', txt);
+                    if (res.ok) {
+                        showToast("✅ Supabase DB 하트(" + newHeart + ") 갱신 완료!");
+                    } else if (fallbackFn) {
+                        fallbackFn();
+                    }
+                });
+            })
+            .catch(function(err) {
+                console.warn('Supabase PATCH exception:', err);
+                if (fallbackFn) fallbackFn();
+            });
+        }
+
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    console.log('GAS incrementCitizenHeartGAS result:', res);
+                })
+                .incrementCitizenHeartGAS(id, newHeart, itemName);
+        }
+    }
+
+    function updateCountsSummary() {
+        var officialCount = appState.officialHeritages.length;
+        var approvedCitizenCount = appState.citizenHeritages.filter(function (h) { return h.status === '승인'; }).length;
+
+        document.querySelectorAll('.count-official-text').forEach(function (el) {
+            el.innerText = officialCount;
+        });
+        document.querySelectorAll('.count-citizen-text').forEach(function (el) {
+            el.innerText = approvedCitizenCount;
+        });
+
+        function applyStatusData(data) {
+            if (!data) return;
+            var supaH = document.getElementById('supaHeritagesCountText');
+            if (supaH) supaH.innerText = (data.heritages_count || 0) + '건 (실제 DB)';
+
+            var supaImg = document.getElementById('supaHeritageImagesCountText');
+            if (supaImg) supaImg.innerText = (data.images_count || 0) + '건 (실제 DB)';
+
+            var supaStore = document.getElementById('supaStorageCountText');
+            if (supaStore) supaStore.innerText = (data.images_count || 0) + '개 (Storage)';
+
+            var supaRev = document.getElementById('supaReviewsCountText');
+            if (supaRev) supaRev.innerText = (data.reviews_count || 0) + '건';
+        }
+
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run.withSuccessHandler(applyStatusData).getSupabaseStatusServerProxy();
+        } else {
+            var serverStatusUrl = getServerUrl('/api/admin/supabase-status');
+            fetch(serverStatusUrl)
+                .then(function (res) { return res.json(); })
+                .then(applyStatusData)
+                .catch(function (err) {
+                    console.warn('Supabase live status fetch notice:', err);
+                });
+        }
+    }
+
+    // Global Admin Parsed Excel & ZIP Image Storage Cache
+    window.adminParsedExcelData = [];
+    window.adminExtractedZipImages = {}; // filename -> ObjectURL/Blob
+
+    async function parseAndPreviewAdminExcelData() {
+        var excelInput = document.getElementById('adminExcelFileInput');
+        var zipInput = document.getElementById('adminZipFileInput');
+        var statusDiv = document.getElementById('adminZipExtractStatus');
+
+        if (!excelInput || !excelInput.files || excelInput.files.length === 0) {
+            alert('1번 로컬 엑셀 파일(.xlsx, .csv)을 먼저 선택해 주세요.');
+            return;
+        }
+
+        if (statusDiv) {
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '🔄 로컬 엑셀 파싱 및 ZIP 이미지 압축 해제 작업을 진행 중입니다...';
+        }
+
+        // 1. Process ZIP File if selected
+        window.adminExtractedZipImages = {};
+        if (zipInput && zipInput.files && zipInput.files.length > 0) {
+            try {
+                var zipFile = zipInput.files[0];
+                if (typeof JSZip !== 'undefined') {
+                    var jszip = new JSZip();
+                    var zipData = await jszip.loadAsync(zipFile);
+                    var zipImageCount = 0;
+
+                    for (var filename in zipData.files) {
+                        var fileObj = zipData.files[filename];
+                        if (!fileObj.dir && filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+                            var blob = await fileObj.async('blob');
+                            var objectUrl = URL.createObjectURL(blob);
+                            var baseName = filename.split('/').pop();
+                            var lowerName = baseName.toLowerCase();
+                            var nameNoExt = lowerName.substring(0, lowerName.lastIndexOf('.')) || lowerName;
+                            
+                            var imgObj = {
+                                blob: blob,
+                                url: objectUrl,
+                                originalName: baseName,
+                                lowerName: lowerName,
+                                nameNoExt: nameNoExt
+                            };
+
+                            window.adminExtractedZipImages[lowerName] = imgObj;
+                            window.adminExtractedZipImages[nameNoExt] = imgObj;
+                            zipImageCount++;
+                        }
+                    }
+                    if (statusDiv) {
+                        statusDiv.innerHTML += '<br>✅ ZIP 이미지 압축 해제 완료: 총 <strong>' + zipImageCount + '개</strong> 이미지 추출 성공!';
+                    }
+                }
+            } catch (err) {
+                console.warn('ZIP extraction notice:', err);
+            }
+        }
+
+        function findMatchingZipImage(hId, imgFileName, name) {
+            if (!window.adminExtractedZipImages) return null;
+            var zipMap = window.adminExtractedZipImages;
+
+            if (hId) {
+                var hLower = String(hId).trim().toLowerCase();
+                var hNoExt = hLower.substring(0, hLower.lastIndexOf('.')) || hLower;
+                if (zipMap[hLower]) return zipMap[hLower];
+                if (zipMap[hNoExt]) return zipMap[hNoExt];
+                if (zipMap[hLower + '.jpg']) return zipMap[hLower + '.jpg'];
+                if (zipMap[hLower + '.png']) return zipMap[hLower + '.png'];
+                if (zipMap[hLower + '.jpeg']) return zipMap[hLower + '.jpeg'];
+                if (zipMap[hLower + '.webp']) return zipMap[hLower + '.webp'];
+            }
+
+            if (imgFileName) {
+                var fLower = String(imgFileName).trim().toLowerCase();
+                var fNoExt = fLower.substring(0, fLower.lastIndexOf('.')) || fLower;
+                if (zipMap[fLower]) return zipMap[fLower];
+                if (zipMap[fNoExt]) return zipMap[fNoExt];
+            }
+
+            if (name) {
+                var nLower = String(name).trim().toLowerCase();
+                if (zipMap[nLower]) return zipMap[nLower];
+                if (zipMap[nLower + '.jpg']) return zipMap[nLower + '.jpg'];
+                if (zipMap[nLower + '.png']) return zipMap[nLower + '.png'];
+            }
+
+            return null;
+        }
+
+        // 2. Process Excel/CSV File
+        var excelFile = excelInput.files[0];
+        var reader = new FileReader();
+
+        reader.onload = function (e) {
+            try {
+                var rows = [];
+
+                if (typeof XLSX !== 'undefined' && (excelFile.name.endsWith('.xlsx') || excelFile.name.endsWith('.xls'))) {
+                    var data = new Uint8Array(e.target.result);
+                    var workbook = XLSX.read(data, { type: 'array' });
+                    var firstSheetName = workbook.SheetNames[0];
+                    var worksheet = workbook.Sheets[firstSheetName];
+                    var jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (jsonRows.length > 0) {
+                        var row1Headers = (jsonRows[0] || []).map(function(h, idx) {
+                            return h ? String(h).trim() : ('열 ' + (idx + 1));
+                        });
+                        window.adminExcelCustomHeaders = row1Headers;
+
+                        // Find column index mappings from Row 1 headers
+                        var hIdIdx = 0, nameIdx = 1, eraIdx = 2, dongIdx = 3, descIdx = 4, thinkIdx = 5, imgIdx = 6;
+                        row1Headers.forEach(function(colName, idx) {
+                            var c = String(colName).toLowerCase();
+                            if (c.includes('h_id') || c === 'hid' || c === 'id') hIdIdx = idx;
+                            else if (c.includes('명칭') || c.includes('name') || c.includes('유산명') || c.includes('문화유산')) nameIdx = idx;
+                            else if (c.includes('시대') || c.includes('era')) eraIdx = idx;
+                            else if (c.includes('동') || c.includes('읍') || c.includes('면') || c.includes('소재지') || c.includes('위치')) dongIdx = idx;
+                            else if (c.includes('소개') || c.includes('설명') || c.includes('내용') || c.includes('description')) descIdx = idx;
+                            else if (c.includes('생각') || c.includes('point') || c.includes('think')) thinkIdx = idx;
+                            else if (c.includes('이미지') || c.includes('사진') || c.includes('파일') || c.includes('image')) imgIdx = idx;
+                        });
+
+                        // Parse data starting from Row 2 (index 1)
+                        for (var i = 1; i < jsonRows.length; i++) {
+                            var r = jsonRows[i];
+                            if (!r || r.length === 0) continue;
+
+                            var hIdVal = r[hIdIdx] ? String(r[hIdIdx]).trim() : ('H' + i);
+                            var nameVal = r[nameIdx] ? String(r[nameIdx]).trim() : (r[0] ? String(r[0]).trim() : '문화유산명');
+                            var eraVal = r[eraIdx] ? String(r[eraIdx]).trim() : '조선시대';
+                            var dongVal = r[dongIdx] ? String(r[dongIdx]).trim() : '세종특별자치시';
+                            var descVal = r[descIdx] ? String(r[descIdx]).trim() : '문화유산 소개';
+                            var thinkVal = r[thinkIdx] ? String(r[thinkIdx]).trim() : '생각할 거리';
+                            var imgFileVal = r[imgIdx] ? String(r[imgIdx]).trim() : '';
+
+                            var matchedImg = findMatchingZipImage(hIdVal, imgFileVal, nameVal);
+
+                            rows.push({
+                                h_id: hIdVal,
+                                name: nameVal,
+                                era: eraVal,
+                                dong: dongVal,
+                                dong_eup_myeon: dongVal,
+                                description: descVal,
+                                thinkingPoint: thinkVal,
+                                thinking_point: thinkVal,
+                                think_about: thinkVal,
+                                imageFileName: imgFileVal || (matchedImg ? matchedImg.originalName : ''),
+                                matchedZipImage: matchedImg
+                            });
+                        }
+                    }
+                } else {
+                    var text = new TextDecoder('utf-8').decode(e.target.result);
+                    var lines = text.split('\n');
+                    if (lines.length > 0) {
+                        var row1Cols = lines[0].split(',').map(function(c, idx) {
+                            return c ? c.replace(/"/g, '').trim() : ('열 ' + (idx + 1));
+                        });
+                        window.adminExcelCustomHeaders = row1Cols;
+
+                        // Parse CSV data starting from Row 2 (index 1)
+                        for (var j = 1; j < lines.length; j++) {
+                            var line = lines[j].trim();
+                            if (!line) continue;
+                            var cols = line.split(',');
+                            var hIdVal = cols[0] ? cols[0].replace(/"/g, '').trim() : ('H' + j);
+                            var nameVal = cols[1] ? cols[1].replace(/"/g, '').trim() : (cols[0] ? cols[0].replace(/"/g, '').trim() : '문화유산명');
+                            var eraVal = cols[2] ? cols[2].replace(/"/g, '').trim() : '조선시대';
+                            var dongVal = cols[3] ? cols[3].replace(/"/g, '').trim() : '세종특별자치시';
+                            var descVal = cols[4] ? cols[4].replace(/"/g, '').trim() : '소개 설명';
+                            var thinkVal = cols[5] ? cols[5].replace(/"/g, '').trim() : '생각할 거리';
+                            var imgFileVal = cols[6] ? cols[6].replace(/"/g, '').trim() : '';
+
+                            var matchedImg = findMatchingZipImage(hIdVal, imgFileVal, nameVal);
+
+                            rows.push({
+                                h_id: hIdVal,
+                                name: nameVal,
+                                era: eraVal,
+                                dong: dongVal,
+                                dong_eup_myeon: dongVal,
+                                description: descVal,
+                                thinkingPoint: thinkVal,
+                                thinking_point: thinkVal,
+                                think_about: thinkVal,
+                                imageFileName: imgFileVal || (matchedImg ? matchedImg.originalName : ''),
+                                matchedZipImage: matchedImg
+                            });
+                        }
+                    }
+                }
+
+                if (rows.length === 0) {
+                    alert('선택한 엑셀/CSV 파일에 파싱 가능한 레코드가 없습니다.');
+                    if (statusDiv) statusDiv.style.display = 'none';
+                    return;
+                }
+
+                window.adminParsedExcelData = rows;
+                renderAdminExcelPreview(rows, false, window.adminExcelCustomHeaders);
+
+                if (statusDiv) {
+                    var matchedCount = rows.filter(function(r) { return r.matchedZipImage; }).length;
+                    statusDiv.innerHTML += '<br>🎉 엑셀 <strong>' + rows.length + '건</strong> 파싱 완료! (1행 헤더 추출, 2행부터 데이터 적재 / ZIP 이미지 매칭: <strong>' + matchedCount + '건</strong>)';
+                }
+            } catch (err) {
+                alert('엑셀 파일 읽기 오류: ' + err.message);
+            }
+        };
+
+        if (excelFile.name.endsWith('.xlsx') || excelFile.name.endsWith('.xls')) {
+            reader.readAsArrayBuffer(excelFile);
+        } else {
+            reader.readAsArrayBuffer(excelFile);
+        }
+    }
+
+    function renderAdminExcelPreview(rows, isSynced, customHeaders) {
+        var container = document.getElementById('adminExcelPreviewContainer');
+        var tbody = document.getElementById('adminExcelPreviewTbody');
+        var thead = document.getElementById('adminExcelPreviewThead');
+        var countBadge = document.getElementById('adminParsedCountBadge');
+        if (!container || !tbody) return;
+
+        container.style.display = 'block';
+        tbody.innerHTML = '';
+
+        var headers = customHeaders || window.adminExcelCustomHeaders || [];
+        if (thead) {
+            thead.innerHTML =
+                '<tr style="border-bottom: 1px solid var(--border-color); color: var(--accent-cyan); background: rgba(255,255,255,0.03);">' +
+                '<th style="padding: 10px;">사진 미리보기</th>' +
+                '<th style="padding: 10px;">' + (headers[0] || 'H_ID') + '</th>' +
+                '<th style="padding: 10px;">' + (headers[1] || '명칭') + '</th>' +
+                '<th style="padding: 10px;">' + (headers[2] || '소재지') + '</th>' +
+                '<th style="padding: 10px;">' + (headers[3] || '소개') + '</th>' +
+                '<th style="padding: 10px;">' + (headers[4] || '시대') + '</th>' +
+                '<th style="padding: 10px;">' + (headers[5] || '생각할 거리') + '</th>' +
+                '<th style="padding: 10px;">ZIP 이미지 매칭</th>' +
+                '<th style="padding: 10px;">동기화 상태</th>' +
+                '</tr>';
+        }
+
+        if (countBadge) {
+            countBadge.innerText = rows.length + '건 ' + (isSynced ? '(Supabase 동기화)' : '(로컬 불러오기)');
+            countBadge.style.background = isSynced ? 'rgba(0, 245, 212, 0.2)' : 'rgba(245, 158, 11, 0.2)';
+            countBadge.style.color = isSynced ? 'var(--accent-cyan)' : 'var(--accent-amber)';
+        }
+
+        rows.forEach(function (r, idx) {
+            var tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+
+            var matchedImgUrl = 'https://images.unsplash.com/photo-1548625149-fc4a29cf7092?w=400';
+            var imgLabel = '📷 이미지 미매칭';
+            var statusBadge = '<span class="badge badge-era" style="font-size:0.75rem; background:rgba(245,158,11,0.2); color:var(--accent-amber);">⏳ Supabase 미저장</span>';
+
+            if (isSynced) {
+                matchedImgUrl = r.supabaseStorageUrl || r.image_url || matchedImgUrl;
+                imgLabel = '☁️ Supabase Storage';
+                statusBadge = '<span class="badge badge-era" style="font-size:0.75rem; background:rgba(0,245,212,0.2); color:var(--accent-cyan);">✅ DB & Storage 동기화 완료</span>';
+            } else if (r.matchedZipImage) {
+                matchedImgUrl = r.matchedZipImage.url;
+                imgLabel = '📦 ZIP 매칭: ' + r.matchedZipImage.originalName;
+            } else if (r.imageFileName) {
+                imgLabel = '📷 파일명: ' + r.imageFileName;
+            }
+
+            var hIdTag = r.h_id ? '<span class="badge badge-dong" style="font-size:0.78rem;">' + r.h_id + '</span>' : '<span style="color:var(--text-muted); font-size:0.78rem;">-</span>';
+            var dbIdTag = r.id ? '<div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;">DB ID: ' + r.id + '</div>' : '';
+
+            tr.innerHTML =
+                '<td style="padding:10px;">' +
+                '<img src="' + matchedImgUrl + '" style="width:65px; height:48px; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.2);" alt="preview">' +
+                '</td>' +
+                '<td style="padding:10px;">' + hIdTag + dbIdTag + '</td>' +
+                '<td style="padding:10px; font-weight:bold; color:#fff;">' + (r.name || '미정') + '</td>' +
+                '<td style="padding:10px;">' + (r.dong || '세종시') + '</td>' +
+                '<td style="padding:10px; font-size:0.8rem; color:#cbd5e1; max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + (r.description || '') + '</td>' +
+                '<td style="padding:10px; color:var(--accent-amber); font-weight:600;">' + (r.era || '조선시대') + '</td>' +
+                '<td style="padding:10px; font-size:0.8rem; color:#94a3b8; max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + (r.thinkingPoint || '') + '</td>' +
+                '<td style="padding:10px; font-size:0.75rem; color:var(--accent-cyan);">' + imgLabel + '</td>' +
+                '<td style="padding:10px;">' + statusBadge + '</td>';
+            tbody.appendChild(tr);
+        });
+    }
+
+    function sanitizeRecordsForGAS(records) {
+        if (!records || !Array.isArray(records)) return [];
+        return records.map(function (r, idx) {
+            var dongVal = r.dong || r.dong_eup_myeon || '세종특별자치시';
+            var eraVal = r.era || '조선시대';
+            var thinkVal = r.thinkingPoint || r.thinking_point || r.think_about || '세종시 문화유산의 가치를 느껴봅시다.';
+            var descVal = r.description || '문화유산 소개';
+            var imgUrl = r.supabaseStorageUrl || r.image_url || 'https://images.unsplash.com/photo-1548625149-fc4a29cf7092?w=800';
+
+            return {
+                h_id: r.h_id || ('H' + (idx + 1)),
+                name: r.name || '문화유산명',
+                era: eraVal,
+                era_normalized: eraVal,
+                dong: dongVal,
+                dong_eup_myeon: dongVal,
+                description: descVal,
+                thinkingPoint: thinkVal,
+                thinking_point: thinkVal,
+                think_about: thinkVal,
+                imageFileName: r.imageFileName || '',
+                image_url: imgUrl,
+                supabaseStorageUrl: imgUrl
+            };
+        });
+    }
+
+    async function uploadBlobToSupabaseStorage(blob, fileName) {
+        var SUPABASE_URL = 'https://nmzrxczcytkkwgpiseaj.supabase.co';
+        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw';
+        var BUCKET_NAME = 'heritage-images';
+
+        if (!blob) {
+            console.error('업로드할 이미지 Blob이 없습니다.');
+            return SUPABASE_URL + '/storage/v1/object/public/' + BUCKET_NAME + '/' + encodeURIComponent(fileName || 'image.jpg');
+        }
+
+        if (!fileName) {
+            fileName = 'img_' + Date.now() + '.jpg';
+        }
+
+        var safeFileName = fileName.split('/').map(function (part) {
+            return encodeURIComponent(part);
+        }).join('/');
+
+        var uploadUrl = SUPABASE_URL + '/storage/v1/object/' + BUCKET_NAME + '/' + safeFileName;
+
+        console.log('Storage upload URL:', uploadUrl);
+        console.log('Blob type:', blob.type);
+        console.log('Blob size:', blob.size);
+
+        try {
+            var response = await fetch(uploadUrl, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                    'Content-Type': blob.type || 'image/jpeg',
+                    'x-upsert': 'true'
+                },
+                body: blob
+            });
+
+            var responseText = await response.text();
+            console.log('Storage upload status:', response.status, responseText);
+
+            if (response.ok || response.status === 200 || response.status === 201) {
+                var publicUrl = SUPABASE_URL + '/storage/v1/object/public/' + BUCKET_NAME + '/' + safeFileName;
+                return publicUrl;
+            } else {
+                console.warn('Supabase Storage 업로드 상태:', response.status, responseText);
+            }
+        } catch (err) {
+            console.warn('Storage upload exception notice:', err);
+        }
+
+        // Fallback: GAS Server-side Proxy Upload (if client network error or browser policy occurs)
+        try {
+            var base64Data = await new Promise(function (resolve) {
+                var reader = new FileReader();
+                reader.onloadend = function () {
+                    var result = reader.result || '';
+                    var base64 = result.split(',')[1] || result;
+                    resolve(base64);
+                };
+                reader.readAsDataURL(blob);
+            });
+
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                var gasRes = await new Promise(function (resolve) {
+                    google.script.run
+                        .withSuccessHandler(resolve)
+                        .withFailureHandler(function () { resolve(null); })
+                        .uploadImageToSupabaseStorageGAS(base64Data, safeFileName);
+                });
+                if (gasRes && (gasRes.publicUrl || gasRes.public_url)) {
+                    return gasRes.publicUrl || gasRes.public_url;
+                }
+            }
+        } catch (e) {
+            console.warn('GAS proxy upload fallback notice:', e);
+        }
+
+        return SUPABASE_URL + '/storage/v1/object/public/' + BUCKET_NAME + '/' + safeFileName;
+    }
+
+    async function saveAdminDataToSupabase() {
+        var records = window.adminParsedExcelData;
+        if (!records || records.length === 0) {
+            alert('먼저 엑셀 파일 불러오기 및 ZIP 압축 해제를 수행해 주세요.');
+            return;
+        }
+
+        var statusDiv = document.getElementById('adminZipExtractStatus');
+        if (statusDiv) {
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '☁️ 1/2: 추출된 이미지를 Supabase Storage(heritage-images)에 업로드 중입니다...';
+        }
+
+        // Upload matched blobs to Storage
+        for (var i = 0; i < records.length; i++) {
+            var r = records[i];
+            if (r.matchedZipImage && r.matchedZipImage.blob) {
+                try {
+                    var uploadFileName = (r.h_id || ('img_' + (i + 1))) + '_' + r.matchedZipImage.originalName;
+                    var storagePublicUrl = await uploadBlobToSupabaseStorage(r.matchedZipImage.blob, uploadFileName);
+                    r.supabaseStorageUrl = storagePublicUrl;
+                    r.image_url = storagePublicUrl;
+                } catch (err) {
+                    console.warn('Storage upload error for record', i, err);
+                }
+            }
+        }
+
+        if (statusDiv) {
+            statusDiv.innerHTML = '☁️ 2/2: Supabase DB (heritages & heritage_images 테이블)로 일괄 이관 저장을 진행하고 있습니다...';
+        }
+
+        var cleanRecords = sanitizeRecordsForGAS(records);
+        var serverEndpoint = getServerUrl('/api/admin/import-excel');
+
+        function handleSuccess(data) {
+            if (!data || data.error) {
+                handleFail(data || { message: '데이터 이관 중 오류가 발생하였습니다.' });
+                return;
+            }
+            var returnedData = (data && data.data) ? data.data : cleanRecords;
+            alert('✅ ' + ((data && data.message) || ('총 ' + returnedData.length + '건의 데이터와 이미지가 Supabase DB(heritages & heritage_images) 및 Storage에 정식 이관 적재되었습니다!')));
+
+            window.adminParsedExcelData = returnedData;
+            renderAdminExcelPreview(returnedData, true);
+
+            returnedData.forEach(function (item) {
+                appState.officialHeritages.push(item);
+            });
+            updateCountsSummary();
+        }
+
+        function handleFail(err) {
+            var msg = (err && err.message) ? err.message : (typeof err === 'string' ? err : JSON.stringify(err));
+            alert('❌ Supabase 서버 연동 실패: ' + msg + '\n요청 대상 서버: ' + serverEndpoint);
+            if (statusDiv) {
+                statusDiv.style.borderLeftColor = 'var(--accent-rose)';
+                statusDiv.innerHTML = '❌ <strong>Supabase 서버 연결 실패:</strong> ' + msg;
+            }
+        }
+
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+                .withSuccessHandler(handleSuccess)
+                .withFailureHandler(handleFail)
+                .importExcelServerProxy(cleanRecords);
+        } else {
+            fetch(serverEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ records: records })
+            })
+                .then(function (res) {
+                    if (!res.ok) {
+                        throw new Error('서버 응답 오류 (HTTP ' + res.status + ')');
+                    }
+                    var contentType = res.headers.get('content-type');
+                    if (contentType && !contentType.includes('application/json')) {
+                        throw new Error('서버 응답이 JSON이 아닙니다 (HTML 페이지 반환)');
+                    }
+                    return res.json();
+                })
+                .then(handleSuccess)
+                .catch(handleFail);
+        }
+    }
+
+    function loadAdminDataFromSupabase() {
+        var statusDiv = document.getElementById('adminZipExtractStatus');
+        if (statusDiv) {
+            statusDiv.style.display = 'block';
+            statusDiv.style.borderLeftColor = 'var(--accent-cyan)';
+            statusDiv.innerHTML = '☁️ Supabase DB 최신 레코드를 연동하여 불러오는 중입니다...';
+        }
+
+        function processAndRenderRecords(items) {
+            if (!items || !Array.isArray(items) || items.length === 0) {
+                if (statusDiv) {
+                    statusDiv.style.borderLeftColor = 'var(--accent-amber)';
+                    statusDiv.innerHTML = '⚠️ <strong>Supabase DB 조회 완료:</strong> 등록된 유산 레코드가 아직 없습니다.';
+                }
+                alert('⚠️ Supabase DB에 저장된 유산 레코드가 아직 없습니다.');
+                return;
+            }
+
+            var dbRecords = items.map(function (item, idx) {
+                var imgUrl = (item.images && item.images.length > 0)
+                    ? (item.images[0].imageUrl || item.images[0].image_url)
+                    : (item.supabaseStorageUrl || item.image_url || 'https://images.unsplash.com/photo-1548625149-fc4a29cf7092?w=800');
+
+                return {
+                    id: item.id || ('supa-db-' + (idx + 1)),
+                    h_id: item.h_id || ('H' + (idx + 1)),
+                    name: item.name || '미정',
+                    era: item.era || '조선시대',
+                    dong: item.dong || item.dong_eup_myeon || '세종특별자치시',
+                    description: item.description || '',
+                    thinkingPoint: item.thinkingPoint || item.thinking_point || item.think_about || '',
+                    supabaseStorageUrl: imgUrl,
+                    image_url: imgUrl
+                };
+            });
+
+            window.adminParsedExcelData = dbRecords;
+            renderAdminExcelPreview(dbRecords, true);
+
+            if (statusDiv) {
+                statusDiv.style.borderLeftColor = 'var(--accent-cyan)';
+                statusDiv.innerHTML = '☁️ <strong>[Supabase DB 동기화 완료]</strong> 총 <strong>' + dbRecords.length + '건</strong>의 실제 Supabase DB 테이블 레코드가 엑셀 미리보기 화면에 연동 표시되었습니다.';
+            }
+        }
+
+        // Tier 1: Try GAS Backend Proxy via UrlFetchApp (Bypasses CORS & Browser Fetch Restrictions 100%)
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+                .withSuccessHandler(function (res) {
+                    if (res && res.status === 'success' && Array.isArray(res.data)) {
+                        processAndRenderRecords(res.data);
+                    } else if (res && Array.isArray(res)) {
+                        processAndRenderRecords(res);
+                    } else {
+                        fetchDirectSupabaseRest();
+                    }
+                })
+                .withFailureHandler(function (err) {
+                    console.warn('GAS fetchHeritagesGAS failed, trying Direct REST fallback:', err);
+                    fetchDirectSupabaseRest();
+                })
+                .fetchHeritagesGAS();
+        } else {
+            fetchDirectSupabaseRest();
+        }
+
+        // Tier 2: Direct Supabase REST API Fallback
+        function fetchDirectSupabaseRest() {
+            var supabaseUrl = 'https://nmzrxczcytkkwgpiseaj.supabase.co';
+            var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw';
+
+            fetch(supabaseUrl + '/rest/v1/heritages?select=*,images:heritage_images(*)&order=created_at.desc', {
+                method: 'GET',
+                headers: {
+                    'apikey': supabaseKey,
+                    'Authorization': 'Bearer ' + supabaseKey
+                }
+            })
+            .then(function (res) {
+                if (!res.ok) throw new Error('Supabase REST HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function (data) {
+                if (data && Array.isArray(data)) {
+                    processAndRenderRecords(data);
+                } else {
+                    fetchServerEndpointFallback();
+                }
+            })
+            .catch(function (err) {
+                console.warn('Direct Supabase REST failed, trying ServerEndpoint fallback:', err);
+                fetchServerEndpointFallback();
+            });
+        }
+
+        // Tier 3: Cloud Run ServerEndpoint Fallback
+        function fetchServerEndpointFallback() {
+            var serverEndpoint = getServerUrl('/api/heritages?source=registered');
+            fetch(serverEndpoint)
+                .then(function (res) {
+                    if (!res.ok) throw new Error('서버 응답 오류 (HTTP ' + res.status + ')');
+                    return res.json();
+                })
+                .then(function (resData) {
+                    var items = resData.items || resData || [];
+                    processAndRenderRecords(items);
+                })
+                .catch(function (err) {
+                    var msg = (err && err.message) ? err.message : JSON.stringify(err);
+                    alert('❌ Supabase DB 연동 실패: ' + msg);
+                    if (statusDiv) {
+                        statusDiv.style.borderLeftColor = 'var(--accent-rose)';
+                        statusDiv.innerHTML = '❌ <strong>Supabase 데이터베이스 조회 실패:</strong> ' + msg;
+                    }
+                });
+        }
+    }
+</script>

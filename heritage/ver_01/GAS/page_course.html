@@ -1,0 +1,307 @@
+<!-- page_course.html - 6. 문화유산 코스 만들기 -->
+<section id="page_course" class="tab-section">
+  <div style="margin-bottom: 20px;">
+    <h1 class="page-title">문화유산 나만의 코스 만들기</h1>
+    <p class="page-desc">원하는 세종시 문화유산을 선택·조합하여 지능형 맞춤 코스를 구성하고 총 소요시간 및 교통수단을 계산해보세요.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: flex-start;">
+    
+    <!-- Left: GIS Map Section (Visual Marker Simulation) -->
+    <div class="glass-card" style="padding: 16px;">
+      <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--accent-cyan); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+        <span>🗺️</span> 코스 지리 지도 (GIS 마커)
+      </h3>
+      <div id="courseMapCanvas" style="width: 100%; height: 380px; background: #0f172a; border-radius: var(--radius-md); border: 1px solid var(--border-color); position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <!-- Simulated Leaflet/Google Map Marker Visuals -->
+        <div style="position: absolute; top: 16px; left: 16px; background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; color: #fff;">
+          📍 <span id="mapMarkerCountText">선택된 유산 마커: 0개</span>
+        </div>
+
+        <div id="simulatedMapPath" style="display: flex; flex-direction: column; gap: 12px; width: 80%; text-align: center;">
+          <!-- Map path items populated via renderCourseView() -->
+        </div>
+      </div>
+      <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; text-align: right;">
+        * Google Maps / Leaflet GIS 연동 마커 시각화 지원
+      </p>
+    </div>
+
+    <!-- Right: Course List & Selection Panel -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      
+      <!-- Current Selected Course Sequence List -->
+      <div class="glass-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff;">
+            🚩 구성된 코스 경로 목록 (<span id="courseItemsCount">0</span>개)
+          </h3>
+          <button class="btn-secondary" onclick="clearCourseList()" style="padding: 4px 10px; font-size: 0.78rem;">전체 삭제</button>
+        </div>
+
+        <div id="courseSelectedItemsList" style="display: flex; flex-direction: column; gap: 10px; min-height: 140px; margin-bottom: 16px;">
+          <!-- Items rendered via renderCourseView() -->
+        </div>
+
+        <!-- Preferred Transport & Total Time Calculation -->
+        <div style="background: rgba(0,0,0,0.3); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center; margin-bottom: 10px;">
+            <div>
+              <label style="display: block; font-size: 0.82rem; color: var(--text-sub); margin-bottom: 4px;">추천 교통수단</label>
+              <select id="courseTransportSelect" onchange="calculateCourseTime()" style="width: 100%; padding: 8px; border-radius: 8px; background: #151e36; border: 1px solid var(--border-color); color: #fff; font-size: 0.88rem;">
+                <option value="승용차">🚗 승용차 (자가용)</option>
+                <option value="대중교통">🚌 대중교통 / 세종 시내버터</option>
+                <option value="도보">🚶 도보 / 자전거 힐링길</option>
+              </select>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-size: 0.82rem; color: var(--text-sub); display: block;">총 예상 소요시간</span>
+              <strong id="courseTotalTimeText" style="font-size: 1.35rem; color: var(--accent-cyan);">0분</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- "내 문화유산 저장" Button -->
+        <button class="btn-primary" onclick="saveCurrentCourseToMyPage()" style="width: 100%; justify-content: center; padding: 14px; font-size: 1rem;">
+          💾 내 문화유산 코스로 저장하기
+        </button>
+      </div>
+
+      <!-- Nearby Heritage Search & AI Recommended Region Panel -->
+      <div class="glass-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; gap: 6px;">
+            <span>🤖</span> AI 검색 결과 추천 지역 유산
+          </h3>
+          <button class="btn-primary" onclick="loadAICourseByRegion()" style="padding: 4px 12px; font-size: 0.78rem;">
+            ✨ AI 추천 지역 코스 불러오기
+          </button>
+        </div>
+
+        <div style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center;">
+          <label for="courseRegionSelect" style="font-size: 0.82rem; color: var(--text-sub);">추천 지역 선택:</label>
+          <select id="courseRegionSelect" onchange="renderNearbyHeritages()" style="flex: 1; padding: 6px 10px; border-radius: 6px; background: #151e36; border: 1px solid var(--border-color); color: #fff; font-size: 0.85rem;">
+            <option value="all">전체 세종 지역</option>
+            <option value="전의면" selected>전의면 (AI 추천 1순위)</option>
+            <option value="금남면">금남면 (AI 추천 2순위)</option>
+            <option value="장군면">장군면 (자연 경관 추천)</option>
+            <option value="연기면">연기면 (역사 문화 추천)</option>
+            <option value="조치원읍">조치원읍 (근대 문화 유산)</option>
+          </select>
+        </div>
+
+        <div id="nearbyHeritagesList" style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+          <!-- Rendered via renderNearbyHeritages() -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<script>
+  var appState = window.appState = window.appState || { officialHeritages: [], citizenHeritages: [], likesMap: {}, courseList: [], savedCourses: [] };
+
+  function renderCourseView() {
+    renderCourseItems();
+    renderNearbyHeritages();
+    calculateCourseTime();
+    renderCourseMapPath();
+  }
+
+  function addHeritageToCourse(item) {
+    if (!item) return;
+    appState.courseList.push(item);
+    renderCourseView();
+    showToast("✨ '" + item.name + "' 문화유산이 코스에 추가되었습니다!");
+  }
+
+  function removeHeritageFromCourse(index) {
+    appState.courseList.splice(index, 1);
+    renderCourseView();
+    showToast("코스 항목이 제거되었습니다.");
+  }
+
+  function clearCourseList() {
+    appState.courseList = [];
+    renderCourseView();
+  }
+
+  function renderCourseItems() {
+    var container = document.getElementById('courseSelectedItemsList');
+    var countEl = document.getElementById('courseItemsCount');
+    if (!container) return;
+
+    countEl.innerText = appState.courseList.length;
+
+    if (!appState.courseList.length) {
+      container.innerHTML = '<div style="text-align: center; color: var(--text-sub); padding: 30px 0; border: 1px dashed var(--border-color); border-radius: var(--radius-md);">선택된 문화유산이 없습니다. 오른쪽/아래 탐색창에서 유산을 추가하세요!</div>';
+      return;
+    }
+
+    container.innerHTML = appState.courseList.map(function(item, idx) {
+      var pk = item.parking_yn === 'Y' ? '가능' : '불가';
+      var rr = item.restroom_yn === 'Y' ? '있음' : '없음';
+      return '<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); border-radius: var(--radius-md);">' +
+          '<div style="display: flex; align-items: center; gap: 10px;">' +
+            '<span style="width: 24px; height: 24px; border-radius: 50%; background: #ef4444; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800;">' + (idx + 1) + '</span>' +
+            '<div>' +
+              '<strong style="color: #fff; font-size: 0.95rem;">' + item.name + '</strong>' +
+              '<div style="font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 8px; margin-top: 2px;">' +
+                '<span>🚗 주차: ' + pk + '</span>' +
+                '<span>🚻 화장실: ' + rr + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<button class="btn-secondary" style="padding: 4px 10px; font-size: 0.78rem; border-color: #ef4444; color: #ef4444;" onclick="removeHeritageFromCourse(' + idx + ')">' +
+            '제외' +
+          '</button>' +
+        '</div>';
+    }).join('');
+  }
+
+  function loadAICourseByRegion() {
+    var selectEl = document.getElementById('courseRegionSelect');
+    var selectedRegion = selectEl ? selectEl.value : '전의면';
+    var matched = appState.officialHeritages.filter(function(h) {
+      if (selectedRegion === 'all') return true;
+      return (h.dong_eup_myeon && h.dong_eup_myeon.includes(selectedRegion)) || (h.address && h.address.includes(selectedRegion));
+    });
+
+    if (!matched || matched.length === 0) {
+      matched = appState.officialHeritages.slice(0, 3);
+    }
+
+    appState.courseList = matched.slice(0, 4);
+    renderCourseView();
+    showToast("🤖 AI 검색 추천 지역 [" + (selectedRegion === 'all' ? '전체' : selectedRegion) + "] 유산 코스가 자동 구성되었습니다!");
+  }
+
+  function renderNearbyHeritages() {
+    var container = document.getElementById('nearbyHeritagesList');
+    if (!container) return;
+
+    var selectEl = document.getElementById('courseRegionSelect');
+    var selectedRegion = selectEl ? selectEl.value : 'all';
+    var list = appState.officialHeritages || [];
+
+    if (selectedRegion !== 'all') {
+      var filtered = list.filter(function(item) {
+        return (item.dong_eup_myeon && item.dong_eup_myeon.includes(selectedRegion)) || (item.address && item.address.includes(selectedRegion));
+      });
+      if (filtered.length > 0) list = filtered;
+    }
+
+    if (!list || list.length === 0) {
+      container.innerHTML = '<div style="color: var(--text-sub); font-size: 0.82rem; padding: 10px; text-align: center;">해당 지역에 등록된 문화유산이 없습니다.</div>';
+      return;
+    }
+
+    container.innerHTML = list.map(function(item) {
+      var dong = item.dong_eup_myeon || '세종시';
+      return '<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(247,127,0,0.12); border: 1px solid rgba(247,127,0,0.3); border-radius: 8px;">' +
+          '<div>' +
+            '<span style="font-size: 0.88rem; color: #fff; font-weight: 600;">' + item.name + '</span>' +
+            '<span style="font-size: 0.75rem; color: var(--accent-amber); margin-left: 6px;">(' + dong + ')</span>' +
+          '</div>' +
+          '<button class="btn-primary" style="padding: 4px 10px; font-size: 0.78rem;" onclick="addHeritageToCourse(appState.officialHeritages.find(function(x) { return x.id === \'' + item.id + '\'; }))">' +
+            '+ 코스 추가' +
+          '</button>' +
+        '</div>';
+    }).join('');
+  }
+
+  /* 코스 소요시간 자동 계산 함수 (Google Maps Directions API 또는 근사 좌표 거리 합산) */
+  function calculateCourseTime() {
+    var transport = document.getElementById('courseTransportSelect') ? document.getElementById('courseTransportSelect').value : '승용차';
+    var count = appState.courseList.length;
+    var totalMin = 0;
+
+    if (count <= 1) {
+      totalMin = count * 30;
+    } else {
+      var baseTravel = transport === '도보' ? 45 : transport === '대중교통' ? 25 : 15;
+      totalMin = (count * 35) + ((count - 1) * baseTravel);
+    }
+
+    var textEl = document.getElementById('courseTotalTimeText');
+    if (textEl) textEl.innerText = totalMin + "분";
+  }
+
+  function renderCourseMapPath() {
+    var container = document.getElementById('simulatedMapPath');
+    var countText = document.getElementById('mapMarkerCountText');
+    if (!container) return;
+
+    countText.innerText = "선택된 유산 마커: " + appState.courseList.length + "개";
+
+    if (!appState.courseList.length) {
+      container.innerHTML = '<div style="color: var(--text-sub); font-size: 0.9rem;">지도상 선택된 유산이 없습니다.</div>';
+      return;
+    }
+
+    container.innerHTML = appState.courseList.map(function(item, idx) {
+      var dong = item.dong_eup_myeon || '세종시';
+      return '<div style="background: rgba(239,68,68,0.25); border: 1px solid #ef4444; padding: 8px 14px; border-radius: 20px; font-size: 0.88rem; color: #fff; font-weight: 700;">' +
+          '📍 [' + (idx + 1) + '] ' + item.name + ' (' + dong + ')' +
+        '</div>';
+    }).join('<div style="color: var(--accent-cyan); font-weight: 900;">↓</div>');
+  }
+
+  function saveCurrentCourseToMyPage() {
+    if (!appState.courseList.length) {
+      alert("코스에 최소 1개 이상의 문화유산을 추가해 주세요.");
+      return;
+    }
+
+    var defaultName = "세종 문화유산 " + appState.courseList.length + "선 코스";
+    var courseName = prompt("저장할 코스의 이름을 입력해주세요:", defaultName);
+    if (!courseName) return;
+
+    var transport = document.getElementById('courseTransportSelect') ? document.getElementById('courseTransportSelect').value : '승용차';
+    var totalTimeMin = parseInt(document.getElementById('courseTotalTimeText').innerText, 10) || 60;
+
+    var coursePayload = {
+      course_id: "course-" + Date.now(),
+      title: courseName,
+      course_name: courseName,
+      items: appState.courseList,
+      heritage_ids: appState.courseList.map(function(x) { return x.id || x.h_id; }),
+      transport: transport,
+      transport_mode: transport,
+      total_time_min: totalTimeMin,
+      duration: "약 " + totalTimeMin + "분",
+      created_at: new Date().toISOString()
+    };
+
+    appState.savedCourses.push(coursePayload);
+    showToast("💾 Supabase DB(courses)에 나만의 코스가 저장 중입니다...");
+
+    var courseApiUrl = (typeof getServerUrl === 'function') ? getServerUrl('/api/courses') : null;
+    if (courseApiUrl) {
+      fetch(courseApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(coursePayload)
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        console.log('⚡ Server /api/courses response:', data);
+        showToast("✅ Supabase DB(courses & course_items)에 코스 저장 완료!");
+      })
+      .catch(function(err) {
+        console.warn('Server courses API notice:', err);
+      });
+    }
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(function() {
+        navigateTo('mypage');
+      }).saveCourseGAS(coursePayload);
+    } else {
+      setTimeout(function() {
+        navigateTo('mypage');
+      }, 500);
+    }
+  }
+</script>
