@@ -65,6 +65,21 @@ def get_public_config():
         "map_provider": settings.MAP_PROVIDER
     }
 
+from app.services.guidebook_service import run_guidebook_generation
+
+class GuidebookRequest(BaseModel):
+    heritages: List[str]
+
+@router.post("/api/v1/guidebook")
+def process_guidebook(req: GuidebookRequest):
+    """지정된 문화유산들에 대한 스토리보드 관광 가이드북 다중 에이전트 생성 API"""
+    result = run_guidebook_generation(req.heritages)
+    return result
+
+@router.options("/api/v1/guidebook")
+def options_guidebook():
+    return {"status": "ok"}
+
 @router.get("/api/agentic-rag/graph")
 @router.get("/api/v1/agentic-rag/graph")
 def get_workflow_graph():

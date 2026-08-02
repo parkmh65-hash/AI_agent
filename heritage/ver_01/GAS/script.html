@@ -1001,4 +1001,55 @@
                 });
         }
     }
+
+    // Global Kakao Map Load Helpers
+    function ensureKakaoMapsLoaded(callback) {
+        if (window.appState && window.appState.config) {
+            loadKakaoScript(window.appState.config.kakao_javascript_key, callback);
+            return;
+        }
+        var configUrl = (typeof getServerUrl === 'function') ? getServerUrl('/api/v1/config') : null;
+        if (!configUrl) {
+            console.warn("Server URL helper is not available. Falling back to offline simulator.");
+            if (callback) callback();
+            return;
+        }
+        fetch(configUrl)
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (window.appState) window.appState.config = data;
+            if (data.kakao_javascript_key) {
+              loadKakaoScript(data.kakao_javascript_key, callback);
+            } else {
+              console.warn("Kakao JS Key is missing in server configuration. Falling back to simulator.");
+              if (callback) callback();
+            }
+          })
+          .catch(function(err) {
+            console.warn("Failed to fetch public config from backend:", err);
+            if (callback) callback();
+          });
+    }
+    window.ensureKakaoMapsLoaded = ensureKakaoMapsLoaded;
+
+    function loadKakaoScript(appKey, callback) {
+        if (window.kakao && window.kakao.maps) {
+            if (callback) callback();
+            return;
+        }
+        var script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + appKey + '&autoload=false&libraries=services';
+        script.onload = function() {
+            kakao.maps.load(function() {
+                if (callback) callback();
+            });
+        };
+        script.onerror = function() {
+            console.warn("Kakao Map SDK load failed. Initializing simulator mode.");
+            if (callback) callback();
+        };
+        document.head.appendChild(script);
+    }
+    window.loadKakaoScript = loadKakaoScript;
 </script>

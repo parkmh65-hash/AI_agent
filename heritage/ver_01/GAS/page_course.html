@@ -61,10 +61,15 @@
           </div>
         </div>
 
-        <!-- "내 문화유산 저장" Button -->
-        <button class="btn-primary" onclick="saveCurrentCourseToMyPage()" style="width: 100%; justify-content: center; padding: 14px; font-size: 1rem;">
-          💾 내 문화유산 코스로 저장하기
-        </button>
+        <!-- Actions row -->
+        <div style="display: flex; gap: 12px; margin-top: 6px;">
+          <button class="btn-primary" onclick="saveCurrentCourseToMyPage()" style="flex: 1.2; justify-content: center; padding: 14px; font-size: 0.95rem;">
+            💾 내 코스로 저장
+          </button>
+          <button class="btn-primary" onclick="generateGuidebookStoryboard()" style="flex: 1; justify-content: center; padding: 14px; font-size: 0.95rem; background: linear-gradient(135deg, var(--accent-amber), var(--accent-rose)); border: none;">
+            📖 관광 가이드 북
+          </button>
+        </div>
       </div>
 
       <!-- Nearby Heritage Search & AI Recommended Region Panel -->
@@ -96,6 +101,24 @@
       </div>
 
     </div>
+  </div>
+
+  <!-- 관광 가이드북 스토리보드 출력 패널 -->
+  <div id="guidebookResponseContainer" style="display: none; flex-direction: column; gap: 18px; margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+      <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--accent-amber); display: flex; align-items: center; gap: 8px;">
+        📖 [관광 가이드북 스토리보드] 4대 협업 에이전트 결과
+      </h3>
+      <span id="guidebookStatusBadge" class="badge badge-era" style="background: rgba(247,127,0,0.15); color: var(--accent-amber);">대기 중</span>
+    </div>
+
+    <!-- 기획, 작성, 편집, 번역 진행 로그 -->
+    <div id="guidebookStepsLog" style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;">
+      <!-- 진행 로그 채워짐 -->
+    </div>
+
+    <!-- 최종 출력 영역 -->
+    <div id="guidebookOutputText" style="background: rgba(11,19,43,0.8); border: 1px solid rgba(247,127,0,0.3); border-radius: var(--radius-md); padding: 22px; line-height: 1.8; white-space: pre-wrap; font-size: 0.98rem; color: #e2e8f0; max-height: 480px; overflow-y: auto; font-family: 'Noto Sans KR', sans-serif;"></div>
   </div>
 </section>
 
@@ -302,6 +325,82 @@
       setTimeout(function() {
         navigateTo('mypage');
       }, 500);
+    }
+  }
+
+  async function generateGuidebookStoryboard() {
+    if (!appState.courseList || appState.courseList.length === 0) {
+      alert("먼저 코스에 문화유산을 1개 이상 추가해 주세요.");
+      return;
+    }
+
+    var heritages = appState.courseList.map(function(item) { return item.name; });
+    var container = document.getElementById('guidebookResponseContainer');
+    var badge = document.getElementById('guidebookStatusBadge');
+    var logArea = document.getElementById('guidebookStepsLog');
+    var outputText = document.getElementById('guidebookOutputText');
+
+    if (container) container.style.display = 'flex';
+    if (badge) badge.innerText = '⚙️ 에이전트 협업 중...';
+    if (logArea) {
+      logArea.innerHTML = 
+        '<div style="color: #00f5d4; font-weight: 700;">📋 [1단계: 기획 에이전트] 스토리보드 컨셉 및 테마 기획 중...</div>' +
+        '<div style="color: #38bdf8; font-weight: 700;">✍️ [2단계: 작성 에이전트] 문화재 초안 한글 스토리텔링 작성 중...</div>' +
+        '<div style="color: #fbbf24; font-weight: 700;">🔍 [3단계: 편집 에이전트] 가독성 정비 및 하이라이트 레이아웃 구성 중...</div>' +
+        '<div style="color: #f72585; font-weight: 700;">🌐 [4단계: 번역 에이전트] 글로벌 영어 번역본 생성 중...</div>';
+    }
+    if (outputText) outputText.innerText = "⏳ 4대 다중 에이전트(기획 -> 작성 -> 편집 -> 번역)가 국/영문 고품격 관광 가이드북 스토리보드를 작성하고 있습니다...";
+
+    // Scroll down to see the progress
+    container.scrollIntoView({ behavior: 'smooth' });
+
+    try {
+      var serverUrl = window.getServerUrl ? window.getServerUrl('/api/v1/guidebook') : 'https://heritage-538192513096.us-central1.run.app/api/v1/guidebook';
+      var res = await fetch(serverUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ heritages: heritages })
+      });
+      if (res && res.ok) {
+        var data = await res.json();
+        if (badge) badge.innerText = '✅ 가이드북 완성';
+        
+        // Update steps logs
+        if (logArea && data.steps_log) {
+          logArea.innerHTML = data.steps_log.map(function(s, idx) {
+            var color = '#00f5d4';
+            if (idx === 1) color = '#38bdf8';
+            if (idx === 2) color = '#fbbf24';
+            if (idx === 3) color = '#f72585';
+            return '<div style="color:' + color + '; font-weight: 700;">' + s.status + '</div>';
+          }).join('');
+        }
+
+        if (outputText) outputText.innerText = data.final_output;
+        return;
+      }
+      throw new Error('HTTP ' + (res ? res.status : 'failed'));
+    } catch(err) {
+      console.warn("Guidebook fetch failed, falling back to simulated generation:", err);
+      if (badge) badge.innerText = '❌ 오류 (로컬 시뮬레이션)';
+      
+      setTimeout(function() {
+        var mockMerge = "# 🗺️ 세종시 문화유산 스마트 가이드북 & 스토리보드\n\n" +
+          "---\n\n" +
+          "## 📋 [1단계: 기획 컨셉]\n" +
+          "- 타겟: 역사와 문화를 깊이 이해하고자 하는 여행객\n" +
+          "- 핵심 테마: 세종의 과거와 현재를 잇는 평화로운 도보 산책\n\n" +
+          "## ✍️ [2단계 & 3단계: 국문 스토리 가이드]\n" +
+          heritages.map(function(h) {
+            return "### 🏛️ " + h + "에 담긴 서사\n이 문화유산은 세종시의 대표적인 자랑거리입니다. 사계절 수려한 경관과 선조들의 슬기를 고스란히 간직하고 있어, 방문객에게 깊은 평온함과 역사적 지식을 선사합니다.\n";
+          }).join('\n') + "\n" +
+          "## 🌐 [4단계: 영문 번역 가이드]\n" +
+          "### 🌐 Global Visitor English Section\n" +
+          "This guidebook introduces the magnificent cultural gems of Sejong: " + heritages.join(', ') + ". Enjoy the tranquil nature and time-tested history.";
+          
+        if (outputText) outputText.innerText = mockMerge;
+        if (badge) badge.innerText = '✅ 가이드북 완성 (로컬)';
+      }, 1000);
     }
   }
 </script>

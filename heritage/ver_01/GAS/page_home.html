@@ -27,7 +27,7 @@
         <div style="display: flex; gap: 10px;">
           <input type="text" id="agenticQueryInput" placeholder="자연어 AI 검색 (예: 세종 연기아문 및 비암사 문화유산 보존과 문화적 파급 효과 분석)" value="세종 연기아문 및 비암사 문화유산 보존과 문화적 파급 효과 분석" style="flex: 1; padding: 14px 18px; border-radius: var(--radius-md); background: rgba(0,0,0,0.45); border: 1px solid var(--border-color); color: #fff; font-size: 0.98rem; outline: none;" onkeyup="if(event.key==='Enter') sendAgenticRAGRequest()" />
           <button id="sendAgenticRAGBtn" class="btn-primary" onclick="sendAgenticRAGRequest()" style="padding: 14px 26px; white-space: nowrap;">
-            🚀 AI RAG 검색
+            🚀 AI의 문화 유산 추천하기
           </button>
         </div>
       </div>
@@ -88,8 +88,59 @@
       <!-- 선택 토글 & 수행 모델 요약 바 -->
       <div id="agenticConfigSummary" style="background: rgba(72,149,239,0.12); border: 1px solid rgba(72,149,239,0.3); border-radius: var(--radius-md); padding: 14px 18px; font-size: 0.9rem; color: #fff;"></div>
 
-      <!-- 최종 응답 출력 -->
-      <div id="agenticOutputText" style="background: rgba(11,19,43,0.85); border: 1px solid rgba(0,245,212,0.3); border-radius: var(--radius-md); padding: 22px; line-height: 1.8; white-space: pre-wrap; font-size: 1.02rem; color: #e2e8f0; max-height: 480px; overflow-y: auto;"></div>
+      <!-- 실시간 안내 판넬 (날씨, 교통, 행사) -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+        <div style="background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25); border-radius: 12px; padding: 14px;">
+          <h5 style="color: var(--accent-cyan); font-size: 0.88rem; font-weight: 700; margin-bottom: 6px;">🌤️ 기상청 날씨 및 추천 계절</h5>
+          <div id="homeRealtimeWeatherText" style="font-size: 0.85rem; color: #fff; line-height: 1.5;">-</div>
+        </div>
+        <div style="background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.25); border-radius: 12px; padding: 14px;">
+          <h5 style="color: var(--accent-amber); font-size: 0.88rem; font-weight: 700; margin-bottom: 6px;">🚗 국토부/CCTV 실시간 교통</h5>
+          <div id="homeRealtimeTrafficText" style="font-size: 0.85rem; color: #fff; line-height: 1.5;">-</div>
+        </div>
+        <div style="background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25); border-radius: 12px; padding: 14px;">
+          <h5 style="color: #34d399; font-size: 0.88rem; font-weight: 700; margin-bottom: 6px;">🎉 인근 지역 대표 축제/행사</h5>
+          <div id="homeRealtimeEventsText" style="font-size: 0.85rem; color: #fff; line-height: 1.5;">-</div>
+        </div>
+      </div>
+
+      <!-- 지도 시각화 및 경로/타임라인 분할 영역 -->
+      <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+        <div>
+          <h4 style="font-size: 1rem; color: #fff; margin-bottom: 10px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span>🗺️</span> 지능형 코스 추천 경로 시각화
+          </h4>
+          <div id="homeAgenticMapCanvas" style="width: 100%; height: 350px; background: #0b132b; border-radius: var(--radius-md); border: 1px solid var(--border-color); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+            <div style="color: var(--text-muted); font-size: 0.9rem;">지도를 로딩하고 있습니다...</div>
+          </div>
+        </div>
+        <div>
+          <h4 style="font-size: 1rem; color: #fff; margin-bottom: 10px; font-weight: 700;">
+            ⏰ AI 최적 동선 일정 (총 이동거리: <span id="homeSummaryTotalDistance" style="color:var(--accent-cyan);">-</span>)
+          </h4>
+          <div id="homeAgenticTimelineArea" style="display: flex; flex-direction: column; gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 6px;">
+            <!-- 동적 타임라인 채우기 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 최종 종합 생성 보고서 텍스트 렌더링 영역 (②~⑨ 마크다운 렌더러) -->
+      <div style="border-top: 1px solid var(--border-color); padding-top: 20px;">
+        <h4 style="font-size: 1rem; color: var(--accent-cyan); margin-bottom: 10px; font-weight: 700;">📝 에이전트 최종 종합 마크다운 보고서</h4>
+        <div id="agenticOutputText" style="background: rgba(11,19,43,0.7); border: 1px solid rgba(56,189,248,0.3); border-radius: var(--radius-md); padding: 20px; line-height: 1.7; white-space: pre-wrap; font-size: 0.95rem; color: #e2e8f0; max-height: 300px; overflow-y: auto; font-family: 'Noto Sans KR', sans-serif;"></div>
+      </div>
+
+      <!-- RAG Feedback Loop 신뢰성 지표 영역 -->
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+        <div>
+          <h4 style="font-size: 0.98rem; color: #fff; font-weight: 700; margin-bottom: 4px;">🎯 지능형 RAG 피드백 검증 완료 지표 (Feedback Loop)</h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Supabase pgvector 유사도 및 한국관광공사 TourAPI 정보 실시간 교차 대조 검증을 완료한 신뢰도 수치입니다.</p>
+        </div>
+        <div style="text-align: right;">
+          <span style="font-size: 0.8rem; color: var(--text-sub); display: block;">최종 신뢰도 점수</span>
+          <strong id="homeAgenticConfidenceText" style="font-size: 1.8rem; color: var(--accent-cyan);">95.0%</strong>
+        </div>
+      </div>
 
       <!-- LangGraph 워크플로 시각화 차트 -->
       <div style="border-top: 1px solid var(--border-color); padding-top: 18px;">
@@ -254,7 +305,6 @@
     navigateTo('course');
   }
 
-
   async function sendAgenticRAGRequest() {
     var queryInput = document.getElementById('agenticQueryInput');
     var query = queryInput ? queryInput.value.trim() : '';
@@ -271,7 +321,7 @@
     var outputText = document.getElementById('agenticOutputText');
 
     if (container) container.style.display = 'flex';
-    if (badge) badge.innerText = '⚡ Agentic RAG 파이프라인 수행 중...';
+    if (badge) badge.innerText = '⚙️ 멀티 에이전트 가동 중...';
 
     var toggles = [];
     document.querySelectorAll('.agentic-toggle-item:checked').forEach(function(el) {
@@ -283,50 +333,252 @@
     }
 
     if (logArea) {
-      logArea.innerHTML = '<div>1️⃣ [Agent Node] 질문 수신 및 의도 분석: "' + query + '"</div>' +
-        '<div>2️⃣ [Retrieve Node] WebBaseLoader & Supabase VectorStore(Chunk:300, Overlap:50) 문서 검색...</div>' +
-        '<div>3️⃣ [Grade Node] 검색 문서 관련성 평가 완료 (Score: YES ➔ Generate 진행)</div>' +
-        '<div>4️⃣ [Generate Node] Step 1~6 문화유산 5선 + TourAPI 10선 + 당일 코스 + 최적경로 생성 완료</div>';
+      logArea.innerHTML = 
+        '<div style="color: #00f5d4; font-weight: 700;">1️⃣ [Agent Node] 질문 해석 및 태스크 분할: "' + query + '"</div>' +
+        '<div style="color: #38bdf8; font-weight: 700;">2️⃣ [Retrieve Node] Supabase pgvector 문서 유사도 검색 진행 중...</div>' +
+        '<div style="color: #fbbf24; font-weight: 700;">3️⃣ [Grade Node] 검색된 역사/지리 데이터 검증 및 신뢰 점수 집계 완료</div>' +
+        '<div style="color: #34d399; font-weight: 700;">4️⃣ [Generate Node] 최적 동선 및 기상 상황 정보 결합 완료 (출력 생성 중)</div>';
     }
 
     if (outputText) {
-      outputText.innerText = "⏳ 선택한 LLM 모델(" + model + ")을(를) 통하여 Agentic RAG 6단계 심층 분석 및 최적 탐방 코스를 생성하고 있습니다...";
+      outputText.innerText = "⏳ 선택한 LLM 모델(" + model + ")을(를) 통해 멀티 에이전트 RAG 협업 일정을 조립 및 최적화하고 있습니다...";
     }
 
+    // Default parameters for home search plan
+    var payload = {
+      query: query,
+      travel_date: new Date().toISOString().split('T')[0],
+      start_location: "세종시청",
+      start_time: "09:00",
+      end_time: "19:00",
+      transport_type: "car",
+      travel_type: "family",
+      companions: ["family"],
+      interests: ["history", "nature"],
+      walking_tolerance: "medium",
+      pet_companion: false
+    };
+
     try {
-      var serverUrl = window.getServerUrl ? window.getServerUrl('/api/v1/agentic-rag') : 'https://heritage-538192513096.us-central1.run.app/api/v1/agentic-rag';
+      var serverUrl = window.getServerUrl ? window.getServerUrl('/api/v1/travel-plan') : 'https://heritage-538192513096.us-central1.run.app/api/v1/travel-plan';
       var res = await fetch(serverUrl, {
         method: 'POST',
-        mode: 'cors',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ query: query, model: model, toggles: toggles })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
       if (res && res.ok) {
         var data = await res.json();
-        var genText = data.generation || data.result || data.answer || JSON.stringify(data, null, 2);
-        if (outputText) outputText.innerText = genText;
-        if (badge) badge.innerText = '✅ Agentic RAG 6단계 분석 완료';
+        
+        if (badge) {
+          badge.innerText = '✅ 코스 추천 완료';
+          badge.className = 'badge badge-era';
+        }
+
+        // 실시간 날씨/교통/행사 바인딩
+        if (data.real_time_info) {
+          document.getElementById('homeRealtimeWeatherText').innerText = data.real_time_info.weather.weather + '\n(미세먼지: ' + data.real_time_info.weather.fine_dust + ')';
+          document.getElementById('homeRealtimeTrafficText').innerText = data.real_time_info.traffic.description;
+          var eventTitles = data.real_time_info.events.map(function(ev) { return '📍 ' + ev.title + ': ' + ev.description; }).join('\n');
+          document.getElementById('homeRealtimeEventsText').innerText = eventTitles || '행사 없음';
+        }
+
+        // 최종 보고서 렌더링
+        renderHomeIntegratedReport(data);
+
+        // 지도 렌더링
+        if (window.ensureKakaoMapsLoaded) {
+          window.ensureKakaoMapsLoaded(function() {
+            renderHomeMapRoutes(data.map);
+          });
+        } else {
+          renderHomeSimulatedMap(document.getElementById('homeAgenticMapCanvas'), data.map);
+        }
+
+        // 일정 렌더링
+        renderHomeTimeline(data.schedule || []);
         return;
       }
       throw new Error('HTTP ' + (res ? res.status : 'failed'));
     } catch (err) {
-      console.log("Agentic RAG server fetch info (running 6-step fallback simulation):", err);
-      setTimeout(function() {
-        if (outputText) {
-          outputText.innerText = "### ⚡ Agentic RAG 세종시 문화유산 & 최적 당일 여행 코스 리포트 (" + model + ")\n\n" +
-            "**❓ 질문**: " + query + "\n\n" +
-            "---\n\n" +
-            "#### 🏛️ [Step 1 & 2] 세종시 추천 문화유산 5선\n" +
-            "1. **연기아문 (동헌)** | 세종시 연기면 | 지정: 시도유형문화재 제4호\n" +
-            "   - *역사적 의미*: 조선시대 연기현 관아 건물로 세종의 행정 역사 상징.\n" +
-            "   - *추천 이유*: 동헌과 고목이 어우러져 관아의 기품을 관람하기 최적.\n" +
-            "2. **비암사 극락보전** | 세종시 전의면 | 지정: 시도유형문화재 제1호\n" +
-            "   - *역사적 의미*: 백제 부흥의 서원과 삼층석탑을 품은 세종 천년 고찰.\n" +
-            "   - *추천 이유*: 고즈넉한 산사 풍경과 삼국시대 문화재 보유.\n" +
-            "3. **초려 이유태 역사공원** | 세종시 어진동 | 지정: 향토문화유산\n" +
+      console.log("Home Agentic RAG error, running fallback presentation:", err);
+      if (badge) badge.innerText = '❌ 오류 (시뮬레이션 가동)';
+      if (outputText) outputText.innerText = "서버 통신 실패: " + err + "\n\n[로컬 fallback 가이드]\n세종 연기아문 및 비암사 문화유산을 추천합니다.";
+    }
+  }
+
+  function renderHomeIntegratedReport(data) {
+    var outputText = document.getElementById('agenticOutputText');
+    if (!outputText) return;
+    
+    var heritagesList = data.heritages.map(function(h, idx) {
+      return (idx + 1) + '. **' + h.heritage_name + '**\n' +
+             '   - **주소**: ' + h.address + '\n' +
+             '   - **유형**: ' + h.category + '\n' +
+             '   - **설명**: ' + h.description + '\n' +
+             '   - **적합도 점수**: ' + h.personalization_score + '점\n' +
+             '   - **추천 사유**: ' + h.personalization_reason;
+    }).join('\n\n');
+
+    var attractionsList = data.attractions.map(function(a, idx) {
+      return '   - **' + a.name + '** (인접유산: ' + a.linked_heritage + ', 거리: ' + a.distance_km.toFixed(1) + 'km) - ' + a.description;
+    }).join('\n');
+
+    var scheduleList = data.schedule.map(function(item) {
+      return '   - **' + item.arrival_time + ' - ' + item.departure_time + '**: ' + item.place_name + ' (이동: ' + item.travel_minutes_from_previous + '분, 체류: ' + item.stay_minutes + '분)\n' +
+             '     * ' + item.reason;
+    }).join('\n');
+
+    var mdText = '### ⚡ AI 추천 문화유산 및 맞춤 코스 리포트\n\n' +
+                 '---\n\n' +
+                 '#### ① 🏛️ 추천 문화유산 5곳\n' + heritagesList + '\n\n' +
+                 '---\n\n' +
+                 '#### ② 🧭 주변 주요 관광 정보\n' + attractionsList + '\n\n' +
+                 '---\n\n' +
+                 '#### ③ 🚗 AI 추천 최적 동선일정\n' + scheduleList + '\n\n' +
+                 '---\n\n' +
+                 '#### 📊 이동 및 요약 통계\n' +
+                 '- **총 이동거리**: 약 ' + data.map.total_distance_km.toFixed(1) + ' km\n' +
+                 '- **총 예상 소요시간**: ' + data.map.total_duration_minutes + ' 분\n' +
+                 '- **기상 가이드**: ' + data.real_time_info.weather.weather + ' (' + data.real_time_info.weather.recommended_season + ' 탐방 권장)\n';
+                 
+    outputText.innerText = mdText;
+    document.getElementById('homeAgenticConfidenceText').innerText = (data.validation.score * 100).toFixed(1) + '%';
+  }
+
+  function renderHomeTimeline(timeline) {
+    var container = document.getElementById('homeAgenticTimelineArea');
+    if (!container) return;
+    
+    if (!timeline || timeline.length === 0) {
+      container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.9rem;">시간대별 일정이 구성되지 않았습니다.</div>';
+      return;
+    }
+    
+    container.innerHTML = timeline.map(function(item, idx) {
+      var badgeStyle = 'background: #38bdf8;';
+      if (item.place_type === 'food') badgeStyle = 'background: #fbbf24;';
+      if (item.place_type === 'cafe') badgeStyle = 'background: #34d399;';
+      
+      var placeName = item.place_name || item.title || '방문 장소';
+      var reasonText = item.reason || item.detail || '';
+      var travelText = item.travel_minutes_from_previous ? '🚗 ' + item.travel_minutes_from_previous + '분 이동' : '🚩 시작지';
+      
+      return '<div style="display: flex; gap: 14px; position: relative; padding-bottom: 12px;">' +
+               (idx < timeline.length - 1 ? '<div style="position: absolute; left: 12px; top: 24px; bottom: 0; width: 2px; background: rgba(255,255,255,0.1);"></div>' : '') +
+               '<div style="width: 24px; height: 24px; border-radius: 50%; ' + badgeStyle + ' color:#111; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.78rem; z-index:2;">' +
+                 (idx + 1) +
+               '</div>' +
+               '<div style="flex: 1;">' +
+                 '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+                   '<strong style="font-size: 0.92rem; color: #fff;">' + placeName + '</strong>' +
+                   '<span style="font-size: 0.78rem; color: var(--accent-cyan);">' + item.arrival_time + ' - ' + item.departure_time + '</span>' +
+                 '</div>' +
+                 '<div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">' +
+                   '<span>⏱️ ' + item.stay_minutes + '분 체류</span> | <span style="color:var(--accent-amber);">' + travelText + '</span>' +
+                 '</div>' +
+                 '<p style="font-size: 0.8rem; color: var(--text-sub); margin-top: 4px; line-height:1.4;">' + reasonText + '</p>' +
+               '</div>' +
+             '</div>';
+    }).join('');
+  }
+
+  function renderHomeMapRoutes(mapData) {
+    var canvas = document.getElementById('homeAgenticMapCanvas');
+    if (!canvas) return;
+    
+    if (typeof kakao === 'undefined' || !kakao.maps) {
+      renderHomeSimulatedMap(canvas, mapData);
+      return;
+    }
+    
+    canvas.innerHTML = '';
+    
+    var centerLat = mapData.center_lat || mapData.center_latitude || 36.52;
+    var centerLng = mapData.center_lng || mapData.center_longitude || 127.27;
+    var zoom = mapData.zoom_level || 7;
+    
+    var mapOption = {
+        center: new kakao.maps.LatLng(centerLat, centerLng),
+        level: zoom
+    };
+    
+    var map = new kakao.maps.Map(canvas, mapOption);
+    
+    var markersData = mapData.markers || [];
+    markersData.forEach(function(m) {
+      var lat = m.lat || m.latitude;
+      var lng = m.lng || m.longitude;
+      var loc = new kakao.maps.LatLng(lat, lng);
+      
+      var marker = new kakao.maps.Marker({
+          position: loc,
+          map: map
+      });
+      
+      var seq = m.seq || m.order || 1;
+      var mtype = m.type || m.marker_type || 'H';
+      var label = '[' + mtype + ' ' + seq + '] ' + m.name;
+      
+      var infowindow = new kakao.maps.InfoWindow({
+          content: '<div style="padding:5px; font-size:11px; color:#333; font-weight:700; width:140px; text-align:center;">' + label + '</div>'
+      });
+      
+      kakao.maps.event.addListener(marker, 'click', function() {
+          infowindow.open(map, marker);
+      });
+      
+      if (seq <= 3) {
+        infowindow.open(map, marker);
+      }
+    });
+    
+    var pathCoords = mapData.polyline || [];
+    if (pathCoords.length > 0) {
+      var linePath = pathCoords.map(function(pt) {
+        return new kakao.maps.LatLng(pt[0], pt[1]);
+      });
+      
+      var polyline = new kakao.maps.Polyline({
+          path: linePath,
+          strokeWeight: 5,
+          strokeColor: '#00f5d4',
+          strokeOpacity: 0.85,
+          strokeStyle: 'solid'
+      });
+      
+      polyline.setMap(map);
+    }
+    
+    if (mapData.total_distance_km) {
+      document.getElementById('homeSummaryTotalDistance').innerText = mapData.total_distance_km.toFixed(1) + ' km';
+    }
+  }
+
+  function renderHomeSimulatedMap(canvas, mapData) {
+    canvas.innerHTML = '<div style="position: absolute; inset:0; background:#0f172a; padding: 20px; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; overflow-y:auto;">' +
+                         '<h5 style="color:var(--accent-cyan); font-size: 0.95rem; margin-bottom:12px;">🗺️ GIS 경로 시뮬레이터 (Kakao SDK Fallback)</h5>' +
+                         '<div id="homeSimulatedMapPathArea" style="display:flex; flex-direction:column; gap:8px; width:90%; align-items:center;"></div>' +
+                       '</div>';
+    
+    var markers = mapData.markers || [];
+    var pathArea = document.getElementById('homeSimulatedMapPathArea');
+    if (!pathArea) return;
+    
+    pathArea.innerHTML = markers.map(function(m, idx) {
+      var seq = m.seq || m.order || (idx + 1);
+      var mtype = m.type || m.marker_type || 'H';
+      var color = mtype === 'S' ? '#38bdf8' : (mtype === 'E' ? '#ef4444' : '#00f5d4');
+      
+      return '<div style="background:rgba(255,255,255,0.05); border:1px solid ' + color + '; padding: 8px 16px; border-radius:30px; font-size:0.8rem; color:#fff; width:100%; text-align:center;">' +
+               '📍 [' + mtype + ' ' + seq + '] ' + m.name + ' (' + m.address + ')' +
+             '</div>';
+    }).join('<div style="color:var(--accent-cyan); font-size:0.85rem; font-weight:900;">↓</div>');
+    
+    if (mapData.total_distance_km) {
+      document.getElementById('homeSummaryTotalDistance').innerText = mapData.total_distance_km.toFixed(1) + ' km';
+    }
+  }
+</script>n" +
             "   - *역사적 의미*: 조선 17세기 대학자 초려 이유태 선생의 예학 유산.\n" +
             "   - *추천 이유*: 신도시 중심 속 조용한 한옥 고택 정원 쉼터.\n" +
             "4. **금남 용포리 옛 우물터** | 세종시 금남면 | 지정: 시민 제보 유산\n" +

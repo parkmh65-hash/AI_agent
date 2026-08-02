@@ -14,10 +14,10 @@ def get_llm(model_name: str = "gpt-4o"):
         from langchain_openai import ChatOpenAI
         # gpt-4o 또는 gpt-4o-mini 지원
         model = model_name if model_name in ["gpt-4o", "gpt-4o-mini"] else "gpt-4o"
-        return ChatOpenAI(openai_api_key=settings.OPENAI_API_KEY, model=model, temperature=0)
+        return ChatOpenAI(openai_api_key=settings.OPENAI_API_KEY, model=model, temperature=0, max_retries=0, timeout=10.0)
     elif settings.GEMINI_API_KEY:
         from langchain_google_genai import ChatGoogleGenerativeAI
-        return ChatGoogleGenerativeAI(google_api_key=settings.GEMINI_API_KEY, model="gemini-1.5-flash", temperature=0)
+        return ChatGoogleGenerativeAI(google_api_key=settings.GEMINI_API_KEY, model="gemini-1.5-flash", temperature=0, timeout=10.0)
     return None
 
 def rag_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
