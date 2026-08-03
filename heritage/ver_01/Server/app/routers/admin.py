@@ -238,12 +238,12 @@ def import_excel_and_images(req: BatchImportRequest):
     inserted_rows = []
     if bulk_heritages and supabase_key and "your-supabase" not in supabase_key:
         try:
-            url = f"{supabase_url}/rest/v1/heritages"
+            url = f"{supabase_url}/rest/v1/heritages?on_conflict=h_id"
             headers = {
                 "apikey": supabase_key,
                 "Authorization": f"Bearer {supabase_key}",
                 "Content-Type": "application/json",
-                "Prefer": "return=representation"
+                "Prefer": "resolution=merge-duplicates, return=representation"
             }
             req_data = json.dumps(bulk_heritages).encode("utf-8")
             request_obj = urllib.request.Request(url, data=req_data, headers=headers, method="POST")

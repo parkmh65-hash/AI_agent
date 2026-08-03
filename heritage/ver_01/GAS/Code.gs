@@ -232,14 +232,14 @@ function importExcelToSupabaseDirectGAS(records) {
     });
   });
 
-  var url = supabaseUrl + "/rest/v1/heritages";
+  var url = supabaseUrl + "/rest/v1/heritages?on_conflict=h_id";
   var options = {
     method: "post",
     headers: {
       "apikey": supabaseKey,
       "Authorization": "Bearer " + supabaseKey,
       "Content-Type": "application/json",
-      "Prefer": "return=representation"
+      "Prefer": "resolution=merge-duplicates, return=representation"
     },
     payload: JSON.stringify(bulkHeritages),
     muteHttpExceptions: true
