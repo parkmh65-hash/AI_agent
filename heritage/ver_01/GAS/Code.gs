@@ -191,10 +191,17 @@ function importExcelToSupabaseDirectGAS(records) {
     var finalLng = parseFloat(r.longitude || r.lng) || 127.27;
     var imgUrl = r.supabaseStorageUrl || r.image_url || "https://images.unsplash.com/photo-1548625149-fc4a29cf7092?w=800";
 
+    var finalHId = r.h_id || ("H" + (idx + 1));
+    var finalAddress = r.address || ("세종특별자치시 " + finalDong);
+    var finalEraNorm = r.era_normalized || finalEra;
+
     bulkHeritages.push({
+      h_id: finalHId,
       name: rawName,
-      era: finalEra,
+      address: finalAddress,
       dong: finalDong,
+      era: finalEra,
+      era_normalized: finalEraNorm,
       latitude: finalLat,
       longitude: finalLng,
       description: finalDesc,
