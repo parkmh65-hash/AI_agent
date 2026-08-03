@@ -11,16 +11,9 @@ try:
         APP_NAME: str = "세종시 AI 문화유산 플랫폼 API"
         DEBUG: bool = True
         
-        # Supabase Configuration
-        SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://nmzrxczcytkkwgpiseaj.supabase.co")
-        SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw")
+        SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co")
+        SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM")
         SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-
-        # Neo4j Configuration
-        NEO4J_URI: str = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        NEO4J_USER: str = os.getenv("NEO4J_USER", "neo4j")
-        NEO4J_PASSWORD: str = os.getenv("NEO4J_PASSWORD", "password")
-
         # OpenAI LLM & Embedding API Key
         OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
@@ -54,12 +47,9 @@ except Exception:
     class Settings:
         APP_NAME: str = os.getenv("APP_NAME", "세종시 AI 문화유산 플랫폼 API")
         DEBUG: bool = True
-        SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://nmzrxczcytkkwgpiseaj.supabase.co")
-        SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw")
+        SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co")
+        SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM")
         SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-        NEO4J_URI: str = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        NEO4J_USER: str = os.getenv("NEO4J_USER", "neo4j")
-        NEO4J_PASSWORD: str = os.getenv("NEO4J_PASSWORD", "password")
         OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
         GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
         TOUR_API_KEY: str = os.getenv("TOUR_API_KEY", "mock_key")

@@ -75,7 +75,7 @@ def review_citizen_recommendation(rec_id: str, req: AdminApprovalRequest):
 @router.get("/supabase-status")
 def get_supabase_status():
     """Query live Supabase DB table row counts directly from Supabase REST API"""
-    supabase_url = settings.SUPABASE_URL or "https://nmzrxczcytkkwgpiseaj.supabase.co"
+    supabase_url = settings.SUPABASE_URL or "https://pdpmtgnagwzcsftavtap.supabase.co"
     supabase_key = settings.SUPABASE_KEY
 
     heritages_count = 0
@@ -155,7 +155,7 @@ class BatchImportRequest(BaseModel):
 @router.post("/import-excel")
 def import_excel_and_images(req: BatchImportRequest):
     """서버(Server)에서 Supabase DB 및 Storage에 중복 제외 일괄 REST Bulk Insert 및 동기화 처리"""
-    supabase_url = settings.SUPABASE_URL or "https://nmzrxczcytkkwgpiseaj.supabase.co"
+    supabase_url = settings.SUPABASE_URL or "https://pdpmtgnagwzcsftavtap.supabase.co"
     supabase_key = settings.SUPABASE_KEY
 
     # 1. Fetch existing heritage names from Supabase DB to prevent inserting duplicate records

@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from app.services.rag_service import search_heritages_rag
-from app.services.graph_service import recommend_course_graph
+from app.services.recommendation_service import recommend_course
 from app.services.ai_service import generate_think_prompt, generate_course_content
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
@@ -49,8 +49,8 @@ def ai_generate_think_prompt(req: ThinkPromptRequest):
 
 @router.post("/course-recommend")
 def ai_recommend_course(req: CourseRecommendRequest):
-    """Neo4j 그래프 관계 기반 코스 추천 (거리, 시대, 테마 연관분석)"""
-    recommended_items = recommend_course_graph(req.start_heritage_id, req.max_items)
+    """Supabase DB 관계 기반 코스 추천 (거리, 시대, 테마 연관분석)"""
+    recommended_items = recommend_course(req.start_heritage_id, req.max_items)
     return {
         "start_heritage_id": req.start_heritage_id,
         "course_items": recommended_items

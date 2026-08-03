@@ -15,37 +15,38 @@ CITIZEN_RECOMMENDATIONS_DB = []
 
 class CitizenRecommendationSubmit(BaseModel):
     name: str
-    photo_url: Optional[str] = None
     image_url: Optional[str] = None
-    lat: Optional[float] = None
+    photo_url: Optional[str] = None
     latitude: Optional[float] = None
-    lng: Optional[float] = None
+    lat: Optional[float] = None
     longitude: Optional[float] = None
+    lng: Optional[float] = None
     address: Optional[str] = "세종특별자치시"
-    reason: Optional[str] = None
     description: Optional[str] = None
-    user_id: Optional[str] = "user-101"
+    reason: Optional[str] = None
+    user_id: Optional[str] = "user_01"
     submitted_by: Optional[str] = "user@sejong.go.kr"
 
 def normalize_citizen_record(r: Dict[str, Any]) -> Dict[str, Any]:
-    photo_url = r.get("photo_url") or r.get("image_url") or "https://images.unsplash.com/photo-1548013146-72479768bada?w=600&q=80"
-    lat_val = float(r.get("lat") or r.get("latitude") or 36.48)
-    lng_val = float(r.get("lng") or r.get("longitude") or 127.28)
-    reason_val = r.get("reason") or r.get("description") or r.get("report_reason") or "시민 추천 문화유산 제보"
+    image_url = r.get("image_url") or r.get("photo_url") or "https://images.unsplash.com/photo-1548013146-72479768bada?w=600&q=80"
+    lat_val = float(r.get("latitude") or r.get("lat") or 36.48)
+    lng_val = float(r.get("longitude") or r.get("lng") or 127.28)
+    desc_val = r.get("description") or r.get("reason") or r.get("report_reason") or "시민 추천 문화유산 제보"
     user_val = r.get("user_id") or r.get("submitted_by") or "user@sejong.go.kr"
     status_val = r.get("status") or "신청중"
     feedback_val = r.get("feedback") or r.get("reviewer_note") or "담당자 확인 대기 중"
     time_val = r.get("submitted_at") or r.get("created_at") or datetime.now().isoformat()
 
-    r["photo_url"] = photo_url
-    r["image_url"] = photo_url
+    # 호환성 무결성을 위해 신구 버전 컬럼명을 모두 맵에 반환
+    r["photo_url"] = image_url
+    r["image_url"] = image_url
     r["lat"] = lat_val
     r["latitude"] = lat_val
     r["lng"] = lng_val
     r["longitude"] = lng_val
-    r["reason"] = reason_val
-    r["description"] = reason_val
-    r["report_reason"] = reason_val
+    r["reason"] = desc_val
+    r["description"] = desc_val
+    r["report_reason"] = desc_val
     r["user_id"] = user_val
     r["submitted_by"] = user_val
     r["status"] = status_val
@@ -58,20 +59,21 @@ def normalize_citizen_record(r: Dict[str, Any]) -> Dict[str, Any]:
 @router.post("/api/citizen-recommendations")
 def submit_citizen_recommendation(data: CitizenRecommendationSubmit):
     """시민 추천 문화유산 제보 제출 (Supabase DB `citizen_recommendations` 테이블 저장)"""
-    photo_url = data.photo_url or data.image_url or "https://images.unsplash.com/photo-1548013146-72479768bada?w=600&q=80"
-    lat_val = float(data.lat or data.latitude or 36.48)
-    lng_val = float(data.lng or data.longitude or 127.28)
-    reason_val = data.reason or data.description or "시민 추천 문화유산 제보"
+    img_url = data.image_url or data.photo_url or "https://images.unsplash.com/photo-1548013146-72479768bada?w=600&q=80"
+    lat_val = float(data.latitude or data.lat or 36.48)
+    lng_val = float(data.longitude or data.lng or 127.28)
+    desc_val = data.description or data.reason or "시민 추천 문화유산 제보"
     user_val = data.user_id or data.submitted_by or "user@sejong.go.kr"
     address_val = data.address or "세종특별자치시"
 
     raw_record = {
         "name": data.name,
         "address": address_val,
-        "reason": reason_val,
-        "lat": lat_val,
-        "lng": lng_val,
-        "photo_url": photo_url,
+        "description": desc_val,
+        "latitude": lat_val,
+        "longitude": lng_val,
+        "image_url": img_url,
+        "user_id": user_val, # user_id 문자열 저장 반영
         "status": "신청중",
         "recommend_count": 1,
         "heart": 1

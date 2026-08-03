@@ -284,8 +284,8 @@
   }
 
   async function fetchDirectCitizenRecommendations(callback) {
-    var supabaseUrl = 'https://nmzrxczcytkkwgpiseaj.supabase.co';
-    var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw';
+    var supabaseUrl = 'https://pdpmtgnagwzcsftavtap.supabase.co';
+    var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM';
     var url = supabaseUrl + '/rest/v1/citizen_recommendations?select=*&limit=10';
 
     try {
@@ -353,8 +353,8 @@
   }
 
   async function uploadCitizenPhotoToSupabaseStorage(file) {
-    var supabaseUrl = 'https://nmzrxczcytkkwgpiseaj.supabase.co';
-    var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw';
+    var supabaseUrl = 'https://pdpmtgnagwzcsftavtap.supabase.co';
+    var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM';
     var bucketName = 'heritage-images';
 
     var cleanName = (file.name || 'photo.jpg').replace(/[^a-zA-Z0-9_\.\-]/g, '_');
@@ -415,10 +415,11 @@
     var newRecord = {
       name: name,
       address: address,
-      reason: reason,
-      lat: lat,
-      lng: lng,
-      photo_url: uploadedPhotoUrl,
+      description: reason,
+      latitude: lat,
+      longitude: lng,
+      image_url: uploadedPhotoUrl,
+      user_id: (window.appState && window.appState.user_email) ? window.appState.user_email : "user_01",
       status: "신청중",
       recommend_count: 1,
       heart: 1
@@ -490,8 +491,8 @@
     }
 
     // 2. Direct Supabase REST Fallback
-    var supabaseUrl = 'https://nmzrxczcytkkwgpiseaj.supabase.co';
-    var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw';
+    var supabaseUrl = 'https://pdpmtgnagwzcsftavtap.supabase.co';
+    var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM';
     var url = supabaseUrl + '/rest/v1/citizen_recommendations';
 
     try {

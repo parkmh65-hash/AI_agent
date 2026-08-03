@@ -80,8 +80,8 @@ def create_course(req: CourseCreateRequest):
     supabase = get_supabase()
     if supabase:
         try:
-            # Insert into courses table
             raw_course_db = {
+                "user_id": user_val,
                 "title": title_val,
                 "transport_mode": transport_val,
                 "total_duration_min": duration_min,

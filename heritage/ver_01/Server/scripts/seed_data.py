@@ -12,8 +12,8 @@ try:
 except ImportError:
     from scripts.clean_data import clean_heritage_item
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://nmzrxczcytkkwgpiseaj.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 def get_dummy_embedding(text: str, dim: int = 768) -> list:

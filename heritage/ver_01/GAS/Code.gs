@@ -3,14 +3,7 @@
  * (Google Sheets DB, Google Drive API, MailApp, Gemini AI 연동)
  */
 
-// Global Constant Table Names
-var SHEET_NAMES = {
-  OFFICIAL: "Heritage_Official",
-  CITIZEN: "Heritage_Citizen",
-  USERS: "Users",
-  COURSES: "Courses",
-  REVIEWS: "Reviews"
-};
+// Global Table Constant Removal - Google Sheet Backup DB Disabled
 
 /**
  * WebApp Entry point (doGet)
@@ -81,28 +74,14 @@ function authCallback(request) {
   }
 }
 
-/**
- * Get Google Spreadsheet DB safely
- */
-function getSpreadsheet() {
-  try {
-    var ssId = getProp("SPREADSHEET_ID", "");
-    if (ssId) {
-      return SpreadsheetApp.openById(ssId);
-    }
-    return SpreadsheetApp.getActiveSpreadsheet();
-  } catch (err) {
-    Logger.log("Spreadsheet error: " + err);
-    return null;
-  }
-}
+// Spreadsheet helper disabled
 
 /**
  * Query Supabase REST API directly for DB tables & Storage
  */
 function getSupabaseData(tableName, query) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://nmzrxczcytkkwgpiseaj.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw");
+  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
+  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
   
   var url = supabaseUrl + "/rest/v1/" + tableName + (query ? ("?" + query) : "?select=*");
   var options = {
@@ -152,8 +131,8 @@ function fetchCitizenRecommendationsGAS() {
  * Increment heart column for citizen_recommendations in Supabase DB with fail-safe fallback
  */
 function incrementCitizenHeartGAS(id, newHeart, itemName) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://nmzrxczcytkkwgpiseaj.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw");
+  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
+  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
 
   var isUUID = typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   var queryParam = isUUID ? ("id=eq." + encodeURIComponent(id)) : (itemName ? ("name=eq." + encodeURIComponent(itemName)) : ("id=eq." + encodeURIComponent(id)));
@@ -191,8 +170,8 @@ function incrementCitizenHeartGAS(id, newHeart, itemName) {
  * Direct Supabase REST API Bulk Import Fallback (when Cloud Run backend is offline/404)
  */
 function importExcelToSupabaseDirectGAS(records) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://nmzrxczcytkkwgpiseaj.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw");
+  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
+  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
 
   if (!records || records.length === 0) {
     return { error: true, message: "이관할 레코드가 없습니다." };
@@ -319,8 +298,8 @@ function importExcelToSupabaseDirectGAS(records) {
  * Direct Supabase Storage Binary Upload Proxy (Bypasses Client Storage RLS Policies)
  */
 function uploadImageToSupabaseStorageGAS(base64Data, fileName) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://nmzrxczcytkkwgpiseaj.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw");
+  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
+  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
 
   try {
     var cleanFileName = (fileName || "image.jpg").replace(/[^a-zA-Z0-9_\.\-]/g, "_");
@@ -523,39 +502,7 @@ function getInitialWebAppData() {
       }
     }
 
-    // 2. Fallback: Query Spreadsheet if Supabase table is empty
-    if (officialList.length === 0 && citizenList.length === 0) {
-      var ss = getSpreadsheet();
-      if (ss) {
-        var sheetOff = ss.getSheetByName(SHEET_NAMES.OFFICIAL);
-        if (sheetOff && sheetOff.getLastRow() > 1) {
-          var values = sheetOff.getDataRange().getValues();
-          for (var i = 1; i < values.length; i++) {
-            var row = values[i];
-            officialList.push({
-              id: row[0] || ("h" + i),
-              name: row[1],
-              era: row[2],
-              era_normalized: row[2],
-              dong: row[3],
-              dong_eup_myeon: row[3],
-              lat: parseFloat(row[4]) || 36.48,
-              lng: parseFloat(row[5]) || 127.28,
-              latitude: parseFloat(row[4]) || 36.48,
-              longitude: parseFloat(row[5]) || 127.28,
-              description: row[6],
-              think_point: row[7],
-              thinkingPoint: row[7],
-              thinking_point: row[7],
-              image_url: row[8] || "https://images.unsplash.com/photo-1548013146-72479768bada?w=600&q=80",
-              parking_yn: row[9] || "Y",
-              restroom_yn: row[10] || "Y",
-              like_count: parseInt(row[11], 10) || 100
-            });
-          }
-        }
-      }
-    }
+    // Google Sheet Fallback Query Disabled
 
     return {
       status: "success",
@@ -587,8 +534,8 @@ function getActiveUserEmail() {
  */
 function submitCitizenRecommendationGAS(data) {
   try {
-    var supabaseUrl = getProp("SUPABASE_URL", "https://nmzrxczcytkkwgpiseaj.supabase.co");
-    var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw");
+    var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
+    var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
     var userEmail = getActiveUserEmail();
 
     var imgUrl = data.image_url || data.photo_url || "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&q=80";
@@ -601,10 +548,11 @@ function submitCitizenRecommendationGAS(data) {
     var payload = {
       name: nameVal,
       address: addressVal,
-      reason: reasonVal,
-      lat: latVal,
-      lng: lngVal,
-      photo_url: imgUrl,
+      description: reasonVal,
+      latitude: latVal,
+      longitude: lngVal,
+      image_url: imgUrl,
+      user_id: userEmail,
       status: data.status || "신청중",
       recommend_count: 1,
       heart: 1
@@ -626,19 +574,6 @@ function submitCitizenRecommendationGAS(data) {
     var responseCode = response.getResponseCode();
 
     if (responseCode === 200 || responseCode === 201) {
-      try {
-        var ss = getSpreadsheet();
-        if (ss) {
-          var sheet = ss.getSheetByName(SHEET_NAMES.CITIZEN) || ss.insertSheet(SHEET_NAMES.CITIZEN);
-          if (sheet.getLastRow() === 0) {
-            sheet.appendRow(["id", "name", "image_urls", "lat", "lng", "reason", "status", "submitted_by", "created_at"]);
-          }
-          sheet.appendRow([data.id || ("cit-" + Date.now()), nameVal, imgUrl, latVal, lngVal, reasonVal, "신청중", userEmail, new Date()]);
-        }
-      } catch (sheetErr) {
-        Logger.log("Sheet backup notice: " + sheetErr);
-      }
-
       return { status: "success", message: "시민 제보가 Supabase DB(citizen_recommendations)에 성공적으로 저장되었습니다." };
     } else {
       return { status: "error", message: "Supabase DB 저장 실패 (HTTP " + responseCode + "): " + response.getContentText() };
@@ -654,8 +589,8 @@ function submitCitizenRecommendationGAS(data) {
  */
 function saveCourseGAS(coursePayload) {
   try {
-    var supabaseUrl = getProp("SUPABASE_URL", "https://nmzrxczcytkkwgpiseaj.supabase.co");
-    var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw");
+    var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
+    var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
     var userEmail = getActiveUserEmail();
 
     var courseTitle = coursePayload.course_name || coursePayload.title || "세종시 문화유산 여행 코스";
@@ -663,6 +598,7 @@ function saveCourseGAS(coursePayload) {
     var durationVal = parseInt(coursePayload.total_time_min, 10) || 60;
 
     var payload = {
+      user_id: userEmail,
       title: courseTitle,
       transport_mode: transportVal,
       total_duration_min: durationVal
@@ -711,25 +647,7 @@ function saveCourseGAS(coursePayload) {
       }
     }
 
-    try {
-      var ss = getSpreadsheet();
-      if (ss) {
-        var sheet = ss.getSheetByName(SHEET_NAMES.COURSES) || ss.insertSheet(SHEET_NAMES.COURSES);
-        if (sheet.getLastRow() === 0) {
-          sheet.appendRow(["course_id", "user_email", "course_name", "heritage_id_sequence", "transport", "total_time_min", "created_at"]);
-        }
-        var itemsSeqJson = JSON.stringify((coursePayload.items || []).map(function(it) { return it.id || it.name; }));
-        sheet.appendRow([
-          coursePayload.course_id || coursePayload.id || ("course-" + Date.now()),
-          userEmail,
-          courseTitle,
-          itemsSeqJson,
-          transportVal,
-          durationVal,
-          new Date()
-        ]);
-      }
-    } catch (sheetErr) {}
+    // Spreadsheet logging disabled
 
     return { status: "success", message: "코스가 Supabase DB(courses)에 성공적으로 저장되었습니다." };
   } catch (err) {
@@ -743,8 +661,8 @@ function saveCourseGAS(coursePayload) {
  */
 function submitCourseReviewGAS(reviewPayload) {
   try {
-    var supabaseUrl = getProp("SUPABASE_URL", "https://nmzrxczcytkkwgpiseaj.supabase.co");
-    var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw");
+    var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
+    var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
     var userEmail = getActiveUserEmail();
 
     var reviewText = reviewPayload.review_text || reviewPayload.content || reviewPayload.text || "";
@@ -752,6 +670,7 @@ function submitCourseReviewGAS(reviewPayload) {
     var ratingVal = parseInt(reviewPayload.rating, 10) || 5;
 
     var payload = {
+      user_id: userEmail,
       course_id: reviewPayload.course_id,
       heritage_id: reviewPayload.heritage_id,
       rating: ratingVal,
@@ -774,26 +693,7 @@ function submitCourseReviewGAS(reviewPayload) {
 
     UrlFetchApp.fetch(supabaseUrl + "/rest/v1/reviews", options);
 
-    try {
-      var ss = getSpreadsheet();
-      if (ss) {
-        var sheet = ss.getSheetByName(SHEET_NAMES.REVIEWS) || ss.insertSheet(SHEET_NAMES.REVIEWS);
-        if (sheet.getLastRow() === 0) {
-          sheet.appendRow(["review_id", "user_email", "course_id", "rating", "companion", "transport", "review_text", "public_yn", "created_at"]);
-        }
-        sheet.appendRow([
-          reviewPayload.review_id || reviewPayload.id || ("rev-" + Date.now()),
-          userEmail,
-          reviewPayload.course_id,
-          ratingVal,
-          companionVal,
-          reviewPayload.transport || "승용차",
-          reviewText,
-          reviewPayload.public_yn || (reviewPayload.is_public === false ? "N" : "Y"),
-          new Date()
-        ]);
-      }
-    } catch (sheetErr) {}
+    // Spreadsheet review logging disabled
 
     return { status: "success", message: "후기가 성공적으로 Supabase DB(reviews)에 저장되었습니다." };
   } catch (err) {

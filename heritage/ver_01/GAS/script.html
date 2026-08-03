@@ -39,6 +39,7 @@
             google.script.run.withSuccessHandler(function (res) {
                 if (res && res.official && res.official.length > 0) appState.officialHeritages = res.official;
                 if (res && res.citizen && res.citizen.length > 0) appState.citizenHeritages = res.citizen;
+                if (res && res.user_email) appState.user_email = res.user_email;
                 initScreenViews();
             }).withFailureHandler(function (err) {
                 fetchSupabaseDirectly();
@@ -267,8 +268,8 @@
     }
 
     function syncHeartToSupabase(id, newHeart, itemName) {
-        var supabaseUrl = 'https://nmzrxczcytkkwgpiseaj.supabase.co';
-        var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw';
+        var supabaseUrl = 'https://pdpmtgnagwzcsftavtap.supabase.co';
+        var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM';
 
         if (window.appState && Array.isArray(window.appState.citizenHeritages)) {
             window.appState.citizenHeritages.forEach(function(item) {
@@ -719,8 +720,8 @@
     }
 
     async function uploadBlobToSupabaseStorage(blob, fileName) {
-        var SUPABASE_URL = 'https://nmzrxczcytkkwgpiseaj.supabase.co';
-        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw';
+        var SUPABASE_URL = 'https://pdpmtgnagwzcsftavtap.supabase.co';
+        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM';
         var BUCKET_NAME = 'heritage-images';
 
         if (!blob) {
@@ -952,8 +953,8 @@
 
         // Tier 2: Direct Supabase REST API Fallback
         function fetchDirectSupabaseRest() {
-            var supabaseUrl = 'https://nmzrxczcytkkwgpiseaj.supabase.co';
-            var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tenJ4Y3pjeXRra3dncGlzZWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMzM2MDYsImV4cCI6MjA5NjkwOTYwNn0.nVQxRACIt2gUiUDstNAqolozvwr23JU5eyLNi59hCSw';
+            var supabaseUrl = 'https://pdpmtgnagwzcsftavtap.supabase.co';
+            var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM';
 
             fetch(supabaseUrl + '/rest/v1/heritages?select=*,images:heritage_images(*)&order=created_at.desc', {
                 method: 'GET',
