@@ -146,6 +146,7 @@ class ExcelHeritageRow(BaseModel):
     think_about: Optional[str] = None
     imageFileName: Optional[str] = None
     imageUrl: Optional[str] = None
+    image_url: Optional[str] = None
 
 import urllib.request
 import json
@@ -193,7 +194,7 @@ def import_excel_and_images(req: BatchImportRequest):
 
         seen_in_batch.add(raw_name)
 
-        img_url = row.imageUrl
+        img_url = row.imageUrl or row.image_url
         if not img_url and row.imageFileName:
             img_url = f"{supabase_url}/storage/v1/object/public/heritage-images/{row.imageFileName}"
             
@@ -213,9 +214,12 @@ def import_excel_and_images(req: BatchImportRequest):
         final_lng = float(row.longitude or row.lng or 127.27)
 
         db_row = {
+            "h_id": final_h_id,
             "name": final_name,
-            "era": final_era,
+            "address": final_address,
             "dong": final_dong,
+            "era": final_era,
+            "era_normalized": final_era_norm,
             "latitude": final_lat,
             "longitude": final_lng,
             "description": final_desc,
