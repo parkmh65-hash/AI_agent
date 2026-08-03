@@ -40,6 +40,7 @@ def review_citizen_recommendation(rec_id: str, req: AdminApprovalRequest):
                 if req.status == "승인":
                     try:
                         heritage_payload = {
+                            "h_id": rec_data.get("id") or f"cit_{int(datetime.now().timestamp())}",
                             "name": rec_data.get("name"),
                             "dong": rec_data.get("address") or rec_data.get("dong") or "세종특별자치시",
                             "latitude": rec_data.get("lat") or rec_data.get("latitude") or 36.48,

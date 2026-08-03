@@ -57,22 +57,47 @@
           <i class="fa-solid fa-file-pdf"></i> PDF 파일 불러오기
         </div>
         
-        <div id="dropzone" class="dropzone">
-          <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
-          <p>PDF 파일을 여기에 드래그하거나 클릭하여 로드</p>
-          <span>* 텍스트, 이미지, 표가 혼합된 문서 지원</span>
-          
-          <input 
-            type="file" 
-            id="file-input" 
-            class="hidden-file-input" 
-            accept=".pdf"
-          />
+        <!-- Tabs for local file vs GitHub URL -->
+        <div class="tabs" style="display: flex; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 12px; gap: 12px;">
+          <button id="tab-local" class="tab-btn active" style="background: none; border: none; color: var(--text-primary); font-weight: 600; cursor: pointer; padding-bottom: 4px; border-bottom: 2px solid var(--primary); font-size: 0.85rem; outline: none;">로컬 파일</button>
+          <button id="tab-github" class="tab-btn" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding-bottom: 4px; font-size: 0.85rem; outline: none;">깃허브 URL</button>
         </div>
 
-        <button id="btn-find-file" class="btn btn-primary">
-          <i class="fa-solid fa-folder-open"></i> 파일 찾기
-        </button>
+        <!-- Local Upload Content -->
+        <div id="local-upload-container">
+          <div id="dropzone" class="dropzone">
+            <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+            <p>PDF 파일을 여기에 드래그하거나 클릭하여 로드</p>
+            <span>* 텍스트, 이미지, 표가 혼합된 문서 지원</span>
+            
+            <input 
+              type="file" 
+              id="file-input" 
+              class="hidden-file-input" 
+              accept=".pdf"
+            />
+          </div>
+
+          <button id="btn-find-file" class="btn btn-primary" style="margin-top: 12px;">
+            <i class="fa-solid fa-folder-open"></i> 파일 찾기
+          </button>
+        </div>
+
+        <!-- GitHub Load Content (hidden by default) -->
+        <div id="github-load-container" style="display: none; flex-direction: column; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <input 
+              type="text" 
+              id="github-url-input" 
+              class="input-field" 
+              placeholder="https://github.com/.../file.pdf"
+              style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 14px; color: var(--text-primary); font-family: var(--font-family); font-size: 0.85rem;"
+            />
+          </div>
+          <button id="btn-load-github" class="btn btn-primary">
+            <i class="fa-brands fa-github"></i> 깃허브에서 불러오기
+          </button>
+        </div>
 
         <div id="upload-error" class="hidden" style="font-size: 0.8rem; color: var(--danger); display: flex; gap: 6px; align-items: center;">
           <i class="fa-solid fa-triangle-exclamation"></i> <span></span>

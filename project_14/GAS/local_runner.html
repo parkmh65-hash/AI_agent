@@ -635,22 +635,47 @@
           <i class="fa-solid fa-file-pdf"></i> PDF 파일 불러오기
         </div>
         
-        <div id="dropzone" class="dropzone">
-          <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
-          <p>PDF 파일을 여기에 드래그하거나 클릭하여 로드</p>
-          <span>* 텍스트, 이미지, 표가 혼합된 문서 지원</span>
-          
-          <input 
-            type="file" 
-            id="file-input" 
-            class="hidden-file-input" 
-            accept=".pdf"
-          />
+        <!-- Tabs for local file vs GitHub URL -->
+        <div class="tabs" style="display: flex; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 12px; gap: 12px;">
+          <button id="tab-local" class="tab-btn active" style="background: none; border: none; color: var(--text-primary); font-weight: 600; cursor: pointer; padding-bottom: 4px; border-bottom: 2px solid var(--primary); font-size: 0.85rem; outline: none;">로컬 파일</button>
+          <button id="tab-github" class="tab-btn" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding-bottom: 4px; font-size: 0.85rem; outline: none;">깃허브 URL</button>
         </div>
 
-        <button id="btn-find-file" class="btn btn-primary">
-          <i class="fa-solid fa-folder-open"></i> 파일 찾기
-        </button>
+        <!-- Local Upload Content -->
+        <div id="local-upload-container">
+          <div id="dropzone" class="dropzone">
+            <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+            <p>PDF 파일을 여기에 드래그하거나 클릭하여 로드</p>
+            <span>* 텍스트, 이미지, 표가 혼합된 문서 지원</span>
+            
+            <input 
+              type="file" 
+              id="file-input" 
+              class="hidden-file-input" 
+              accept=".pdf"
+            />
+          </div>
+
+          <button id="btn-find-file" class="btn btn-primary" style="margin-top: 12px;">
+            <i class="fa-solid fa-folder-open"></i> 파일 찾기
+          </button>
+        </div>
+
+        <!-- GitHub Load Content (hidden by default) -->
+        <div id="github-load-container" style="display: none; flex-direction: column; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <input 
+              type="text" 
+              id="github-url-input" 
+              class="input-field" 
+              placeholder="https://github.com/.../file.pdf"
+              style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 14px; color: var(--text-primary); font-family: var(--font-family); font-size: 0.85rem;"
+            />
+          </div>
+          <button id="btn-load-github" class="btn btn-primary">
+            <i class="fa-brands fa-github"></i> 깃허브에서 불러오기
+          </button>
+        </div>
 
         <div id="upload-error" class="hidden" style="font-size: 0.8rem; color: var(--danger); display: flex; gap: 6px; align-items: center;">
           <i class="fa-solid fa-triangle-exclamation"></i> <span></span>
@@ -759,37 +784,51 @@
     let uploading = false;
     let loading = false;
 
-    // 2. DOM Elements
-    const apiInput = document.getElementById("api-base-url");
-    const btnSettings = document.getElementById("btn-settings");
-    const settingsPanel = document.getElementById("settings-panel");
-    const btnReset = document.getElementById("btn-reset");
-    
-    const dropzone = document.getElementById("dropzone");
-    const fileInput = document.getElementById("file-input");
-    const btnFindFile = document.getElementById("btn-find-file");
-    const uploadError = document.getElementById("upload-error");
-    const fileInfo = document.getElementById("file-info");
-    const fileNameDisplay = document.getElementById("file-name-display");
-    const fileStatusDisplay = document.getElementById("file-status-display");
-    const uploadResultBox = document.getElementById("upload-result-box");
-    const uploadSummaryText = document.getElementById("upload-summary-text");
-    
-    const chatHistoryDiv = document.getElementById("chat-history");
-    const chatErrorDiv = document.getElementById("chat-error");
-    const queryInput = document.getElementById("query-input");
-    const btnAskAI = document.getElementById("btn-ask-ai");
-    const chatHeaderStatus = document.getElementById("chat-header-status");
-
-    const modalOverlay = document.getElementById("modal-overlay");
-    const modalClose = document.getElementById("modal-close");
-    const modalTitle = document.getElementById("modal-title");
-    const modalMetaSource = document.getElementById("modal-meta-source");
-    const modalMetaDistance = document.getElementById("modal-meta-distance");
-    const modalBodyContent = document.getElementById("modal-body-content");
+    // 2. DOM Elements (Globally declared, safely initialized inside DOMContentLoaded)
+    let apiInput, btnSettings, settingsPanel, btnReset;
+    let dropzone, fileInput, btnFindFile, uploadError, fileInfo, fileNameDisplay, fileStatusDisplay, uploadResultBox, uploadSummaryText;
+    let tabLocal, tabGithub, localContainer, githubContainer, githubUrlInput, btnLoadGithub;
+    let chatHistoryDiv, chatErrorDiv, queryInput, btnAskAI, chatHeaderStatus;
+    let modalOverlay, modalClose, modalTitle, modalMetaSource, modalMetaDistance, modalBodyContent;
 
     // 3. Event Listeners & Initialize
     document.addEventListener("DOMContentLoaded", () => {
+      // Initialize elements
+      apiInput = document.getElementById("api-base-url");
+      btnSettings = document.getElementById("btn-settings");
+      settingsPanel = document.getElementById("settings-panel");
+      btnReset = document.getElementById("btn-reset");
+      
+      dropzone = document.getElementById("dropzone");
+      fileInput = document.getElementById("file-input");
+      btnFindFile = document.getElementById("btn-find-file");
+      uploadError = document.getElementById("upload-error");
+      fileInfo = document.getElementById("file-info");
+      fileNameDisplay = document.getElementById("file-name-display");
+      fileStatusDisplay = document.getElementById("file-status-display");
+      uploadResultBox = document.getElementById("upload-result-box");
+      uploadSummaryText = document.getElementById("upload-summary-text");
+      
+      tabLocal = document.getElementById("tab-local");
+      tabGithub = document.getElementById("tab-github");
+      localContainer = document.getElementById("local-upload-container");
+      githubContainer = document.getElementById("github-load-container");
+      githubUrlInput = document.getElementById("github-url-input");
+      btnLoadGithub = document.getElementById("btn-load-github");
+      
+      chatHistoryDiv = document.getElementById("chat-history");
+      chatErrorDiv = document.getElementById("chat-error");
+      queryInput = document.getElementById("query-input");
+      btnAskAI = document.getElementById("btn-ask-ai");
+      chatHeaderStatus = document.getElementById("chat-header-status");
+
+      modalOverlay = document.getElementById("modal-overlay");
+      modalClose = document.getElementById("modal-close");
+      modalTitle = document.getElementById("modal-title");
+      modalMetaSource = document.getElementById("modal-meta-source");
+      modalMetaDistance = document.getElementById("modal-meta-distance");
+      modalBodyContent = document.getElementById("modal-body-content");
+
       // Set initial input value
       if (apiInput) apiInput.value = apiBaseUrl;
 
@@ -808,6 +847,44 @@
 
       // Database Reset
       btnReset.addEventListener("click", resetDatabase);
+
+      // Tab switching logic
+      if (tabLocal && tabGithub) {
+        tabLocal.addEventListener("click", () => {
+          tabLocal.classList.add("active");
+          tabLocal.style.color = "var(--text-primary)";
+          tabLocal.style.borderBottom = "2px solid var(--primary)";
+          tabLocal.style.fontWeight = "600";
+          
+          tabGithub.classList.remove("active");
+          tabGithub.style.color = "var(--text-secondary)";
+          tabGithub.style.borderBottom = "none";
+          tabGithub.style.fontWeight = "normal";
+
+          localContainer.style.display = "block";
+          githubContainer.style.display = "none";
+        });
+
+        tabGithub.addEventListener("click", () => {
+          tabGithub.classList.add("active");
+          tabGithub.style.color = "var(--text-primary)";
+          tabGithub.style.borderBottom = "2px solid var(--primary)";
+          tabGithub.style.fontWeight = "600";
+          
+          tabLocal.classList.remove("active");
+          tabLocal.style.color = "var(--text-secondary)";
+          tabLocal.style.borderBottom = "none";
+          tabLocal.style.fontWeight = "normal";
+
+          localContainer.style.display = "none";
+          githubContainer.style.display = "flex";
+        });
+      }
+
+      // Load from GitHub button trigger
+      if (btnLoadGithub) {
+        btnLoadGithub.addEventListener("click", loadPDFFromGithub);
+      }
 
       // File selection trigger
       btnFindFile.addEventListener("click", () => fileInput.click());
@@ -884,6 +961,71 @@
 
       // Perform Upload
       uploadPDF(file);
+    }
+
+    async function loadPDFFromGithub() {
+      const rawUrl = githubUrlInput.value.trim();
+      if (!rawUrl) {
+        showUploadError("깃허브 URL을 입력해 주세요.");
+        return;
+      }
+
+      // Normalizing Github URL
+      let fetchUrl = rawUrl;
+      if (rawUrl.includes("github.com") && rawUrl.includes("/blob/")) {
+        fetchUrl = rawUrl
+          .replace("github.com", "raw.githubusercontent.com")
+          .replace("/blob/", "/");
+      }
+
+      try {
+        showUploadError("");
+        setUploadingState(true);
+        
+        // Update UI upload status
+        fileInfo.classList.remove("hidden");
+        fileNameDisplay.textContent = "깃허브에서 가져오는 중...";
+        fileNameDisplay.title = rawUrl;
+        fileStatusDisplay.textContent = "다운로드 중";
+        fileStatusDisplay.className = "file-status uploading";
+
+        uploadResultBox.classList.add("hidden");
+
+        const response = await fetch(fetchUrl);
+        if (!response.ok) {
+          throw new Error(`파일을 가져오는데 실패했습니다: HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        
+        // Extract filename
+        let filename = "github_document.pdf";
+        try {
+          const urlObj = new URL(rawUrl);
+          const pathParts = urlObj.pathname.split('/');
+          filename = pathParts[pathParts.length - 1] || "github_document.pdf";
+          if (!filename.toLowerCase().endsWith(".pdf")) {
+            filename += ".pdf";
+          }
+        } catch (e) {
+          // Fallback
+        }
+
+        const file = new File([blob], filename, { type: "application/pdf" });
+        
+        // Update UI with actual filename and hand off to uploadPDF
+        fileNameDisplay.textContent = file.name;
+        fileNameDisplay.title = file.name;
+        
+        uploadPDF(file);
+
+      } catch (error) {
+        console.error("Github loading error:", error);
+        showUploadError(error.message || "깃허브 파일 통신 실패. URL 혹은 CORS 접근 권한을 확인하세요.");
+        fileStatusDisplay.textContent = "실패";
+        fileStatusDisplay.className = "file-status error";
+        setUploadingState(false);
+      }
     }
 
     function clearFileInput() {

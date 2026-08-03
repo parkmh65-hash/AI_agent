@@ -108,6 +108,57 @@ def get_llm(model_name: str, temperature: float = 0.3):
         else:
             raise HTTPException(status_code=400, detail="No valid LLM credentials found on the server.")
 
+# Helper to get the correct CrewAI LLM (Native LLM wraps to avoid Pydantic validation conflicts)
+def get_crewai_llm(model_name: str, temperature: float = 0.3):
+    from crewai import LLM
+    openai_key = os.getenv("OPENAI_API_KEY")
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    
+    is_gemini_valid = gemini_key and "your_gemini_api" not in gemini_key
+    is_openai_valid = openai_key and "your_openai_api" not in openai_key
+    
+    if model_name == "ollama":
+        print("Using CrewAI LLM for local Ollama Llama3 model...")
+        return LLM(
+            model="ollama/llama3",
+            base_url="http://localhost:11434",
+            temperature=temperature
+        )
+        
+    if model_name == "gemini":
+        if is_gemini_valid:
+            return LLM(
+                model="gemini/gemini-1.5-flash",
+                api_key=gemini_key,
+                temperature=temperature
+            )
+        elif is_openai_valid:
+            print("Gemini key is placeholder, falling back to OpenAI in CrewAI")
+            return LLM(
+                model="gpt-4o-mini",
+                api_key=openai_key,
+                temperature=temperature
+            )
+        else:
+            raise HTTPException(status_code=400, detail="No valid LLM credentials found on the server.")
+    else:
+        # Default to OpenAI
+        if is_openai_valid:
+            return LLM(
+                model="gpt-4o-mini",
+                api_key=openai_key,
+                temperature=temperature
+            )
+        elif is_gemini_valid:
+            print("OpenAI key is placeholder, falling back to Gemini in CrewAI")
+            return LLM(
+                model="gemini/gemini-1.5-flash",
+                api_key=gemini_key,
+                temperature=temperature
+            )
+        else:
+            raise HTTPException(status_code=400, detail="No valid LLM credentials found on the server.")
+
 # Helper to get the correct embeddings model
 def get_embeddings():
     openai_key = os.getenv("OPENAI_API_KEY")
@@ -309,7 +360,7 @@ def crew_node(state: AgentState):
     docs = state.get("retrieved_documents", [])
     context_str = "\n\n".join([f"Source: {d['source']}\nContent: {d['content']}" for d in docs])
     
-    llm = get_llm(state["model"])
+    llm = get_crewai_llm(state["model"])
     
     print(f"Initializing CrewAI with model: {state['model']} for topic: {topic}")
     
@@ -474,6 +525,44 @@ def read_root():
         "gemini_configured": bool(gemini_key and "your_gemini" not in gemini_key),
         "supabase_configured": supabase_client is not None
     }
+
+@app.get("/gui")
+def serve_gui():
+    from fastapi.responses import HTMLResponse
+    # Locate GAS directory inside current folder (Docker build context) or parent project folder
+    gas_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "GAS")
+    if not os.path.exists(gas_dir):
+        gas_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "GAS")
+    if not os.path.exists(gas_dir):
+        gas_dir = "GAS"
+        
+    index_path = os.path.join(gas_dir, "index.html")
+    style_path = os.path.join(gas_dir, "style.html")
+    script_path = os.path.join(gas_dir, "script.html")
+    
+    if os.path.exists(index_path):
+        with open(index_path, "r", encoding="utf-8") as f:
+            html = f.read()
+        
+        style_content = ""
+        if os.path.exists(style_path):
+            with open(style_path, "r", encoding="utf-8") as f:
+                style_content = f.read()
+                
+        script_content = ""
+        if os.path.exists(script_path):
+            with open(script_path, "r", encoding="utf-8") as f:
+                script_content = f.read()
+                
+        # Parse standard Apps Script scriptlet syntax
+        html = html.replace("<?!= include('style'); ?>", style_content)
+        html = html.replace("<?!= include('script'); ?>", script_content)
+        return HTMLResponse(content=html, status_code=200)
+    else:
+        return HTMLResponse(
+            content=f"<h3>GUI frontend files not found on server. Inspected path: {os.path.abspath(gas_dir)}</h3>", 
+            status_code=404
+        )
 
 @app.post("/agent/start")
 def start_agent(payload: StartRequest):
