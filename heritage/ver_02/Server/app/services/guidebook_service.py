@@ -173,6 +173,118 @@ async def fetch_fun_fact_from_web(heritage_name: str) -> str:
         
     return web_knowledge
 
+async def get_heritage_coords(heritage_name: str) -> tuple:
+    """Retrieve latitude and longitude for a heritage from DB or XML API fallback"""
+    if settings.SUPABASE_URL and settings.SUPABASE_KEY:
+        try:
+            headers = {
+                "apikey": settings.SUPABASE_KEY,
+                "Authorization": f"Bearer {settings.SUPABASE_KEY}"
+            }
+            url = f"{settings.SUPABASE_URL}/rest/v1/heritages?name=eq.{urllib.parse.quote(heritage_name)}&select=latitude,longitude"
+            async with httpx.AsyncClient() as client:
+                res = await client.get(url, headers=headers, timeout=3.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    if data:
+                        lat = float(data[0].get("latitude") or 0.0)
+                        lng = float(data[0].get("longitude") or 0.0)
+                        if lat != 0.0 and lng != 0.0:
+                            return lat, lng
+        except Exception:
+            pass
+            
+    # Fallback to XML API parsing
+    list_url = f"https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaMnm1={urllib.parse.quote(heritage_name)}"
+    async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
+        try:
+            res_list = await client.get(list_url, timeout=3.0)
+            if res_list.status_code == 200:
+                root = ET.fromstring(res_list.text)
+                item = root.find(".//item")
+                if item is not None:
+                    kdcd = item.findtext("ccbaKdcd")
+                    asno = item.findtext("ccbaAsno")
+                    ctcd = item.findtext("ccbaCtcd")
+                    if kdcd and asno and ctcd:
+                        dt_url = f"https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd={kdcd}&ccbaAsno={asno}&ccbaCtcd={ctcd}"
+                        res_dt = await client.get(dt_url, timeout=3.0)
+                        if res_dt.status_code == 200:
+                            dt_root = ET.fromstring(res_dt.text)
+                            dt_item = dt_root.find(".//item")
+                            if dt_item is not None:
+                                lat = dt_item.findtext("latitude")
+                                lng = dt_item.findtext("longitude")
+                                return float(lat) if lat else 36.48, float(lng) if lng else 127.28
+        except Exception:
+            pass
+            
+    return 36.48, 127.28
+
+async def fetch_kto_nearby_facilities(latitude: float, longitude: float) -> str:
+    """Query KTO locationBasedList2 API to retrieve tourist spots, restaurants, cafes, parking, and public facilities within 10km sorted by distance"""
+    if latitude == 0.0 or longitude == 0.0:
+        return "\n[한국관광공사 국문 관광정보 서비스_GW 10km 인근 시설 정보]\n기준 좌표가 유효하지 않아 인근 시설 정보를 조회할 수 없습니다.\n"
+        
+    url = "https://apis.data.go.kr/B551011/KorService2/locationBasedList2"
+    key = "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14"
+    params = {
+        "serviceKey": key,
+        "numOfRows": 20,
+        "pageNo": 1,
+        "MobileOS": "ETC",
+        "MobileApp": "SejongHeritagePlatform",
+        "_type": "json",
+        "mapX": f"{longitude:.6f}",
+        "mapY": f"{latitude:.6f}",
+        "radius": 10000,
+        "listYN": "Y",
+        "arrange": "O"
+    }
+    
+    try:
+        async with httpx.AsyncClient(verify=False) as client:
+            res = await client.get(url, params=params, timeout=5.0)
+            if res.status_code == 200:
+                data = res.json()
+                items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+                if not isinstance(items, list):
+                    items = [items] if items else []
+                
+                if items:
+                    facilities = {
+                        "관광지/문화": [],
+                        "음식점/카페": [],
+                        "주차장/화장실/기타편의": []
+                    }
+                    for item in items:
+                        title = item.get("title", "")
+                        dist = item.get("dist", "0")
+                        content_type = item.get("contenttypeid", "")
+                        addr = item.get("addr1", "")
+                        
+                        desc_str = f"- {title} (거리: {float(dist)/1000:.2f}km, 주소: {addr})"
+                        
+                        if content_type in ["12", "14"]:
+                            facilities["관광지/문화"].append(desc_str)
+                        elif content_type == "39":
+                            facilities["음식점/카페"].append(f"- [카페/식당] {title} (거리: {float(dist)/1000:.2f}km)")
+                        else:
+                            if "주차" in title or "화장실" in title or "편의" in title:
+                                facilities["주차장/화장실/기타편의"].insert(0, f"- [편의시설] {title} (거리: {float(dist)/1000:.2f}km)")
+                            else:
+                                facilities["주차장/화장실/기타편의"].append(desc_str)
+                                
+                    output = "\n[한국관광공사 국문 관광정보 서비스_GW 10km 이내 인근 연계 편의 및 관광시설 리스트 (가까운 거리순 정렬)]\n"
+                    for cat, list_data in facilities.items():
+                        if list_data:
+                            output += f"■ {cat}:\n" + "\n".join(list_data[:4]) + "\n"
+                    return output
+    except Exception as e:
+        print(f"Failed to fetch KTO locationBasedList: {e}")
+        
+    return "\n[한국관광공사 국문 관광정보 서비스_GW 10km 인근 시설 정보]\n주변의 연계 편의시설 정보를 조회하지 못했습니다.\n"
+
 async def gather_enriched_knowledge(heritages: List[str]) -> str:
     """Collect official knowledge on heritages using National Heritage API, KTO TourAPI, and Wikipedia/Naver fun facts"""
     knowledge_blocks = []
@@ -181,10 +293,15 @@ async def gather_enriched_knowledge(heritages: List[str]) -> str:
         nearby_tour = await fetch_kto_nearby_attractions(h)
         fun_fact = await fetch_fun_fact_from_web(h)
         
+        # 10km radius facilities retrieval (restrooms, parking, cafes, restaurants)
+        lat, lng = await get_heritage_coords(h)
+        facilities_fact = await fetch_kto_nearby_facilities(lat, lng)
+        
         block = f"### {h} 관련 수집 지식:\n"
         block += cha_detail
         block += nearby_tour
         block += f"\n{fun_fact}\n"
+        block += f"\n{facilities_fact}\n"
         
         knowledge_blocks.append(block)
         
@@ -199,8 +316,10 @@ def get_llm():
 async def analyzer_node(state: AgentState) -> Dict[str, Any]:
     llm = get_llm()
     prompt = ChatPromptTemplate.from_template(
-        "당신은 문화유산 기획 전문가입니다. 다음 문화유산 목록과 이동수단을 분석하여 코스 주제와 최적의 방문 동선 흐름을 기획해 주세요.\n"
-        "문화유산 목록: {heritages}\n이동수단: {transport}\n수집된 외부 지식:\n{knowledge}\n"
+        "당신은 문화유산 기획 전문가이자 최적 동선 기획 에이전트입니다. 다음 문화유산 목록과 이동수단을 분석하여 코스 주제와 최적의 방문 동선 흐름을 기획해 주세요.\n"
+        "특히, 수집된 10km 이내의 인근 편의시설(음식점, 카페, 주차장, 공공 화장실) 정보를 적극 검토하여, "
+        "사용자가 피로를 느끼지 않고 가장 짧은 거리로 편리하게 연계 방문할 수 있도록 **가까운 거리 기반의 이동 최적 동선(TSP 순서 정렬)**을 적용해 코스를 설계해 주어야 합니다.\n\n"
+        "문화유산 목록: {heritages}\n이동수단: {transport}\n수집된 외부 RAG 지식 및 주변 10km 편의시설 정보:\n{knowledge}\n\n"
         "응답은 기획서 요약 형태로 반환해 주세요."
     )
     chain = prompt | llm

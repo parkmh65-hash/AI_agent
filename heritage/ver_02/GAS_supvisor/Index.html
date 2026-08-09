@@ -573,9 +573,9 @@
                   
                   <div class="agent-node" style="background: #111827; border: 1px solid rgba(251,191,36,0.3);">
                     <strong style="font-size: 0.78rem; color: #fbbf24; display: block; margin-bottom: 4px;">(1) 기획/동선 에이전트</strong>
-                    <span style="font-size: 0.75rem; color: #cbd5e1;">WFS & KorService2 & 외부 웹 지식 융합</span>
+                    <span style="font-size: 0.75rem; color: #cbd5e1;">10km 인근시설 수집 및 가까운 거리 최적화</span>
                     <div class="agent-tooltip">
-                      국가유산 공간정보 WFS API와 한국관광공사 KorService2 외에 Wikipedia/네이버 백과사전 웹 크롤러를 통해 비화(Fun Fact), 설화를 수집하여 최적의 동선에 융합합니다.
+                      WFS 및 한국관광공사 API를 연계하여 10km 이내의 음식점, 카페, 주차장, 공공 화장실 데이터를 거리순 수집한 뒤, 가까운 거리 기반(TSP 최적화)으로 이동 동선을 정밀 설계합니다.
                     </div>
                   </div>
 
@@ -647,9 +647,9 @@
 
               <div class="agent-node" style="border-left: 4px solid #10b981;">
                 <strong style="font-size: 0.8rem; color: #10b981; display: block; margin-bottom: 4px;">3개 에이전트 구동 (Router Miss)</strong>
-                <span style="font-size: 0.85rem; color: #fff;">기획 ➔ 동화 작가 ➔ 번역</span>
+                <span style="font-size: 0.85rem; color: #fff;">10km 연계 ➔ 거리순 정렬 ➔ 번역</span>
                 <div class="agent-tooltip">
-                  기 생성된 적합한 코스가 데이터베이스에 없는 경우(Router Miss), 기획, 스토리텔러, 글로벌 번역 에이전트의 3개 핵심 루프가 신규 동화 가이드북을 새로 실시간 추론/제작합니다.
+                  캐시 미적중 시, 10km 이내의 연계 식당/주차장/화장실 정보를 바탕으로 최단거리 최적 동선(TSP)을 설계하고 흥미진진한 동화 원고를 신규 창작합니다.
                 </div>
               </div>
 
