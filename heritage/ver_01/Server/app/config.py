@@ -20,9 +20,12 @@ try:
         # Gemini LLM API Key
         GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
-        # TourAPI Keys
-        TOUR_API_KEY: str = os.getenv("TOUR_API_KEY", "mock_key")
-        DATA_GO_KR_API_KEY: str = os.getenv("DATA_GO_KR_API_KEY", "mock_key")
+        # KorService2 (한국관광공사 API) Keys
+        KOR_SERVICE_API_KEY: str = os.getenv("KOR_SERVICE_API_KEY", "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14")
+        KOR_SERVICE_BASE_URL: str = os.getenv("KOR_SERVICE_BASE_URL", "https://apis.data.go.kr/B551011/KorService2")
+        TOUR_API_KEY: str = os.getenv("TOUR_API_KEY", "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14")
+        DATA_GO_KR_API_KEY: str = os.getenv("DATA_GO_KR_API_KEY", "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14")
+
 
         # Kakao Map & Mobility Keys
         KAKAO_REST_API_KEY: str = os.getenv("KAKAO_REST_API_KEY", "")
@@ -52,8 +55,11 @@ except Exception:
         SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
         OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
         GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-        TOUR_API_KEY: str = os.getenv("TOUR_API_KEY", "mock_key")
-        DATA_GO_KR_API_KEY: str = os.getenv("DATA_GO_KR_API_KEY", "mock_key")
+        KOR_SERVICE_API_KEY: str = os.getenv("KOR_SERVICE_API_KEY", "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14")
+        KOR_SERVICE_BASE_URL: str = os.getenv("KOR_SERVICE_BASE_URL", "https://apis.data.go.kr/B551011/KorService2")
+        TOUR_API_KEY: str = os.getenv("TOUR_API_KEY", "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14")
+        DATA_GO_KR_API_KEY: str = os.getenv("DATA_GO_KR_API_KEY", "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14")
+
         KAKAO_REST_API_KEY: str = os.getenv("KAKAO_REST_API_KEY", "")
         KAKAO_JAVASCRIPT_KEY: str = os.getenv("KAKAO_JAVASCRIPT_KEY", "")
         KAKAO_MOBILITY_API_KEY: str = os.getenv("KAKAO_MOBILITY_API_KEY", "")

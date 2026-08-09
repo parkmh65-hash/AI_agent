@@ -68,8 +68,8 @@ function authCallback(request) {
 // ----------------------------------------------------
 
 function getSupabaseData(tableName, query) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
+  var supabaseUrl = getProp("USER_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("USER_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
   
   var url = supabaseUrl + "/rest/v1/" + tableName + (query ? ("?" + query) : "?select=*");
   var options = {
@@ -162,11 +162,19 @@ function getInitialWebAppData() {
       }
     }
 
+    var email = getActiveUserEmail();
+    var authSession = registerOrLoginSupabaseAuth(email);
+    var token = authSession ? (authSession.access_token || (authSession.session && authSession.session.access_token) || "") : "";
+    
+    // [로그 연동] 구글 로그인 세션 Supabase 로그 테이블에 기록
+    logUserSessionGAS(email);
+
     return {
       status: "success",
       official: officialList,
       citizen: citizenList,
-      user_email: getActiveUserEmail()
+      user_email: email,
+      supabase_token: token
     };
   } catch (err) {
     Logger.log("getInitialWebAppData Error: " + err);
@@ -176,8 +184,8 @@ function getInitialWebAppData() {
 
 // 2. 시민 제보 좋아요 수 업데이트
 function incrementCitizenHeartGAS(id, newHeart, itemName) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
+  var supabaseUrl = getProp("USER_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("USER_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
   
   var isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   var queryParam = isUUID ? "id=eq." + id : "name=eq." + encodeURIComponent(itemName);
@@ -203,8 +211,8 @@ function incrementCitizenHeartGAS(id, newHeart, itemName) {
 
 // 3. 시민 제보 등록
 function submitCitizenRecommendationGAS(payload) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
+  var supabaseUrl = getProp("USER_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("USER_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
 
   var options = {
     method: "post",
@@ -232,8 +240,8 @@ function submitCitizenRecommendationGAS(payload) {
 
 // 4. 탐방 후기 등록
 function submitCourseReviewGAS(reviewPayload) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
+  var supabaseUrl = getProp("USER_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("USER_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
 
   var options = {
     method: "post",
@@ -256,8 +264,8 @@ function submitCourseReviewGAS(reviewPayload) {
 
 // 5. 나만의 코스 저장
 function saveCourseGAS(coursePayload) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
+  var supabaseUrl = getProp("USER_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("USER_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
   
   var payload = {
     user_id: getActiveUserEmail(),
@@ -340,8 +348,8 @@ function fetchKorServiceGAS(op, keyword, arrange, areaCode) {
 
 // 8. Supabase Storage 파일 업로드 프록시
 function uploadImageToSupabaseStorageGAS(base64Data, fileName) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
+  var supabaseUrl = getProp("USER_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("USER_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
   
   try {
     var cleanFileName = fileName.replace(/[^a-zA-Z0-9_\.\-]/g, "_");
@@ -376,115 +384,170 @@ function uploadImageToSupabaseStorageGAS(base64Data, fileName) {
 }
 
 // 9. 관리자 엑셀 일괄 이관 처리
-function importExcelToSupabaseDirectGAS(records) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
 
-  if (!records || records.length === 0) return { error: true, message: "이관할 레코드가 없습니다." };
 
-  var bulkHeritages = records.map(function(r, idx) {
-    var rawName = (r.name || "").trim();
-    var finalDong = r.dong || r.dong_eup_myeon || "세종시";
-    var finalEra = r.era || "조선시대";
-    var finalThinking = r.thinkingPoint || r.thinking_point || "세종시 문화유산의 가치를 느껴봅시다.";
-    var finalDesc = r.description || ("세종특별자치시에 위치한 문화유산 " + rawName + "입니다.");
-    var finalLat = parseFloat(r.latitude || r.lat) || 36.52;
-    var finalLng = parseFloat(r.longitude || r.lng) || 127.27;
+// 10. Google Docs 종합 현황 통계 보고서 발행
 
-    return {
-      h_id: r.h_id || ("H" + (idx + 1)),
-      name: rawName,
-      address: r.address || ("세종특별자치시 " + finalDong),
-      dong: finalDong,
-      era: finalEra,
-      era_normalized: r.era_normalized || finalEra,
-      latitude: finalLat,
-      longitude: finalLng,
-      description: finalDesc,
-      thinking_point: finalThinking,
-      source: "registered",
-      status: "approved",
-      like_count: 50
-    };
-  });
 
-  var options = {
+
+
+
+// =========================================================================
+// [추가] AI RAG, 구글/Supabase 인증, 실시간 모니터링 원격 프록시 연동 함수군 (단일 마운트)
+// =========================================================================
+
+// 1. Google 계정 정보를 기반으로 Supabase Authentication에 자동 가입/로그인 처리
+function registerOrLoginSupabaseAuth(email) {
+  var supabaseUrl = getProp("USER_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("USER_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
+  
+  // Deterministic secure password generated using email & key signature
+  var rawPass = email + "_" + supabaseKey;
+  var signature = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, rawPass);
+  var password = signature.map(function(byte) {
+    var hex = (byte & 0xff).toString(16);
+    return hex.length === 1 ? "0" + hex : hex;
+  }).join("");
+
+  var signupOptions = {
     method: "post",
+    contentType: "application/json",
     headers: {
-      "apikey": supabaseKey,
-      "Authorization": "Bearer " + supabaseKey,
-      "Content-Type": "application/json",
-      "Prefer": "resolution=merge-duplicates, return=representation"
+      "apikey": supabaseKey
     },
-    payload: JSON.stringify(bulkHeritages),
+    payload: JSON.stringify({ email: email, password: password }),
     muteHttpExceptions: true
   };
 
   try {
-    var response = UrlFetchApp.fetch(supabaseUrl + "/rest/v1/heritages?on_conflict=h_id", options);
-    var code = response.getResponseCode();
-    if (code === 200 || code === 201) {
-      var inserted = JSON.parse(response.getContentText());
-      var bulkImages = [];
-      inserted.forEach(function(item, idx) {
-        var itemImgUrl = records[idx]?.supabaseStorageUrl || records[idx]?.image_url || "";
-        if (item.id && itemImgUrl) {
-          bulkImages.push({
-            heritage_id: item.id,
-            image_url: itemImgUrl,
-            sort_order: 0
-          });
-        }
-      });
-      
-      if (bulkImages.length > 0) {
-        UrlFetchApp.fetch(supabaseUrl + "/rest/v1/heritage_images", {
-          method: "post",
-          headers: {
-            "apikey": supabaseKey,
-            "Authorization": "Bearer " + supabaseKey,
-            "Content-Type": "application/json"
-          },
-          payload: JSON.stringify(bulkImages),
-          muteHttpExceptions: true
-        });
-      }
-      return { status: "success", count: inserted.length };
+    var signupResponse = UrlFetchApp.fetch(supabaseUrl + "/auth/v1/signup", signupOptions);
+    var signupCode = signupResponse.getResponseCode();
+    if (signupCode === 200 || signupCode === 201) {
+      return JSON.parse(signupResponse.getContentText());
     }
-    return { status: "error", message: response.getContentText() };
+
+    var loginOptions = {
+      method: "post",
+      contentType: "application/json",
+      headers: {
+        "apikey": supabaseKey
+      },
+      payload: JSON.stringify({ email: email, password: password }),
+      muteHttpExceptions: true
+    };
+    var loginResponse = UrlFetchApp.fetch(supabaseUrl + "/auth/v1/token?grant_type=password", loginOptions);
+    var loginCode = loginResponse.getResponseCode();
+    if (loginCode === 200 || loginCode === 201) {
+      return JSON.parse(loginResponse.getContentText());
+    }
+    return null;
   } catch (err) {
-    return { status: "error", message: err.toString() };
+    Logger.log("registerOrLoginSupabaseAuth Error: " + err.toString());
+    return null;
   }
 }
 
-// 10. Google Docs 종합 현황 통계 보고서 발행
-function generateAdminReportGAS() {
+// 2. Agentic RAG FastAPI 서버 프록시 연동
+function queryAgenticRAGGAS(query) {
+  var backendUrl = getProp("CLOUD_RUN_URL", "https://heritage-538192513096.us-central1.run.app");
+  var options = {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify({ query: query }),
+    muteHttpExceptions: true
+  };
+  var startTime = new Date().getTime();
   try {
-    var doc = DocumentApp.create("세종특별자치시 문화유산 종합 현황 및 개선사항 통계 보고서");
-    var body = doc.getBody();
-    
-    body.appendParagraph("세종특별자치시 문화유산 종합 관리 통계 보고서")
-        .setFontSize(22)
-        .setBold(true)
-        .setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-        
-    body.appendParagraph("\n발행일시: " + new Date().toLocaleString())
-        .setFontSize(10)
-        .setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
-
-    body.appendParagraph("\n1. 서비스 종합 운영 현황")
-        .setFontSize(14)
-        .setBold(true);
-    
-    body.appendParagraph("본 보고서는 세종시 문화유산 스마트 플랫폼의 실시간 피드백 및 모니터링 정보를 바탕으로 자동 생성된 문서입니다.\n현재 플랫폼에는 다수의 지정 문화유산 정보 및 시민들이 직접 제보한 문화유산이 등록되어 있으며, 실시간 GIS 이동 경로 피드백 시스템을 통해 수집된 개선 요청 피드백이 집계되어 관리되고 있습니다.");
-
-    doc.saveAndClose();
-    return { status: "success", url: doc.getUrl() };
-  } catch (err) {
-    return { status: "error", message: err.toString() };
+    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/agentic-rag/query", options);
+    var code = response.getResponseCode();
+    var latency = new Date().getTime() - startTime;
+    if (code === 200 || code === 201) {
+      var data = JSON.parse(response.getContentText());
+      logAIUsageGAS(getActiveUserEmail(), "RAG_Query", latency, 150, 250);
+      return data;
+    }
+    throw new Error("FastAPI RAG error: " + response.getContentText());
+  } catch (e) {
+    Logger.log("queryAgenticRAGGAS Error: " + e.toString());
+    throw e;
   }
 }
 
-function checkIsAdminGAS() {
-  return true; // Simple administrative access check bypass
+// 3. AI 가이드북 생성 FastAPI 서버 프록시 연동
+function generateGuidebookGAS(heritageNames, transport) {
+  var backendUrl = getProp("CLOUD_RUN_URL", "https://heritage-538192513096.us-central1.run.app");
+  var options = {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify({ heritages: heritageNames, transport: transport || "승용차" }),
+    muteHttpExceptions: true
+  };
+  var startTime = new Date().getTime();
+  try {
+    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/guidebook", options);
+    var code = response.getResponseCode();
+    var latency = new Date().getTime() - startTime;
+    if (code === 200 || code === 201) {
+      var data = JSON.parse(response.getContentText());
+      logAIUsageGAS(getActiveUserEmail(), "Guidebook_Generation", latency, 350, 450);
+      return data;
+    }
+    throw new Error("FastAPI Guidebook error: " + response.getContentText());
+  } catch (e) {
+    Logger.log("generateGuidebookGAS Error: " + e.toString());
+    throw e;
+  }
 }
+
+// 4. 로그인 사용자 세션 저장
+function logUserSessionGAS(email) {
+  var supabaseUrl = getProp("USER_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("USER_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
+  
+  var options = {
+    method: "post",
+    contentType: "application/json",
+    headers: {
+      "apikey": supabaseKey,
+      "Authorization": "Bearer " + supabaseKey
+    },
+    payload: JSON.stringify({ email: email }),
+    muteHttpExceptions: true
+  };
+  try {
+    UrlFetchApp.fetch(supabaseUrl + "/rest/v1/user_sessions", options);
+  } catch (e) {
+    Logger.log("logUserSessionGAS Error: " + e.toString());
+  }
+}
+
+// 5. AI API 사용량 저장
+function logAIUsageGAS(email, apiType, latencyMs, promptTokens, completionTokens) {
+  var supabaseUrl = getProp("USER_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("USER_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
+  
+  var options = {
+    method: "post",
+    contentType: "application/json",
+    headers: {
+      "apikey": supabaseKey,
+      "Authorization": "Bearer " + supabaseKey
+    },
+    payload: JSON.stringify({
+      user_email: email,
+      api_type: apiType,
+      latency_ms: latencyMs,
+      prompt_tokens: promptTokens || 0,
+      completion_tokens: completionTokens || 0
+    }),
+    muteHttpExceptions: true
+  };
+  try {
+    UrlFetchApp.fetch(supabaseUrl + "/rest/v1/ai_usage_logs", options);
+  } catch (e) {
+    Logger.log("logAIUsageGAS Error: " + e.toString());
+  }
+}
+
+// 6. 모니터링 통계 정보 가져오기
+

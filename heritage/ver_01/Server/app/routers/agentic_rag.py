@@ -12,11 +12,19 @@ from app.services.agentic_rag_service import run_agentic_rag, run_travel_plan, g
 router = APIRouter(tags=["agentic-rag"])
 
 class AgenticRAGRequest(BaseModel):
-    query: str
+    query: Optional[str] = "세종시 문화유산"
     model: Optional[str] = "gpt-4o"
     toggles: Optional[List[str]] = []
     selected_items: Optional[List[str]] = ["기본 정보"]
     selected_model: Optional[str] = "gpt-4o"
+    area_code: Optional[str] = None
+    area_code: Optional[str] = None
+    area_code: Optional[str] = None
+    area_code: Optional[str] = None
+    area_code: Optional[str] = None
+    area_code: Optional[str] = None
+    area_code: Optional[str] = None
+    area_code: Optional[str] = None
 
 class TravelPlanRequest(BaseModel):
     query: str
@@ -46,7 +54,8 @@ def process_agentic_rag(req: AgenticRAGRequest):
     result = run_agentic_rag(
         question=req.query,
         selected_items=toggles,
-        selected_model=selected_model
+        selected_model=selected_model,
+        area_code=req.area_code
     )
     return result
 

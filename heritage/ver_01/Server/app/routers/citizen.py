@@ -28,7 +28,7 @@ class CitizenRecommendationSubmit(BaseModel):
     submitted_by: Optional[str] = "user@sejong.go.kr"
 
 def normalize_citizen_record(r: Dict[str, Any]) -> Dict[str, Any]:
-    image_url = r.get("image_url") or r.get("photo_url") or "https://images.unsplash.com/photo-1548013146-72479768bada?w=600&q=80"
+    image_url = r.get("image_url") or r.get("photo_url") or ""
     lat_val = float(r.get("latitude") or r.get("lat") or 36.48)
     lng_val = float(r.get("longitude") or r.get("lng") or 127.28)
     desc_val = r.get("description") or r.get("reason") or r.get("report_reason") or "시민 추천 문화유산 제보"
@@ -59,7 +59,7 @@ def normalize_citizen_record(r: Dict[str, Any]) -> Dict[str, Any]:
 @router.post("/api/citizen-recommendations")
 def submit_citizen_recommendation(data: CitizenRecommendationSubmit):
     """시민 추천 문화유산 제보 제출 (Supabase DB `citizen_recommendations` 테이블 저장)"""
-    img_url = data.image_url or data.photo_url or "https://images.unsplash.com/photo-1548013146-72479768bada?w=600&q=80"
+    img_url = data.image_url or data.photo_url or ""
     lat_val = float(data.latitude or data.lat or 36.48)
     lng_val = float(data.longitude or data.lng or 127.28)
     desc_val = data.description or data.reason or "시민 추천 문화유산 제보"

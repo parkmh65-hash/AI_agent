@@ -24,8 +24,17 @@ def normalize_heritage_row(row: Dict[str, Any]) -> Dict[str, Any]:
     row["think_about"] = thinking_val
     row["think_point"] = thinking_val
 
-    lat_val = float(row.get("latitude") or row.get("lat") or 36.52)
-    lng_val = float(row.get("longitude") or row.get("lng") or 127.27)
+    try:
+        lat_raw = row.get("latitude") or row.get("lat")
+        lat_val = float(lat_raw) if lat_raw is not None and lat_raw != "" else 36.52
+    except (ValueError, TypeError):
+        lat_val = 36.52
+
+    try:
+        lng_raw = row.get("longitude") or row.get("lng")
+        lng_val = float(lng_raw) if lng_raw is not None and lng_raw != "" else 127.27
+    except (ValueError, TypeError):
+        lng_val = 127.27
     row["latitude"] = lat_val
     row["lat"] = lat_val
     row["longitude"] = lng_val
@@ -38,8 +47,13 @@ def normalize_heritage_row(row: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(first_img, dict):
             img_url = first_img.get("image_url") or first_img.get("imageUrl") or ""
     if not img_url:
-        img_url = row.get("image_url") or row.get("imageUrl") or row.get("supabase_storage_url") or row.get("supabaseStorageUrl") or "https://images.unsplash.com/photo-1548013146-72479768bada?w=600&q=80"
-    
+        img_url = row.get("image_url") or row.get("imageUrl") or row.get("supabase_storage_url") or row.get("supabaseStorageUrl") or ""
+
+    if not img_url and row.get("h_id"):
+        h_id = str(row.get("h_id")).strip()
+        if h_id.startswith("H"):
+            img_url = f"https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/{h_id}_{h_id}.jpg"
+
     row["image_url"] = img_url
     row["imageUrl"] = img_url
     row["supabase_storage_url"] = img_url
@@ -58,19 +72,21 @@ def get_heritages(
     era: Optional[str] = Query(None, description="시대 필터"),
     keyword: Optional[str] = Query(None, description="검색 키워드")
 ):
-    """문화유산 목록 및 다중 조건 필터링"""
-    target_dong = dong or dong_eup_myeon
-    target_era = era_normalized or era
+    """문화유산 목록 및 다중 조건 필터링 (Supabase heritages & heritage_images 조인)"""
+    target_dong = dong if isinstance(dong, str) and dong else (dong_eup_myeon if isinstance(dong_eup_myeon, str) and dong_eup_myeon else None)
+    target_era = era_normalized if isinstance(era_normalized, str) and era_normalized else (era if isinstance(era, str) and era else None)
+    target_kw = keyword if isinstance(keyword, str) and keyword else None
+    
     supabase = get_supabase()
     if supabase:
         try:
-            query_builder = supabase.table("heritages").select("*, images:heritage_images(*)")
+            query_builder = supabase.table("heritages").select("*,images:heritage_images(*)")
             if target_dong:
                 query_builder = query_builder.eq("dong", target_dong)
             if target_era:
                 query_builder = query_builder.eq("era", target_era)
-            if keyword:
-                query_builder = query_builder.ilike("name", f"%{keyword}%")
+            if target_kw:
+                query_builder = query_builder.ilike("name", f"%{target_kw}%")
             res = query_builder.execute()
             if res.data is not None:
                 return [normalize_heritage_row(row) for row in res.data]
@@ -149,3 +165,18 @@ def increment_heritage_like(heritage_id: str, like_count: Optional[int] = Query(
             return {"status": "error", "detail": str(e), "like_count": like_count or 50}
 
     return {"status": "mock", "id": heritage_id, "like_count": like_count or 50}
+
+@router.post("/vectorize")
+def vectorize_heritages_api():
+    """Supabase heritages 테이블 전체 텍스트 벡터 임베딩 생성 및 Supabase DB 저장 실행"""
+    try:
+        from scripts.vectorize_heritages import vectorize_and_save_heritages
+        records = vectorize_and_save_heritages()
+        return {
+            "status": "success",
+            "message": f"총 {len(records)}건의 heritage 데이터 벡터화 및 Supabase DB 저장이 완료되었습니다.",
+            "total_count": len(records)
+        }
+    except Exception as e:
+        print(f"Vectorize API error: {e}")
+        return {"status": "error", "message": str(e)}

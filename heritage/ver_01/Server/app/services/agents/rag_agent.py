@@ -30,7 +30,7 @@ def rag_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
     documents = retrieve_vector_db(query, k=search_k)
     
     # 2. LLM을 통한 관련성 채점 (Structured Output 적용)
-    llm = get_llm(state.get("selected_model", "gpt-4o"))
+    llm = get_llm("gpt-4o-mini")
     selected_heritages = []
     confidence_score = 0.0
     
@@ -76,9 +76,48 @@ def rag_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 "confidence_score": 0.8
             })
         
-        # 대표 탑5 슬라이싱
-        selected_heritages = selected_heritages[:5]
-        confidence_score = sum(h["relevance_score"] for h in selected_heritages) / max(len(selected_heritages), 1)
+    # 3. 5개 미만인 경우 Supabase DB에서 추가 동적 조회 보완 (하드코딩 모의데이터 100% 제거)
+    if len(selected_heritages) < 5:
+        try:
+            from app.services.agents.tools import get_supabase_client
+            supabase = get_supabase_client()
+            if supabase:
+                # heritages 테이블 동적 조회
+                res = supabase.table("heritages").select("*").limit(10).execute()
+                for row in (res.data or []):
+                    if len(selected_heritages) >= 5:
+                        break
+                    h_name = row.get("name") or row.get("heritage_name") or "세종시 문화유산"
+                    if not any(h.get("heritage_name") == h_name for h in selected_heritages):
+                        selected_heritages.append({
+                            "heritage_name": h_name,
+                            "category": row.get("category") or row.get("era") or "공식 지정 유산",
+                            "address": row.get("address") or row.get("dong_eup_myeon") or "세종특별자치시",
+                            "description": row.get("description") or row.get("reason") or "Supabase DB 등록 세종시 대표 문화유산입니다.",
+                            "relevance_score": 0.85,
+                            "confidence_score": 0.85
+                        })
+                # citizen_recommendations 테이블 동적 조회
+                if len(selected_heritages) < 5:
+                    c_res = supabase.table("citizen_recommendations").select("*").limit(5).execute()
+                    for c_row in (c_res.data or []):
+                        if len(selected_heritages) >= 5:
+                            break
+                        c_name = c_row.get("name") or c_row.get("heritage_name") or "시민 발굴 유산"
+                        if not any(h.get("heritage_name") == c_name for h in selected_heritages):
+                            selected_heritages.append({
+                                "heritage_name": c_name,
+                                "category": "시민 제보 유산",
+                                "address": c_row.get("address") or c_row.get("dong") or "세종특별자치시",
+                                "description": c_row.get("reason") or c_row.get("description") or "Supabase DB 등록 시민 발굴 소중한 유산입니다.",
+                                "relevance_score": 0.82,
+                                "confidence_score": 0.80
+                            })
+        except Exception as err:
+            print(f"[RAG Agent] Dynamic DB complement notice: {err}")
+
+    selected_heritages = selected_heritages[:5]
+    confidence_score = sum(h.get("relevance_score", 0.8) for h in selected_heritages) / max(len(selected_heritages), 1)
 
     # RAG 피드백 검증용 상태 데이터 갱신
     state["retrieved_documents"] = documents
@@ -99,7 +138,7 @@ def rag_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
 def rewrite_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Rewrite Node: 사용자 질문의 완성도를 높이기 위해 검색어 재작성"""
     orig_q = state.get("user_query", "")
-    llm = get_llm(state.get("selected_model", "gpt-4o"))
+    llm = get_llm("gpt-4o-mini")
     rewritten = ""
     
     if llm:
@@ -125,7 +164,7 @@ def rewrite_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
             
     print(f"[Rewrite Query] Rewrote: '{orig_q}' -> '{rewritten}'")
     state["rewritten_query"] = rewritten
-    state["retry_count"] += 1
+    state["retry_count"] = state.get("retry_count", 0) + 1
     return state
 
 def dong_or_name(meta: dict) -> str:

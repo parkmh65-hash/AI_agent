@@ -68,8 +68,8 @@ function authCallback(request) {
 // ----------------------------------------------------
 
 function getSupabaseData(tableName, query) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
+  var supabaseUrl = getProp("SUPERVISOR_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("SUPERVISOR_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
   
   var url = supabaseUrl + "/rest/v1/" + tableName + (query ? ("?" + query) : "?select=*");
   var options = {
@@ -175,173 +175,27 @@ function getInitialWebAppData() {
 }
 
 // 2. 시민 제보 좋아요 수 업데이트
-function incrementCitizenHeartGAS(id, newHeart, itemName) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
-  
-  var isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-  var queryParam = isUUID ? "id=eq." + id : "name=eq." + encodeURIComponent(itemName);
 
-  var options = {
-    method: "patch",
-    headers: {
-      "apikey": supabaseKey,
-      "Authorization": "Bearer " + supabaseKey,
-      "Content-Type": "application/json"
-    },
-    payload: JSON.stringify({ heart: newHeart, recommend_count: newHeart }),
-    muteHttpExceptions: true
-  };
-
-  try {
-    var response = UrlFetchApp.fetch(supabaseUrl + "/rest/v1/citizen_recommendations?" + queryParam, options);
-    return { status: "success", code: response.getResponseCode() };
-  } catch (e) {
-    return { status: "error", message: e.toString() };
-  }
-}
 
 // 3. 시민 제보 등록
-function submitCitizenRecommendationGAS(payload) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
 
-  var options = {
-    method: "post",
-    headers: {
-      "apikey": supabaseKey,
-      "Authorization": "Bearer " + supabaseKey,
-      "Content-Type": "application/json",
-      "Prefer": "return=representation"
-    },
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  };
-
-  try {
-    var response = UrlFetchApp.fetch(supabaseUrl + "/rest/v1/citizen_recommendations", options);
-    var code = response.getResponseCode();
-    if (code === 200 || code === 201) {
-      return { status: "success", data: JSON.parse(response.getContentText()) };
-    }
-    return { status: "error", message: "Supabase insert error: " + response.getContentText() };
-  } catch (e) {
-    return { status: "error", message: e.toString() };
-  }
-}
 
 // 4. 탐방 후기 등록
-function submitCourseReviewGAS(reviewPayload) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
 
-  var options = {
-    method: "post",
-    headers: {
-      "apikey": supabaseKey,
-      "Authorization": "Bearer " + supabaseKey,
-      "Content-Type": "application/json"
-    },
-    payload: JSON.stringify(reviewPayload),
-    muteHttpExceptions: true
-  };
-
-  try {
-    var response = UrlFetchApp.fetch(supabaseUrl + "/rest/v1/reviews", options);
-    return { status: "success", code: response.getResponseCode() };
-  } catch (e) {
-    return { status: "error", message: e.toString() };
-  }
-}
 
 // 5. 나만의 코스 저장
-function saveCourseGAS(coursePayload) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
-  
-  var payload = {
-    user_id: getActiveUserEmail(),
-    title: coursePayload.title || "세종 문화유산 코스",
-    transport_mode: coursePayload.transport_mode || "승용차",
-    total_duration_min: parseInt(coursePayload.total_duration_min, 10) || 60
-  };
 
-  var options = {
-    method: "post",
-    headers: {
-      "apikey": supabaseKey,
-      "Authorization": "Bearer " + supabaseKey,
-      "Content-Type": "application/json",
-      "Prefer": "return=representation"
-    },
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  };
-
-  try {
-    var response = UrlFetchApp.fetch(supabaseUrl + "/rest/v1/courses", options);
-    var code = response.getResponseCode();
-
-    if (code === 200 || code === 201) {
-      var inserted = JSON.parse(response.getContentText())[0];
-      if (inserted && inserted.id && coursePayload.items && coursePayload.items.length > 0) {
-        var itemsToInsert = coursePayload.items.map(function(it, idx) {
-          return {
-            course_id: inserted.id,
-            heritage_id: it.id || "H1",
-            sort_order: idx + 1
-          };
-        });
-        
-        UrlFetchApp.fetch(supabaseUrl + "/rest/v1/course_items", {
-          method: "post",
-          headers: {
-            "apikey": supabaseKey,
-            "Authorization": "Bearer " + supabaseKey,
-            "Content-Type": "application/json"
-          },
-          payload: JSON.stringify(itemsToInsert),
-          muteHttpExceptions: true
-        });
-      }
-      return { status: "success", data: inserted };
-    }
-    return { status: "error", message: response.getContentText() };
-  } catch (err) {
-    return { status: "error", message: err.toString() };
-  }
-}
 
 // 6. 저장된 코스 목록 조회
-function fetchSavedCoursesGAS() {
-  return getSupabaseData("courses", "select=*,items:course_items(*)&order=created_at.desc");
-}
+
 
 // 7. 한국관광공사 OpenAPI 조회 프록시
-function fetchKorServiceGAS(op, keyword, arrange, areaCode) {
-  var serviceKey = 'a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14';
-  var directUrl = "https://apis.data.go.kr/B551011/KorService2/" + op 
-    + "?serviceKey=" + serviceKey 
-    + "&MobileOS=ETC&MobileApp=Sejong&_type=json"
-    + "&keyword=" + encodeURIComponent(keyword) 
-    + "&areaCode=" + (areaCode || "8") 
-    + "&numOfRows=20&pageNo=1";
 
-  try {
-    var response = UrlFetchApp.fetch(directUrl, { muteHttpExceptions: true });
-    if (response.getResponseCode() === 200) {
-      return { status: "success", data: JSON.parse(response.getContentText()) };
-    }
-  } catch (err) {
-    Logger.log("fetchKorServiceGAS direct error: " + err);
-  }
-  return { status: "error", message: "OpenAPI fetch failed" };
-}
 
 // 8. Supabase Storage 파일 업로드 프록시
 function uploadImageToSupabaseStorageGAS(base64Data, fileName) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
+  var supabaseUrl = getProp("SUPERVISOR_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("SUPERVISOR_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
   
   try {
     var cleanFileName = fileName.replace(/[^a-zA-Z0-9_\.\-]/g, "_");
@@ -377,8 +231,8 @@ function uploadImageToSupabaseStorageGAS(base64Data, fileName) {
 
 // 9. 관리자 엑셀 일괄 이관 처리
 function importExcelToSupabaseDirectGAS(records) {
-  var supabaseUrl = getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co");
-  var supabaseKey = getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM");
+  var supabaseUrl = getProp("SUPERVISOR_SUPABASE_URL", getProp("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co"));
+  var supabaseKey = getProp("SUPERVISOR_SUPABASE_KEY", getProp("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM"));
 
   if (!records || records.length === 0) return { error: true, message: "이관할 레코드가 없습니다." };
 
@@ -487,4 +341,73 @@ function generateAdminReportGAS() {
 
 function checkIsAdminGAS() {
   return true; // Simple administrative access check bypass
+}
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+
+
+// 7. 한국관광공사 OpenAPI 조회 프록시
+function fetchKorServiceGAS(op, keyword, arrange, areaCode) {
+  var serviceKey = 'a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14';
+  var directUrl = "https://apis.data.go.kr/B551011/KorService2/" + op 
+    + "?serviceKey=" + serviceKey 
+    + "&MobileOS=ETC&MobileApp=Sejong&_type=json"
+    + "&keyword=" + encodeURIComponent(keyword) 
+    + "&areaCode=" + (areaCode || "8") 
+    + "&numOfRows=20&pageNo=1";
+
+  try {
+    var response = UrlFetchApp.fetch(directUrl, { muteHttpExceptions: true });
+    if (response.getResponseCode() === 200) {
+      return { status: "success", data: JSON.parse(response.getContentText()) };
+    }
+  } catch (err) {
+    Logger.log("fetchKorServiceGAS direct error: " + err);
+  }
+  return { status: "error", message: "OpenAPI fetch failed" };
 }

@@ -230,7 +230,7 @@ def import_excel_and_images(req: BatchImportRequest):
         }
         bulk_heritages.append(db_row)
         metadata_map.append({
-            "img_url": img_url or "https://images.unsplash.com/photo-1548625149-fc4a29cf7092?w=800",
+            "img_url": img_url or "",
             "original_row": row
         })
 
@@ -285,7 +285,7 @@ def import_excel_and_images(req: BatchImportRequest):
     for idx, row in enumerate(req.records):
         created_item = inserted_rows[idx] if idx < len(inserted_rows) else None
         rec_id = created_item.get("id") if created_item else f"supa-simu-{idx + 1}"
-        img_url = metadata_map[idx]["img_url"] if idx < len(metadata_map) else "https://images.unsplash.com/photo-1548625149-fc4a29cf7092?w=800"
+        img_url = metadata_map[idx]["img_url"] if idx < len(metadata_map) else ""
 
         processed_data.append({
             "id": rec_id,

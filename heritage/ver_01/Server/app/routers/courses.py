@@ -77,13 +77,22 @@ def create_course(req: CourseCreateRequest):
     except Exception:
         pass
 
+    valid_trans = "자차"
+    if transport_val:
+        if "대중" in transport_val or "bus" in transport_val.lower() or "public" in transport_val.lower():
+            valid_trans = "대중교통"
+        elif "도보" in transport_val or "walk" in transport_val.lower():
+            valid_trans = "도보"
+        else:
+            valid_trans = "자차"
+
     supabase = get_supabase()
     if supabase:
         try:
             raw_course_db = {
                 "user_id": user_val,
                 "title": title_val,
-                "transport_mode": transport_val,
+                "transport_mode": valid_trans,
                 "total_duration_min": duration_min,
                 "created_at": datetime.now().isoformat()
             }
@@ -95,20 +104,24 @@ def create_course(req: CourseCreateRequest):
                 # Insert items into course_items table
                 course_items_to_insert = []
                 for idx, it in enumerate(items_list):
-                    h_id_val = it.get("id") if isinstance(it, dict) else str(it)
+                    h_id_val = it.get("id") or it.get("h_id") if isinstance(it, dict) else str(it)
                     if h_id_val:
-                        course_items_to_insert.append({
-                            "course_id": course_uuid,
-                            "heritage_id": h_id_val,
-                            "order_index": idx + 1,
-                            "sort_order": idx + 1
-                        })
+                        try:
+                            import uuid
+                            uuid.UUID(str(h_id_val))
+                            course_items_to_insert.append({
+                                "course_id": course_uuid,
+                                "heritage_id": str(h_id_val),
+                                "sort_order": idx + 1
+                            })
+                        except ValueError:
+                            pass
 
                 if course_items_to_insert:
                     try:
                         supabase.table("course_items").insert(course_items_to_insert).execute()
                     except Exception as ie:
-                        print(f"course_items insert warning: {ie}")
+                        print(f"course_items insert notice: {ie}")
 
                 full_course = normalize_course_record({
                     "id": course_uuid,

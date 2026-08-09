@@ -64,10 +64,10 @@ def geocode_place(name: str, address: str) -> Dict[str, float]:
     return {"lat": 36.50, "lng": 127.26}
 
 def validate_sejong_bounds(lat: float, lng: float) -> bool:
-    """좌표가 세종특별자치시 행정구역 경계 범위 내에 존재하는지 검증"""
-    # 세종시 범위 대략적 사각형 바운더리
-    min_lat, max_lat = 36.35, 36.75
-    min_lng, max_lng = 127.10, 127.45
+    """좌표가 대한민국 행정구역 경계 범위 내에 존재하는지 검증 (전국 확장)"""
+    # 대한민국 전국 범위 대략적 사각형 바운더리
+    min_lat, max_lat = 32.0, 39.5
+    min_lng, max_lng = 124.0, 132.0
     return min_lat <= lat <= max_lat and min_lng <= lng <= max_lng
 
 def map_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -90,7 +90,7 @@ def map_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # 세종시 경계 유효성 검사 적용
         is_valid_sejong = validate_sejong_bounds(lat, lng)
         if not is_valid_sejong:
-            print(f"[Map Agent] Warning: Coord for {item['place_name']} ({lat}, {lng}) is out of Sejong boundary.")
+            print(f"[Map Agent] Warning: Coord for {item['place_name']} ({lat}, {lng}) is out of South Korea boundary.")
             
         # 마커 종류 설정
         # S: 출발지 | H: 문화유산 | A: 관광지 | F: 식당 | C: 카페 | E: 종료지

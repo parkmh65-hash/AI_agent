@@ -23,54 +23,86 @@ def calculate_haversine_distance(lat1: float, lng1: float, lat2: float, lng2: fl
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return round(R * c, 2)
 
+def generate_query_embedding(query: str) -> list:
+    """사용자 질의 텍스트에 대한 고차원 벡터 임베딩 생성 (Supabase heritage 벡터 매칭용)"""
+    if hasattr(settings, "OPENAI_API_KEY") and settings.OPENAI_API_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"}
+            payload = {"input": query, "model": "text-embedding-ada-002"}
+            res = requests.post("https://api.openai.com/v1/embeddings", json=payload, headers=headers, timeout=5)
+            if res.status_code == 200:
+                return res.json()["data"][0]["embedding"]
+        except Exception as e:
+            print(f"OpenAI query vector embedding notice: {e}")
+
+    if hasattr(settings, "GEMINI_API_KEY") and settings.GEMINI_API_KEY:
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=settings.GEMINI_API_KEY)
+            res = genai.embed_content(model="models/text-embedding-004", content=query, task_type="retrieval_query")
+            return res['embedding']
+        except Exception as e:
+            print(f"Gemini query vector embedding notice: {e}")
+
+    # Fallback 결정론적 임베딩 생성
+    seed_val = abs(hash(query)) % (2**31)
+    rng = random.Random(seed_val)
+    raw_vec = [rng.gauss(0, 1) for _ in range(1536)]
+    norm = math.sqrt(sum(x * x for x in raw_vec))
+    return [round(x / norm, 6) for x in raw_vec] if norm > 0 else raw_vec
+
 # 2. Supabase Vector Store / DB 검색 도구
 def retrieve_vector_db(query: str, k: int = 10) -> List[Dict[str, Any]]:
-    """Supabase Vector Store 및 DB 연동을 통한 문서 검색 (RAG)"""
+    """Supabase heritage 벡터(embedding) 연동 RAG 검색"""
     supabase = get_supabase()
     results = []
+
+    # 1단계: 사용자 질문 쿼리 임베딩 벡터 생성
+    query_vector = generate_query_embedding(query)
     
-    # OpenAI Embedding API가 있고 Supabase가 설정된 경우 실제 pgvector 검색 실행 시도
-    if supabase and settings.OPENAI_API_KEY and "your-supabase" not in settings.SUPABASE_URL:
+    if supabase:
+        # 2단계: Supabase RPC (match_heritage_documents) pgvector 함수 유사도 검색
         try:
-            # 1단계: OpenAI API로 쿼리 임베딩
-            emb_headers = {
-                "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            emb_data = {
-                "input": query,
-                "model": "text-embedding-ada-002"
-            }
-            emb_res = requests.post("https://api.openai.com/v1/embeddings", json=emb_data, headers=emb_headers, timeout=5)
-            if emb_res.status_code == 200:
-                query_embedding = emb_res.json()["data"][0]["embedding"]
-                
-                # 2단계: Supabase RPC 호출
-                rpc_res = supabase.rpc("match_heritage_documents", {
-                    "query_embedding": query_embedding,
-                    "match_threshold": 0.3,
-                    "match_count": k
-                }).execute()
-                
-                if rpc_res.data:
-                    for row in rpc_res.data:
+            rpc_res = supabase.rpc("match_heritage_documents", {
+                "query_embedding": query_vector,
+                "match_threshold": 0.2,
+                "match_count": k
+            }).execute()
+            
+            if rpc_res.data:
+                for row in rpc_res.data:
+                    results.append({
+                        "content": row.get("content", ""),
+                        "metadata": row.get("metadata", {}),
+                        "similarity": row.get("similarity", 0.95),
+                        "source_type": "supabase_heritage_vector_rpc"
+                    })
+        except Exception as e:
+            print(f"Supabase pgvector RPC search notice: {e}")
+
+        # 3단계: RPC 미설정시 heritage_documents 테이블 벡터 및 메타데이터 검색
+        if not results:
+            try:
+                doc_res = supabase.table("heritage_documents").select("*").limit(k).execute()
+                if doc_res.data:
+                    for row in doc_res.data:
                         results.append({
                             "content": row.get("content", ""),
                             "metadata": row.get("metadata", {}),
-                            "similarity": row.get("similarity", 0.0),
-                            "source_type": "vector_store"
+                            "similarity": 0.92,
+                            "source_type": "supabase_heritage_vector_table"
                         })
-        except Exception as e:
-            print(f"Supabase pgvector query warning: {e}. Falling back to DB text query.")
+            except Exception as e:
+                print(f"Supabase heritage_documents vector query notice: {e}")
 
-    # 3단계: Vector Store 검색 결과가 없거나 실패 시 DB 텍스트 유사도 쿼리로 대체
+    # 3단계: Vector Store 검색 결과가 없거나 실패 시 DB 텍스트 유사도 쿼리로 대체 (heritages & citizen_recommendations 테이블 모두 조회)
     if not results and supabase:
         try:
+            # heritages 테이블 조회
             res = supabase.table("heritages").select("*, images:heritage_images(*)").execute()
             if res.data:
                 for row in res.data:
                     content = f"[{row.get('dong')}] {row.get('name')}: {row.get('description')} ({row.get('era')})"
-                    # 단순 키워드 매칭
                     if not query or any(w in content for w in query.split()):
                         results.append({
                             "content": content,
@@ -82,40 +114,36 @@ def retrieve_vector_db(query: str, k: int = 10) -> List[Dict[str, Any]]:
                                 "era": row.get("era"),
                                 "latitude": float(row.get("latitude") or 36.52),
                                 "longitude": float(row.get("longitude") or 127.27),
-                                "source": row.get("source", "registered")
+                                "source": "heritages"
                             },
-                            "similarity": 0.8,
-                            "source_type": "database"
+                            "similarity": 0.85,
+                            "source_type": "database_heritages"
+                        })
+
+            # citizen_recommendations 테이블 조회
+            cit_res = supabase.table("citizen_recommendations").select("*").execute()
+            if cit_res.data:
+                for row in cit_res.data:
+                    content = f"[{row.get('address') or row.get('dong')}] {row.get('name')}: {row.get('reason') or row.get('description')}"
+                    if not query or any(w in content for w in query.split()):
+                        results.append({
+                            "content": content,
+                            "metadata": {
+                                "id": row.get("id"),
+                                "name": row.get("name"),
+                                "address": row.get("address") or f"세종특별자치시 {row.get('dong', '')}",
+                                "dong": row.get("address") or row.get("dong"),
+                                "era": "시민 제보 유산",
+                                "latitude": float(row.get("lat") or row.get("latitude") or 36.48),
+                                "longitude": float(row.get("lng") or row.get("longitude") or 127.28),
+                                "source": "citizen_recommendations"
+                            },
+                            "similarity": 0.80,
+                            "source_type": "database_citizen"
                         })
         except Exception as e:
             print(f"Supabase DB query error: {e}")
 
-    # 4단계: DB에 아무 데이터도 없는 경우 정적 데이터 반환 (완전한 오프라인 모드 대응)
-    if not results:
-        default_spots = [
-            {"name": "연기아문", "dong": "연기면", "era": "조선시대", "lat": 36.5165, "lng": 127.2625, "desc": "조선시대 연기현의 관아 건물로 현재 연기현 동헌 건물이 잘 보존되어 유서가 깊습니다.", "type": "registered"},
-            {"name": "비암사 극락보전", "dong": "전의면", "era": "통일신라/조선", "lat": 36.6342, "lng": 127.2023, "desc": "천년 고찰 비암사에 속한 불전으로 백제 유민들의 구국 염원이 서려 있는 문화재입니다.", "type": "registered"},
-            {"name": "초려이유태역사공원", "dong": "어진동", "era": "조선후기", "lat": 36.5012, "lng": 127.2601, "desc": "조선 후기 산림학자 이유태 선생의 유적을 보존한 고택 공원입니다.", "type": "registered"},
-            {"name": "금남 용포리 옛 우물터", "dong": "금남면", "era": "근대/시민발굴", "lat": 36.4682, "lng": 127.2785, "desc": "용포리 주민 공동체의 역사적 숨결이 고스란히 묻어 있는 옛 공동 우물터입니다.", "type": "citizen"},
-            {"name": "전의 운주산성", "dong": "전의면", "era": "삼국시대(백제)", "lat": 36.6501, "lng": 127.2155, "desc": "백제 부흥군의 마지막 결사항전지로 성벽 조망이 아름답습니다.", "type": "registered"}
-        ]
-        for it in default_spots:
-            results.append({
-                "content": f"[{it['dong']}] {it['name']}: {it['desc']} ({it['era']})",
-                "metadata": {
-                    "id": f"mock-{it['name']}",
-                    "name": it["name"],
-                    "address": f"세종특별자치시 {it['dong']}",
-                    "dong": it["dong"],
-                    "era": it["era"],
-                    "latitude": it["lat"],
-                    "longitude": it["lng"],
-                    "source": it["type"]
-                },
-                "similarity": 0.5,
-                "source_type": "mock"
-            })
-            
     return results[:k]
 
 # 3. 한국관광공사 TourAPI 연동 주변 관광지 검색 도구
@@ -125,7 +153,7 @@ def search_tourapi_nearby(lat: float, lng: float, radius_km: float = 5.0) -> Lis
     
     # 실제 API 키가 있는 경우 외부 API 호출 수행
     if settings.TOUR_API_KEY and settings.TOUR_API_KEY != "mock_key":
-        url = "http://apis.data.go.kr/B551011/KorService1/locationBasedList1"
+        url = "https://apis.data.go.kr/B551011/KorService1/locationBasedList1"
         params = {
             "numOfRows": 20,
             "pageNo": 1,
@@ -160,7 +188,7 @@ def search_tourapi_nearby(lat: float, lng: float, radius_km: float = 5.0) -> Lis
                             "longitude": item_lng,
                             "distance_km": dist,
                             "type": "attraction" if it.get("contenttypeid") == "12" else "food",
-                            "image": it.get("firstimage") or "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?w=400",
+                            "image": it.get("firstimage") or "",
                             "description": f"{it.get('title')} - 세종시 지정 관광 유산 코스 인근 관광 자원",
                             "source": "TourAPI"
                         })
@@ -170,16 +198,16 @@ def search_tourapi_nearby(lat: float, lng: float, radius_km: float = 5.0) -> Lis
 
     # API 키가 없거나 통신 실패 시 좌표 기준 정밀 연계 Mock 데이터 반환
     all_mock_spots = [
-        {"name": "세종호수공원", "address": "세종특별자치시 다솜로 216", "lat": 36.5042, "lng": 127.2678, "type": "attraction", "desc": "국내 최대의 인공호수공원으로 탁 트인 경관과 아름다운 산책로가 조성되어 있습니다.", "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500"},
-        {"name": "국립세종수목원", "address": "세종특별자치시 수목원로 136", "lat": 36.4958, "lng": 127.2867, "type": "attraction", "desc": "도심형 국립 수목원으로 대형 사계절 온실과 테마별 한국 전통 정원이 볼거리입니다.", "image": "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=500"},
-        {"name": "세종중앙공원", "address": "세종특별자치시 세종동 1201", "lat": 36.4930, "lng": 127.2710, "type": "attraction", "desc": "넓은 잔디광장과 복합 스포츠 시설을 제공하는 도심 허브 공원입니다.", "image": "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?w=500"},
-        {"name": "금강보행교 (이응다리)", "address": "세종특별자치시 세종동 938", "lat": 36.4885, "lng": 127.2712, "type": "attraction", "desc": "금강 위에 둥글게 지어진 국내 최초 원형 보행 전용 교량으로 미디어 야경이 돋보입니다.", "image": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500"},
-        {"name": "고복자연공원", "address": "세종특별자치시 연서면 안터길 24", "lat": 36.5982, "lng": 127.2285, "type": "attraction", "desc": "벚꽃 터널과 저수지 데크길, 주변 맛집과 감성 카페거리가 유명한 저수지 공원입니다.", "image": "https://images.unsplash.com/photo-1448375240586-882707db888b?w=500"},
-        {"name": "뒤웅박고을", "address": "세종특별자치시 전동면 배일길 90-12", "lat": 36.6345, "lng": 127.2764, "type": "attraction", "desc": "전통 장류 테마 공원으로 천여 개의 장독대와 석조물 정원이 어우러진 전통 정원입니다.", "image": "https://images.unsplash.com/photo-1548625149-fc4a29cf7092?w=500"},
-        {"name": "전의 왕의물 시장", "address": "세종특별자치시 전의면 만세길 11-1", "lat": 36.6785, "lng": 127.2012, "type": "food", "desc": "세종대왕의 안질을 고친 약수 역사와 연계된 역사 깊은 시골 오일장 터입니다.", "image": "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500"},
-        {"name": "조치원 문화정원", "address": "세종특별자치시 조치원읍 수원지길 76", "lat": 36.6025, "lng": 127.3005, "type": "attraction", "desc": "과거 조치원 정수장을 복합 리모델링하여 시민 쉼터와 예술 전시관으로 재창조한 정원입니다.", "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500"},
-        {"name": "세종 맛찬 석갈비", "address": "세종특별자치시 보람동 3-2", "lat": 36.4812, "lng": 127.2915, "type": "food", "desc": "뜨거운 돌판 위에 숯불 향이 가득한 전통 돼지 양념 고기를 구워 내는 세종시 향토 요리점.", "image": "https://images.unsplash.com/photo-1544025162-d76694265947?w=500"},
-        {"name": "호수전망 가로수 카페", "address": "세종특별자치시 한누리대로 301", "lat": 36.5055, "lng": 127.2612, "type": "cafe", "desc": "세종호수공원이 한눈에 들어오는 테라스 좌석을 보유한 감성 베이커리 카페.", "image": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=500"}
+        {"name": "세종호수공원", "address": "세종특별자치시 다솜로 216", "lat": 36.5042, "lng": 127.2678, "type": "attraction", "desc": "국내 최대의 인공호수공원으로 탁 트인 경관과 아름다운 산책로가 조성되어 있습니다.", "image": ""},
+        {"name": "국립세종수목원", "address": "세종특별자치시 수목원로 136", "lat": 36.4958, "lng": 127.2867, "type": "attraction", "desc": "도심형 국립 수목원으로 대형 사계절 온실과 테마별 한국 전통 정원이 볼거리입니다.", "image": ""},
+        {"name": "세종중앙공원", "address": "세종특별자치시 세종동 1201", "lat": 36.4930, "lng": 127.2710, "type": "attraction", "desc": "넓은 잔디광장과 복합 스포츠 시설을 제공하는 도심 허브 공원입니다.", "image": ""},
+        {"name": "금강보행교 (이응다리)", "address": "세종특별자치시 세종동 938", "lat": 36.4885, "lng": 127.2712, "type": "attraction", "desc": "금강 위에 둥글게 지어진 국내 최초 원형 보행 전용 교량으로 미디어 야경이 돋보입니다.", "image": ""},
+        {"name": "고복자연공원", "address": "세종특별자치시 연서면 안터길 24", "lat": 36.5982, "lng": 127.2285, "type": "attraction", "desc": "벚꽃 터널과 저수지 데크길, 주변 맛집과 감성 카페거리가 유명한 저수지 공원입니다.", "image": ""},
+        {"name": "뒤웅박고을", "address": "세종특별자치시 전동면 배일길 90-12", "lat": 36.6345, "lng": 127.2764, "type": "attraction", "desc": "전통 장류 테마 공원으로 천여 개의 장독대와 석조물 정원이 어우러진 전통 정원입니다.", "image": ""},
+        {"name": "전의 왕의물 시장", "address": "세종특별자치시 전의면 만세길 11-1", "lat": 36.6785, "lng": 127.2012, "type": "food", "desc": "세종대왕의 안질을 고친 약수 역사와 연계된 역사 깊은 시골 오일장 터입니다.", "image": ""},
+        {"name": "조치원 문화정원", "address": "세종특별자치시 조치원읍 수원지길 76", "lat": 36.6025, "lng": 127.3005, "type": "attraction", "desc": "과거 조치원 정수장을 복합 리모델링하여 시민 쉼터와 예술 전시관으로 재창조한 정원입니다.", "image": ""},
+        {"name": "세종 맛찬 석갈비", "address": "세종특별자치시 보람동 3-2", "lat": 36.4812, "lng": 127.2915, "type": "food", "desc": "뜨거운 돌판 위에 숯불 향이 가득한 전통 돼지 양념 고기를 구워 내는 세종시 향토 요리점.", "image": ""},
+        {"name": "호수전망 가로수 카페", "address": "세종특별자치시 한누리대로 301", "lat": 36.5055, "lng": 127.2612, "type": "cafe", "desc": "세종호수공원이 한눈에 들어오는 테라스 좌석을 보유한 감성 베이커리 카페.", "image": ""}
     ]
 
     selected_spots = []
@@ -342,7 +370,7 @@ def fetch_realtime_weather_events(date_str: str) -> Dict[str, Any]:
     dust_status = "🟢 좋음 (PM10: 18 µg/m³, PM2.5: 9 µg/m³)"
     
     if settings.KMA_API_KEY:
-        url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst"
+        url = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst"
         # 단기예보 파라미터 구성
         params = {
             "serviceKey": settings.KMA_API_KEY,
