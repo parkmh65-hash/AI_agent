@@ -387,14 +387,6 @@ export default function App() {
         submitted_by: item.user_id || 'user@sejong.go.kr'
       }));
       setCitizenHeritages(normCitizen);
-      setAdminSubmissions(normCitizen);
-
-      // Load mock/predefined admin reviews
-      setAdminReviews([
-        { heritageName: '조치원향교', rating: 5, text: '조용하고 인접 주차 공간이 잘 정비되어 탐방하기 원활합니다.', isImprovementNeeded: false },
-        { heritageName: '연기아문', rating: 3, text: '역사적 보존 가치는 매우 높으나 야간 조명 설치 개선이 필요해 보입니다.', isImprovementNeeded: true },
-        { heritageName: '비암사', rating: 5, text: '극락보전 괘불탱의 아름다움과 숲길 산책로 조성이 환상적입니다.', isImprovementNeeded: false }
-      ]);
       
       // Load saved courses
       const saved = await fetchSavedCourses();
