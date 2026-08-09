@@ -1127,21 +1127,10 @@
           if (step2) { step2.style.color = '#38bdf8'; icon2.textContent = '🔄'; }
           showToast('✅ 1단계 완료: 문화유산 5선 선정');
 
-          // --- STEP 2: Fetch 5 Tourist Spots & Create Course ---
-          showToast('⏳ 2단계: 관광지 5선 연동 및 코스 믹싱 중...');
-          const resTour = await fetch(`${CLOUD_RUN_URL}/api/v1/tour-search`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: combinedQuery, area_code: region })
-          });
-          if (!resTour.ok) throw new Error("2단계 관광공사 API 관광지 검색 오류");
-          const dataTour = await resTour.json();
-          touristSpots = dataTour.tourist_spots || [];
-
-          // Merge both lists to form the 10-spot course (5 heritages + 5 tourist spots)
-          courseList = [...heritages, ...touristSpots];
+          // --- STEP 2: Map Mapping & Course Generation ---
+          showToast('⏳ 2단계: RAG 추천 경로 맵 매핑 및 코스 생성 중...');
+          courseList = heritages;
           
-          // Render combined RAG cards list
           ragCards = courseList;
           renderRAGCards();
           renderCourseList();
@@ -1149,10 +1138,10 @@
 
           if (step2) { step2.style.color = '#10b981'; icon2.textContent = '✅'; }
           if (step3) { step3.style.color = '#38bdf8'; icon3.textContent = '🔄'; }
-          showToast('✅ 2단계 완료: 10선 코스 자동 병합 완료');
+          showToast('✅ 2단계 완료: 문화유산 5선 코스 자동 매핑 완료');
 
           // --- STEP 3: Auto-create AI Guidebook ---
-          showToast('⏳ 3단계: 10선 가이드북/오디오 동화책 제작 중...');
+          showToast('⏳ 3단계: 5선 가이드북/오디오 동화책 제작 중...');
           const names = courseList.map(c => c.name);
           const resGuidebook = await fetch(`${CLOUD_RUN_URL}/api/v1/guidebook`, {
             method: "POST",

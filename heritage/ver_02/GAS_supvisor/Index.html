@@ -448,7 +448,6 @@
               <span style="font-size: 0.8rem; color: var(--text-sub);">🌐 연동 API 데이터 출처 선택:</span>
               <select id="api-source-select" style="padding: 8px 12px; background: #0b0f19; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 0.82rem; outline: none; border-color: rgba(255,255,255,0.08);">
                 <option value="heritage">🏛️ 국가유산청 공공 OpenAPI (지정 문화유산)</option>
-                <option value="tour">🗺️ 한국관광공사 국문 관광정보 서비스 (TourAPI)</option>
               </select>
             </div>
             <div style="display: flex; gap: 10px;">
@@ -1253,23 +1252,12 @@
         searchBtn.textContent = '연동 로딩 중..';
 
         try {
-          if (apiSource === 'tour') {
-            const res = await fetch(`${CLOUD_RUN_URL}/api/v1/tour-search`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ query: apiSearchQuery, area_code: "세종시" })
-            });
-            if (!res.ok) throw new Error("관광지 API 조회 실패");
-            const data = await res.json();
-            apiSearchResults = data.tourist_spots || [];
-          } else {
-            const res = await fetch(`${CLOUD_RUN_URL}/api/v1/heritage-search?query=${encodeURIComponent(apiSearchQuery)}&area_code=세종시`, {
-              method: "GET"
-            });
-            if (!res.ok) throw new Error("문화유산 API 조회 실패");
-            const data = await res.json();
-            apiSearchResults = data.heritages || [];
-          }
+          const res = await fetch(`${CLOUD_RUN_URL}/api/v1/heritage-search?query=${encodeURIComponent(apiSearchQuery)}&area_code=세종시`, {
+            method: "GET"
+          });
+          if (!res.ok) throw new Error("문화유산 API 조회 실패");
+          const data = await res.json();
+          apiSearchResults = data.heritages || [];
           
           renderOpenAPISearchResults(apiSource);
           showToast(`🔍 공공 API 검색 완료 (결과 ${apiSearchResults.length}건)`);
