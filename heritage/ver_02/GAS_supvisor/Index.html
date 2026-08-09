@@ -366,11 +366,29 @@
           </div>
 
           <div class="stats-card">
-            <span style="font-size: 0.78rem; color: #9ca3af; display: block; margin-bottom: 6px; text-transform: uppercase;">API 백엔드 헬스 지표</span>
-            <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-              <span id="health-status-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #9ca3af; display: inline-block;"></span>
-              <strong id="health-status-text" style="font-size: 1.1rem; color: #fff;">OFFLINE</strong>
-              <span id="health-latency-text" style="font-size: 0.75rem; color: #9ca3af;">(0ms)</span>
+            <span style="font-size: 0.78rem; color: #9ca3af; display: block; margin-bottom: 6px; text-transform: uppercase;">시스템 연동 상태</span>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+              <!-- 1. FastAPI Backend Server -->
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                <span style="color: #9ca3af;">🖥️ 백엔드 서버:</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span id="health-status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; display: inline-block;"></span>
+                  <strong id="health-status-text" style="color: #fff; font-size: 0.85rem;">OFFLINE</strong>
+                  <span id="health-latency-text" style="font-size: 0.72rem; color: #9ca3af;">(0ms)</span>
+                </div>
+              </div>
+              
+              <!-- 2. FastAPI Server DB Config -->
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                <span style="color: #9ca3af;">💽 백엔드 DB 연동:</span>
+                <strong id="server-db-status" style="color: #9ca3af; font-size: 0.85rem;">-</strong>
+              </div>
+              
+              <!-- 3. GAS Backend DB Configuration -->
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                <span style="color: #9ca3af;">🏰 GAS DB 연동:</span>
+                <strong id="gas-db-status" style="color: #9ca3af; font-size: 0.85rem;">-</strong>
+              </div>
             </div>
           </div>
         </div>
@@ -656,6 +674,35 @@
       // script.html - ver_02 Supervisor Control Dashboard Vanilla JavaScript Engine
       
       const CLOUD_RUN_URL = 'https://heritage-react-538192513096.us-central1.run.app';
+
+      // Safe storage wrapper to prevent crashes in sandboxed iframe environments (e.g. Google Apps Script Web App)
+      const safeLocalStorage = {
+        getItem(key) {
+          try {
+            return localStorage.getItem(key);
+          } catch (e) {
+            console.warn("localStorage access denied. Falling back to in-memory store.", e);
+            return this.fallbackStore[key] || null;
+          }
+        },
+        setItem(key, value) {
+          try {
+            localStorage.setItem(key, value);
+          } catch (e) {
+            console.warn("localStorage write denied. Falling back to in-memory store.", e);
+            this.fallbackStore[key] = String(value);
+          }
+        },
+        removeItem(key) {
+          try {
+            localStorage.removeItem(key);
+          } catch (e) {
+            console.warn("localStorage delete denied. Falling back to in-memory store.", e);
+            delete this.fallbackStore[key];
+          }
+        },
+        fallbackStore: {}
+      };
       
       // 1. Global Application State
       let currentTab = 'vetting'; // 'vetting', 'db_viewer', 'api_search', 'ai_workflow'
@@ -672,6 +719,7 @@
       // Stats latency states
       let stats = { official_count: 0, citizen_pending: 0, citizen_approved: 0 };
       let backendHealth = { status: 'unknown', supabase_configured: false, llm_configured: false };
+      let gasDbStatus = { configured: false, working: false, url: '', error: '' };
       let pingLatency = '0ms';
       let loading = false;
 
@@ -692,6 +740,10 @@
               });
             } else if (methodName === 'getDatabaseStatsGAS') {
               resolve({ official_count: stats.official_count, citizen_pending: 0, citizen_approved: 0 });
+            } else if (methodName === 'getCurrentGoogleUserGAS') {
+              resolve({ status: 'fallback', email: 'guest@sejong.go.kr', nickname: '게스트' });
+            } else if (methodName === 'checkGasDbConfigurationStatus') {
+              resolve({ configured: true, working: true, url: 'https://pdpmtgnagwzcsftavtap.supabase.co', error: '' });
             } else {
               resolve({ status: 'success' });
             }
@@ -723,7 +775,7 @@
 
       // Session Verification
       function checkAuthSession() {
-        const session = localStorage.getItem('supervisor_session');
+        const session = safeLocalStorage.getItem('supervisor_session');
         const overlay = document.getElementById('auth-overlay');
         if (session) {
           overlay.style.display = 'none';
@@ -747,7 +799,7 @@
               // Register/Upsert in Supabase
               const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'google');
               if (dbRes.status === 'success') {
-                localStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
+                safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
                 document.getElementById('auth-overlay').style.display = 'none';
                 showToast(`👋 환영합니다, ${nickname} 감독관님!`);
                 loadDashboardData();
@@ -799,7 +851,7 @@
             const nickname = email.split('@')[0];
             const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'email');
             if (dbRes.status === 'success') {
-              localStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
+              safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
               document.getElementById('auth-overlay').style.display = 'none';
               showToast(`👋 반갑습니다, ${nickname} 감독관님!`);
               loadDashboardData();
@@ -827,6 +879,13 @@
 
           // 2. Fetch rows counts stats
           stats = await callGasMethod('getDatabaseStatsGAS');
+
+          // Fetch GAS DB connection status
+          try {
+            gasDbStatus = await callGasMethod('checkGasDbConfigurationStatus');
+          } catch (err) {
+            gasDbStatus = { configured: false, working: false, url: '', error: err.toString() };
+          }
 
           // 3. Ping backend health latency
           const start = Date.now();
@@ -865,7 +924,9 @@
         const statusText = document.getElementById('health-status-text');
         const latencyText = document.getElementById('health-latency-text');
 
-        if (backendHealth.status === 'healthy') {
+        const isServerOnline = backendHealth.status === 'healthy' || backendHealth.status === 'ok';
+
+        if (isServerOnline) {
           statusDot.style.background = '#10b981';
           statusText.textContent = 'CONNECTED';
         } else {
@@ -873,6 +934,45 @@
           statusText.textContent = 'OFFLINE';
         }
         latencyText.textContent = `(${pingLatency})`;
+
+        // Update server-db-status
+        const serverDbEl = document.getElementById('server-db-status');
+        if (serverDbEl) {
+          if (isServerOnline) {
+            if (backendHealth.supabase_configured === true) {
+              serverDbEl.textContent = 'CONNECTED';
+              serverDbEl.style.color = '#10b981';
+            } else if (backendHealth.supabase_configured === false) {
+              serverDbEl.textContent = '설정 누락';
+              serverDbEl.style.color = '#ef4444';
+            } else {
+              // Older server version doesn't export supabase_configured in /health, but server is online
+              serverDbEl.textContent = 'CONNECTED (구버전)';
+              serverDbEl.style.color = '#10b981';
+            }
+          } else {
+            serverDbEl.textContent = 'OFFLINE';
+            serverDbEl.style.color = '#ef4444';
+          }
+        }
+
+        // Update gas-db-status
+        const gasDbEl = document.getElementById('gas-db-status');
+        if (gasDbEl) {
+          if (gasDbStatus.working) {
+            gasDbEl.textContent = 'CONNECTED';
+            gasDbEl.style.color = '#10b981';
+            gasDbEl.title = `Supabase URL: ${gasDbStatus.url}`;
+          } else if (gasDbStatus.configured) {
+            gasDbEl.textContent = '연결 실패';
+            gasDbEl.style.color = '#f59e0b';
+            gasDbEl.title = `Error: ${gasDbStatus.error}`;
+          } else {
+            gasDbEl.textContent = '설정 누락';
+            gasDbEl.style.color = '#ef4444';
+            gasDbEl.title = `Error: ${gasDbStatus.error}`;
+          }
+        }
       }
 
       // 6. Setup general click listener attachments

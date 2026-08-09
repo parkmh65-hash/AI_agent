@@ -351,15 +351,49 @@
                 <p style="margin: 0 0 12px 0; font-size: 0.8rem; color: var(--text-sub);">가보고 싶은 테마의 역사 유적지나 조용한 명소를 질문해 보세요.</p>
                 
                 <div style="display: flex; gap: 8px;">
+                  <select id="region-select" style="padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #111520; color: #fff; font-size: 0.85rem; outline: none; width: 90px; flex-shrink: 0;">
+                    <option value="세종시" selected>세종시</option>
+                    <option value="전체">전체</option>
+                    <option value="서울">서울</option>
+                    <option value="경기">경기</option>
+                    <option value="인천">인천</option>
+                    <option value="충남">충남</option>
+                    <option value="충북">충북</option>
+                    <option value="전남">전남</option>
+                    <option value="전북">전북</option>
+                    <option value="경남">경남</option>
+                    <option value="경북">경북</option>
+                    <option value="강원">강원</option>
+                    <option value="제주">제주</option>
+                  </select>
                   <input 
                     id="rag-query-input"
                     type="text" 
                     placeholder="사찰 관련 유산 추천해줘" 
-                    style="flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #111520; color: #fff; font-size: 0.85rem; outline: none;"
+                    style="flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #111520; color: #fff; font-size: 0.85rem; outline: none; min-width: 0;"
                   />
-                  <button id="rag-search-btn" class="btn-primary" style="padding: 10px 16px; font-size: 0.85rem;">
+                  <button id="rag-search-btn" class="btn-primary" style="padding: 10px 16px; font-size: 0.85rem; flex-shrink: 0;">
                     🔍 RAG 추천
                   </button>
+                </div>
+
+                <!-- Sequential RAG Pipeline Progress Tracker -->
+                <div id="rag-pipeline-widget" style="display: none; margin-top: 16px; padding: 14px; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,245,212,0.2); border-radius: 10px; font-size: 0.8rem; flex-direction: column; gap: 10px;">
+                  <div style="font-weight: 700; color: #00f5d4; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px; margin-bottom: 4px;">
+                    <span>🧭</span> AI 자동 여행 코스 설계 파이프라인
+                  </div>
+                  <div id="pipeline-step-1" style="color: #94a3b8; display: flex; align-items: center; gap: 8px;">
+                    <span id="step-1-icon">⏳</span>
+                    <span>1단계: 문화유산 5선 추천지 AI 탐색</span>
+                  </div>
+                  <div id="pipeline-step-2" style="color: #94a3b8; display: flex; align-items: center; gap: 8px;">
+                    <span id="step-2-icon">⏳</span>
+                    <span>2단계: 관광공사 API 연계 관광지 5선 검색 & 코스 생성</span>
+                  </div>
+                  <div id="pipeline-step-3" style="color: #94a3b8; display: flex; align-items: center; gap: 8px;">
+                    <span id="step-3-icon">⏳</span>
+                    <span>3단계: 추천 코스 맞춤 AI 스토리 가이드북 편찬</span>
+                  </div>
                 </div>
 
                 <div id="rag-output-text" style="display: none; margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; font-size: 0.78rem; color: #93c5fd; border-left: 3px solid #3b82f6; white-space: pre-wrap;"></div>
@@ -547,6 +581,35 @@
       // script.html - ver_02 User Client Vanilla JavaScript Engine
       
       const CLOUD_RUN_URL = 'https://heritage-react-538192513096.us-central1.run.app';
+
+      // Safe storage wrapper to prevent crashes in sandboxed iframe environments (e.g. Google Apps Script Web App)
+      const safeLocalStorage = {
+        getItem(key) {
+          try {
+            return localStorage.getItem(key);
+          } catch (e) {
+            console.warn("localStorage access denied. Falling back to in-memory store.", e);
+            return this.fallbackStore[key] || null;
+          }
+        },
+        setItem(key, value) {
+          try {
+            localStorage.setItem(key, value);
+          } catch (e) {
+            console.warn("localStorage write denied. Falling back to in-memory store.", e);
+            this.fallbackStore[key] = String(value);
+          }
+        },
+        removeItem(key) {
+          try {
+            localStorage.removeItem(key);
+          } catch (e) {
+            console.warn("localStorage delete denied. Falling back to in-memory store.", e);
+            delete this.fallbackStore[key];
+          }
+        },
+        fallbackStore: {}
+      };
       
       // 1. Global Application State
       let currentTab = 'home';
@@ -585,6 +648,10 @@
                 official: [],
                 citizen: []
               });
+            } else if (methodName === 'getCurrentGoogleUserGAS') {
+              resolve({ status: 'fallback', email: 'guest@sejong.go.kr', nickname: '게스트' });
+            } else if (methodName === 'checkGasDbConfigurationStatus') {
+              resolve({ configured: true, working: true, url: 'https://pdpmtgnagwzcsftavtap.supabase.co', error: '' });
             } else {
               resolve({ status: 'success' });
             }
@@ -625,7 +692,7 @@
 
       // Session Verification
       function checkAuthSession() {
-        const session = localStorage.getItem('user_session');
+        const session = safeLocalStorage.getItem('user_session');
         const overlay = document.getElementById('auth-overlay');
         if (session) {
           overlay.style.display = 'none';
@@ -649,7 +716,7 @@
               // Register/Upsert in Supabase
               const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'google');
               if (dbRes.status === 'success') {
-                localStorage.setItem('user_session', JSON.stringify({ email, nickname }));
+                safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
                 document.getElementById('auth-overlay').style.display = 'none';
                 showToast(`👋 환영합니다, ${nickname}님! (Google 로그인 완료)`);
                 loadInitialData();
@@ -702,7 +769,7 @@
             // PostgREST upsert will renew last_login in the database
             const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'email');
             if (dbRes.status === 'success') {
-              localStorage.setItem('user_session', JSON.stringify({ email, nickname }));
+              safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
               document.getElementById('auth-overlay').style.display = 'none';
               showToast(`👋 반갑습니다, ${nickname}님!`);
               loadInitialData();
@@ -999,7 +1066,7 @@
         document.getElementById('guidebook-cta-wrapper').style.display = 'block';
       };
 
-      // 12. RAG Recommendation Agent Query Executor
+      // 12. RAG Recommendation Agent Query Executor (Sequential Pipeline)
       async function handleRAGSearch() {
         const input = document.getElementById('rag-query-input');
         const query = input.value.trim();
@@ -1008,32 +1075,110 @@
           return;
         }
         
+        const regionSelect = document.getElementById('region-select');
+        const region = regionSelect ? regionSelect.value : '세종시';
+        const combinedQuery = `${region} ${query}`;
+        
         const searchBtn = document.getElementById('rag-search-btn');
         searchBtn.disabled = true;
-        searchBtn.textContent = '검색중..';
+        searchBtn.textContent = '설계 중..';
 
+        // 1. Show and Reset Pipeline Widget
+        const pipelineWidget = document.getElementById('rag-pipeline-widget');
+        if (pipelineWidget) {
+          pipelineWidget.style.display = 'flex';
+        }
+        
+        const step1 = document.getElementById('pipeline-step-1');
+        const step2 = document.getElementById('pipeline-step-2');
+        const step3 = document.getElementById('pipeline-step-3');
+        const icon1 = document.getElementById('step-1-icon');
+        const icon2 = document.getElementById('step-2-icon');
+        const icon3 = document.getElementById('step-3-icon');
+
+        if (step1) { step1.style.color = '#38bdf8'; icon1.textContent = '🔄'; }
+        if (step2) { step2.style.color = '#64748b'; icon2.textContent = '🔘'; }
+        if (step3) { step3.style.color = '#64748b'; icon3.textContent = '🔘'; }
+
+        // Hide output sections initially
+        document.getElementById('rag-output-text').style.display = 'none';
+        document.getElementById('guidebook-section-output').style.display = 'none';
+
+        let heritages = [];
+        let touristSpots = [];
+        
         try {
-          const res = await fetch(`${CLOUD_RUN_URL}/api/v1/agentic-rag`, {
+          // --- STEP 1: Fetch 5 Cultural Heritages ---
+          showToast('⏳ 1단계: 문화유산 5선 탐색 중...');
+          const resHeritages = await fetch(`${CLOUD_RUN_URL}/api/v1/agentic-rag`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query, area_code: "전체" })
+            body: JSON.stringify({ query: combinedQuery, area_code: region })
           });
-          if (!res.ok) throw new Error("Server Query Failure");
-          const resultData = await res.json();
+          if (!resHeritages.ok) throw new Error("1단계 문화유산 RAG 추천 오류");
+          const dataHeritages = await resHeritages.json();
+          heritages = dataHeritages.output_heritages || [];
           
-          if (resultData.output_heritages) {
-            ragCards = resultData.output_heritages;
-            renderRAGCards();
+          if (heritages.length === 0) {
+            throw new Error("검색 결과 수록된 문화유산이 없습니다.");
           }
           
-          const outputTextWrapper = document.getElementById('rag-output-text');
-          outputTextWrapper.textContent = resultData.final_output || 'AI 추천 결과 도출이 성공적으로 완료되었습니다.';
-          outputTextWrapper.style.display = 'block';
+          if (step1) { step1.style.color = '#10b981'; icon1.textContent = '✅'; }
+          if (step2) { step2.style.color = '#38bdf8'; icon2.textContent = '🔄'; }
+          showToast('✅ 1단계 완료: 문화유산 5선 선정');
+
+          // --- STEP 2: Fetch 5 Tourist Spots & Create Course ---
+          showToast('⏳ 2단계: 관광지 5선 연동 및 코스 믹싱 중...');
+          const resTour = await fetch(`${CLOUD_RUN_URL}/api/v1/tour-search`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: combinedQuery, area_code: region })
+          });
+          if (!resTour.ok) throw new Error("2단계 관광공사 API 관광지 검색 오류");
+          const dataTour = await resTour.json();
+          touristSpots = dataTour.tourist_spots || [];
+
+          // Merge both lists to form the 10-spot course (5 heritages + 5 tourist spots)
+          courseList = [...heritages, ...touristSpots];
           
-          showToast('✅ AI 맞춤 유산 추천 완료!');
-          updateMap(courseList.length > 0 ? courseList : ragCards);
+          // Render combined RAG cards list
+          ragCards = courseList;
+          renderRAGCards();
+          renderCourseList();
+          updateMap(courseList);
+
+          if (step2) { step2.style.color = '#10b981'; icon2.textContent = '✅'; }
+          if (step3) { step3.style.color = '#38bdf8'; icon3.textContent = '🔄'; }
+          showToast('✅ 2단계 완료: 10선 코스 자동 병합 완료');
+
+          // --- STEP 3: Auto-create AI Guidebook ---
+          showToast('⏳ 3단계: 10선 가이드북/오디오 동화책 제작 중...');
+          const names = courseList.map(c => c.name);
+          const resGuidebook = await fetch(`${CLOUD_RUN_URL}/api/v1/guidebook`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ heritages: names, transport })
+          });
+          if (!resGuidebook.ok) throw new Error("3단계 AI 가이드북 편찬 오류");
+          guidebookResult = await resGuidebook.json();
+          
+          renderGuidebookResult();
+          
+          if (step3) { step3.style.color = '#10b981'; icon3.textContent = '✅'; }
+          showToast('🎉 AI 맞춤 가이드북이 성공적으로 제작 완료되었습니다!');
+          
+          // Scroll output into view
+          setTimeout(() => {
+            const outSect = document.getElementById('guidebook-section-output');
+            if (outSect) outSect.scrollIntoView({ behavior: 'smooth' });
+          }, 300);
+
         } catch (e) {
-          showToast('❌ AI 추천을 진행하는 도중 에러가 발생했습니다.');
+          showToast(`❌ 에러 발생: ${e.message}`);
+          console.error(e);
+          if (step1 && icon1.textContent === '🔄') { step1.style.color = '#ef4444'; icon1.textContent = '❌'; }
+          if (step2 && icon2.textContent === '🔄') { step2.style.color = '#ef4444'; icon2.textContent = '❌'; }
+          if (step3 && icon3.textContent === '🔄') { step3.style.color = '#ef4444'; icon3.textContent = '❌'; }
         } finally {
           searchBtn.disabled = false;
           searchBtn.textContent = '🔍 RAG 추천';

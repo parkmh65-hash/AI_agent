@@ -7,12 +7,10 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function getSupabaseConfig() {
+// Config variables fallback (Users should configure BACKEND_URL in Script Properties)
+function getBackendUrl() {
   var props = PropertiesService.getScriptProperties();
-  return {
-    url: props.getProperty("SUPABASE_URL") || "https://pdpmtgnagwzcsftavtap.supabase.co",
-    key: props.getProperty("SUPABASE_KEY") || ""
-  };
+  return props.getProperty("BACKEND_URL") || "https://heritage-react-538192513096.us-central1.run.app";
 }
 
 /**
@@ -29,38 +27,26 @@ function getCurrentGoogleUserGAS() {
 }
 
 /**
- * Upsert user registration profile into Supabase
+ * Upsert user registration profile through backend proxy
  */
 function upsertUserProfileGAS(email, nickname, provider) {
-  var config = getSupabaseConfig();
-  if (!config.key) {
-    return { status: 'success', message: 'Local mode bypass.' };
-  }
-  
+  var backendUrl = getBackendUrl();
   var payload = {
     email: email,
     nickname: nickname,
-    auth_provider: provider || 'google',
-    last_login: new Date().toISOString()
-  };
-  
-  var headers = {
-    "apikey": config.key,
-    "Authorization": "Bearer " + config.key,
-    "Content-Type": "application/json",
-    "Prefer": "resolution=merge-duplicates" // Upsert behavior on unique constraint (email)
+    auth_provider: provider || 'google'
   };
   
   try {
-    var res = UrlFetchApp.fetch(config.url + "/rest/v1/users_profile", {
-      method: "POST", // PostgREST handles upsert with POST + Prefer header
-      headers: headers,
+    var res = UrlFetchApp.fetch(backendUrl + "/api/v1/db/user-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     });
     
-    if (res.getResponseCode() === 201 || res.getResponseCode() === 200) {
-      return { status: 'success', data: res.getContentText() };
+    if (res.getResponseCode() === 200) {
+      return JSON.parse(res.getContentText());
     } else {
       return { status: 'error', message: res.getContentText() };
     }
@@ -70,82 +56,44 @@ function upsertUserProfileGAS(email, nickname, provider) {
 }
 
 /**
- * Fetch data for citizen recommendations and official heritages
+ * Fetch data for citizen recommendations and official heritages through backend proxy
  */
 function getInitialWebAppData() {
-  var config = getSupabaseConfig();
-  var result = { official: [], citizen: [], courses: [] };
-  
-  if (!config.key) {
-    return result;
-  }
-  
+  var backendUrl = getBackendUrl();
   try {
-    var headers = {
-      "apikey": config.key,
-      "Authorization": "Bearer " + config.key
-    };
+    var res = UrlFetchApp.fetch(backendUrl + "/api/v1/db/initial-data?role=supervisor", {
+      method: "GET",
+      muteHttpExceptions: true
+    });
     
-    var resOfficial = UrlFetchApp.fetch(config.url + "/rest/v1/heritages?select=*", {
-      method: "GET",
-      headers: headers,
-      muteHttpExceptions: true
-    });
-    if (resOfficial.getResponseCode() === 200) {
-      result.official = JSON.parse(resOfficial.getContentText());
-    }
-    
-    var resCitizen = UrlFetchApp.fetch(config.url + "/rest/v1/citizen_recommendations?select=*&order=created_at.desc", {
-      method: "GET",
-      headers: headers,
-      muteHttpExceptions: true
-    });
-    if (resCitizen.getResponseCode() === 200) {
-      result.citizen = JSON.parse(resCitizen.getContentText());
-    }
-
-    var resCourses = UrlFetchApp.fetch(config.url + "/rest/v1/courses?select=*&order=created_at.desc", {
-      method: "GET",
-      headers: headers,
-      muteHttpExceptions: true
-    });
-    if (resCourses.getResponseCode() === 200) {
-      result.courses = JSON.parse(resCourses.getContentText());
+    if (res.getResponseCode() === 200) {
+      return JSON.parse(res.getContentText());
     }
   } catch (e) {
-    Logger.log("Error loading data: " + e);
+    Logger.log("Error loading supervisor app data: " + e);
   }
-  return result;
+  return { official: [], citizen: [], courses: [] };
 }
 
 /**
- * Update the vetting status of a citizen recommendation
+ * Update the vetting status of a citizen recommendation through backend proxy
  */
 function updateRecommendationStatusGAS(id, newStatus) {
-  var config = getSupabaseConfig();
-  if (!config.key) {
-    return { status: "error", message: "Supabase configuration key is missing." };
-  }
+  var backendUrl = getBackendUrl();
+  var payload = {
+    status: newStatus
+  };
   
   try {
-    var headers = {
-      "apikey": config.key,
-      "Authorization": "Bearer " + config.key,
-      "Content-Type": "application/json"
-    };
-    
-    var url = config.url + "/rest/v1/citizen_recommendations?id=eq." + id;
-    var payload = { "status": newStatus };
-    
-    var response = UrlFetchApp.fetch(url, {
+    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/db/citizen-recommendation/" + id + "/status", {
       method: "PATCH",
-      headers: headers,
+      headers: { "Content-Type": "application/json" },
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     });
     
-    if (response.getResponseCode() === 204 || response.getResponseCode() === 200) {
-      return { status: "success", id: id, newStatus: newStatus };
+    if (response.getResponseCode() === 200 || response.getResponseCode() === 204) {
+      return JSON.parse(response.getContentText());
     } else {
       return { status: "error", message: response.getContentText() };
     }
@@ -155,85 +103,62 @@ function updateRecommendationStatusGAS(id, newStatus) {
 }
 
 /**
- * Get simple statistics of table rows for the dashboard counters
+ * Get simple statistics of table rows for the dashboard counters through backend proxy
  */
 function getDatabaseStatsGAS() {
-  var config = getSupabaseConfig();
-  var stats = { official_count: 0, citizen_pending: 0, citizen_approved: 0 };
-  
-  if (!config.key) {
-    return stats;
-  }
-  
+  var backendUrl = getBackendUrl();
   try {
-    var headers = {
-      "apikey": config.key,
-      "Authorization": "Bearer " + config.key
-    };
-    
-    var resOfficial = UrlFetchApp.fetch(config.url + "/rest/v1/heritages?select=id", {
+    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/db/stats", {
       method: "GET",
-      headers: headers,
       muteHttpExceptions: true
     });
-    if (resOfficial.getResponseCode() === 200) {
-      stats.official_count = JSON.parse(resOfficial.getContentText()).length;
-    }
-    
-    var resPending = UrlFetchApp.fetch(config.url + "/rest/v1/citizen_recommendations?status=eq.대기&select=id", {
-      method: "GET",
-      headers: headers,
-      muteHttpExceptions: true
-    });
-    if (resPending.getResponseCode() === 200) {
-      stats.citizen_pending = JSON.parse(resPending.getContentText()).length;
-    }
-
-    var resApproved = UrlFetchApp.fetch(config.url + "/rest/v1/citizen_recommendations?status=eq.승인&select=id", {
-      method: "GET",
-      headers: headers,
-      muteHttpExceptions: true
-    });
-    if (resApproved.getResponseCode() === 200) {
-      stats.citizen_approved = JSON.parse(resApproved.getContentText()).length;
+    if (response.getResponseCode() === 200) {
+      return JSON.parse(response.getContentText());
     }
   } catch (e) {
     Logger.log("Error loading stats: " + e);
   }
-  return stats;
+  return { official_count: 0, citizen_pending: 0, citizen_approved: 0 };
 }
 
 /**
- * Insert new official heritage item into database
+ * Insert new official heritage item into database through backend proxy
  */
 function insertOfficialHeritageGAS(item) {
-  var config = getSupabaseConfig();
-  if (!config.key) {
-    return { status: "error", message: "Supabase configuration key is missing." };
-  }
-  
+  var backendUrl = getBackendUrl();
   try {
-    var headers = {
-      "apikey": config.key,
-      "Authorization": "Bearer " + config.key,
-      "Content-Type": "application/json",
-      "Prefer": "return=representation"
-    };
-    
-    var response = UrlFetchApp.fetch(config.url + "/rest/v1/heritages", {
+    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/db/official-heritage", {
       method: "POST",
-      headers: headers,
+      headers: { "Content-Type": "application/json" },
       payload: JSON.stringify(item),
       muteHttpExceptions: true
     });
     
-    var code = response.getResponseCode();
-    if (code === 200 || code === 201) {
-      return { status: "success", data: JSON.parse(response.getContentText()) };
+    if (response.getResponseCode() === 200 || response.getResponseCode() === 201) {
+      return JSON.parse(response.getContentText());
     } else {
       return { status: "error", message: response.getContentText() };
     }
   } catch (e) {
     return { status: "error", message: e.toString() };
   }
+}
+
+/**
+ * Check backend database configuration health status
+ */
+function checkGasDbConfigurationStatus() {
+  var backendUrl = getBackendUrl();
+  try {
+    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/db/health", {
+      method: "GET",
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() === 200) {
+      return JSON.parse(response.getContentText());
+    }
+  } catch (e) {
+    return { configured: false, working: false, url: "", error: e.toString() };
+  }
+  return { configured: false, working: false, url: "", error: "Server response error" };
 }
