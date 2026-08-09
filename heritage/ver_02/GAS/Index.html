@@ -835,11 +835,12 @@
           const lng = parseFloat(item.longitude || item.lng) || 127.28;
           latlngs.push([lat, lng]);
  
+          const isSingle = listToShow.length === 1;
           const sequenceIcon = L.divIcon({
             className: 'custom-sequence-marker',
             html: `
               <div style="
-                background: linear-gradient(135deg, #00f5d4, #7209b7);
+                background: ${isSingle ? 'linear-gradient(135deg, #fbbf24, #f43f5e)' : 'linear-gradient(135deg, #00f5d4, #7209b7)'};
                 color: #ffffff;
                 font-weight: 900;
                 width: 30px;
@@ -849,10 +850,10 @@
                 align-items: center;
                 justify-content: center;
                 border: 2px solid #ffffff;
-                font-size: 0.85rem;
-                box-shadow: 0 0 12px rgba(0, 245, 212, 0.6);
+                font-size: ${isSingle ? '0.95rem' : '0.85rem'};
+                box-shadow: 0 0 12px ${isSingle ? 'rgba(244, 63, 94, 0.6)' : 'rgba(0, 245, 212, 0.6)'};
               ">
-                ${index + 1}
+                ${isSingle ? '🏛️' : (index + 1)}
               </div>
             `,
             iconSize: [30, 30],
