@@ -818,7 +818,7 @@
       }
  
       // 6. Update Map Markers and Connecting Polyline Paths
-      function updateMap(listToShow) {
+      function updateMap(listToShow, showPath = true) {
         if (!mapInstance) return;
         
         // Clear old markers & paths
@@ -835,12 +835,13 @@
           const lng = parseFloat(item.longitude || item.lng) || 127.28;
           latlngs.push([lat, lng]);
  
-          const isSingle = listToShow.length === 1;
+          // If showPath is false, treat it as a collection of individual heritages (no numbering, gold-rose style)
+          const useSingleStyle = !showPath || listToShow.length === 1;
           const sequenceIcon = L.divIcon({
             className: 'custom-sequence-marker',
             html: `
               <div style="
-                background: ${isSingle ? 'linear-gradient(135deg, #fbbf24, #f43f5e)' : 'linear-gradient(135deg, #00f5d4, #7209b7)'};
+                background: ${useSingleStyle ? 'linear-gradient(135deg, #fbbf24, #f43f5e)' : 'linear-gradient(135deg, #00f5d4, #7209b7)'};
                 color: #ffffff;
                 font-weight: 900;
                 width: 30px;
@@ -850,10 +851,10 @@
                 align-items: center;
                 justify-content: center;
                 border: 2px solid #ffffff;
-                font-size: ${isSingle ? '0.95rem' : '0.85rem'};
-                box-shadow: 0 0 12px ${isSingle ? 'rgba(244, 63, 94, 0.6)' : 'rgba(0, 245, 212, 0.6)'};
+                font-size: ${useSingleStyle ? '0.95rem' : '0.85rem'};
+                box-shadow: 0 0 12px ${useSingleStyle ? 'rgba(244, 63, 94, 0.6)' : 'rgba(0, 245, 212, 0.6)'};
               ">
-                ${isSingle ? '🏛️' : (index + 1)}
+                ${useSingleStyle ? '🏛️' : (index + 1)}
               </div>
             `,
             iconSize: [30, 30],
@@ -882,7 +883,7 @@
           mapMarkers.push(marker);
         });
  
-        if (latlngs.length > 1) {
+        if (showPath && latlngs.length > 1) {
           try {
             // Leaflet.AntPath animated route visualization
             if (typeof L.polyline.antPath !== 'undefined') {
@@ -913,6 +914,10 @@
             }).addTo(mapInstance);
           }
           mapInstance.fitBounds(mapPolyline.getBounds(), { padding: [30, 30] });
+        } else if (latlngs.length > 1) {
+          // If path rendering is disabled, just adjust map bounds to fit all active markers nicely
+          const tempBounds = L.latLngBounds(latlngs);
+          mapInstance.fitBounds(tempBounds, { padding: [35, 35] });
         } else if (latlngs.length === 1) {
           mapInstance.setView(latlngs[0], 13);
         }
@@ -1020,9 +1025,9 @@
             mapInstance.invalidateSize();
             // Dynamic map focus source
             if (tab === 'home') {
-              updateMap(courseList.length > 0 ? courseList : ragCards);
+              updateMap(courseList.length > 0 ? courseList : ragCards, courseList.length > 0);
             } else if (tab === 'course') {
-              updateMap(courseList);
+              updateMap(courseList, true);
             }
           }, 100);
         }
@@ -1169,7 +1174,7 @@
           ragCards = courseList;
           renderRAGCards();
           renderCourseList();
-          updateMap(courseList);
+          updateMap(courseList, false);
 
           if (step2) { step2.style.color = '#10b981'; icon2.textContent = '✅'; }
           if (step3) { step3.style.color = '#38bdf8'; icon3.textContent = '🔄'; }
