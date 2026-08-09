@@ -1,6 +1,6 @@
 // api.js - 세종시 문화유산 스마트 플랫폼 클라이언트 API 모듈 (Google Apps Script 전용 경량화 버전)
 
-export const CLOUD_RUN_URL = 'https://heritage-538192513096.us-central1.run.app';
+export const CLOUD_RUN_URL = 'https://heritage-react-538192513096.us-central1.run.app';
 
 // 1. 초기 데이터 일괄 조회 (중복 호출 제거 및 단일 채널 연동 최적화)
 export function fetchInitialAppData() {

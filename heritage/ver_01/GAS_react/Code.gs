@@ -30,7 +30,7 @@ function getProp(key, defaultVal) {
 }
 
 function getCloudRunBackendUrl() {
-  return getProp("CLOUD_RUN_URL", "https://heritage-538192513096.us-central1.run.app");
+  return getProp("CLOUD_RUN_URL", "https://heritage-react-538192513096.us-central1.run.app");
 }
 
 function getActiveUserEmail() {
@@ -449,7 +449,7 @@ function registerOrLoginSupabaseAuth(email) {
 
 // 2. Agentic RAG FastAPI 서버 프록시 연동
 function queryAgenticRAGGAS(query) {
-  var backendUrl = getProp("CLOUD_RUN_URL", "https://heritage-538192513096.us-central1.run.app");
+  var backendUrl = getProp("CLOUD_RUN_URL", "https://heritage-react-538192513096.us-central1.run.app");
   var options = {
     method: "post",
     contentType: "application/json",
@@ -475,7 +475,7 @@ function queryAgenticRAGGAS(query) {
 
 // 3. AI 가이드북 생성 FastAPI 서버 프록시 연동
 function generateGuidebookGAS(heritageNames, transport) {
-  var backendUrl = getProp("CLOUD_RUN_URL", "https://heritage-538192513096.us-central1.run.app");
+  var backendUrl = getProp("CLOUD_RUN_URL", "https://heritage-react-538192513096.us-central1.run.app");
   var options = {
     method: "post",
     contentType: "application/json",

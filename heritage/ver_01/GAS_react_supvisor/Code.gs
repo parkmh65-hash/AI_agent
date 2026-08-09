@@ -30,7 +30,7 @@ function getProp(key, defaultVal) {
 }
 
 function getCloudRunBackendUrl() {
-  return getProp("CLOUD_RUN_URL", "https://heritage-538192513096.us-central1.run.app");
+  return getProp("CLOUD_RUN_URL", "https://heritage-react-538192513096.us-central1.run.app");
 }
 
 function getActiveUserEmail() {
