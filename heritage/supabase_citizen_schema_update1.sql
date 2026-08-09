@@ -16,17 +16,33 @@ ALTER TABLE citizen_recommendations ADD COLUMN IF NOT EXISTS photo_url TEXT;
 ALTER TABLE citizen_recommendations ADD COLUMN IF NOT EXISTS heart INT DEFAULT 0;
 ALTER TABLE citizen_recommendations ADD COLUMN IF NOT EXISTS recommend_count INT DEFAULT 0;
 
--- 5. 기본 데이터 정렬 및 동기화를 위한 트리거 함수 설정 (옵션)
--- 기존 레코드가 있을 경우 호환성 컬럼들 값 동기화
-UPDATE citizen_recommendations 
-SET 
-    latitude = COALESCE(latitude, lat),
-    longitude = COALESCE(longitude, lng),
-    reason = COALESCE(reason, description),
-    photo_url = COALESCE(photo_url, image_url),
-    heart = COALESCE(heart, like_count),
-    user_id = COALESCE(user_id, submitted_by)
-WHERE latitude IS NULL OR longitude IS NULL OR reason IS NULL OR photo_url IS NULL;
+-- 기존 레코드가 있을 경우 호환성 컬럼들 값 동기화 (존재하는 컬럼만 동적 갱신)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='lat') THEN
+        UPDATE citizen_recommendations SET latitude = COALESCE(latitude, lat);
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='lng') THEN
+        UPDATE citizen_recommendations SET longitude = COALESCE(longitude, lng);
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='description') THEN
+        UPDATE citizen_recommendations SET reason = COALESCE(reason, description);
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='image_url') THEN
+        UPDATE citizen_recommendations SET photo_url = COALESCE(photo_url, image_url);
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='like_count') THEN
+        UPDATE citizen_recommendations SET heart = COALESCE(heart, like_count);
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='submitted_by') THEN
+        UPDATE citizen_recommendations SET user_id = COALESCE(user_id, submitted_by);
+    END IF;
+END $$;
 
 -- 6. 승인 데이터 빠른 조회를 위한 복합 인덱스 보완
 CREATE INDEX IF NOT EXISTS idx_citizen_rec_status_name 
