@@ -403,6 +403,11 @@
                     <span id="step-3-icon">⏳</span>
                     <span>3단계: 추천 코스 맞춤 AI 스토리 가이드북 편찬</span>
                   </div>
+                  
+                  <!-- Dynamic Actions Area for Step-by-Step Execution -->
+                  <div id="pipeline-actions-area" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Step buttons will be injected here -->
+                  </div>
                 </div>
 
                 <div id="rag-output-text" style="display: none; margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; font-size: 0.78rem; color: #93c5fd; border-left: 3px solid #3b82f6; white-space: pre-wrap;"></div>
@@ -1064,49 +1069,9 @@
           card.innerHTML = `
             <img src="${item.image_url}" alt="${item.name}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;" />
             <div style="flex: 1;">
-              <h5 style="margin: 0 0 3px 0; font-size: 0.85rem; color: #fff;">${item.name}</h5>
-              <span style="font-size: 0.72rem; color: var(--text-sub); display: block; margin-bottom: 3px;">📍 ${item.address}</span>
-              <span style="font-size: 0.7rem; padding: 1px 5px; background: rgba(0, 245, 212, 0.1); color: #00f5d4; border-radius: 4px; display: inline-block;">${item.category}</span>
-            </div>
-            <button onclick="addSingleToCourse('${item.id}')" style="background: rgba(0,245,212,0.1); border: 1px solid #00f5d4; color: #00f5d4; padding: 4px 8px; borderRadius: 6px; font-size: 0.72rem; cursor: pointer; font-weight: 700;">
-              + 추가
-            </button>
-          `;
-          listContainer.appendChild(card);
-        });
-      }
-
-      // 11. Add to Course Action Controllers
-      window.addSingleToCourse = function(itemId) {
-        const item = officialHeritages.find(oh => oh.id === itemId) || citizenHeritages.find(ch => ch.id === itemId);
-        if (!item) return;
-        if (courseList.some(c => c.id === item.id)) {
-          showToast('이미 코스에 추가되었습니다.');
-        } else {
-          courseList.push(item);
-          showToast(`🧭 '${item.name}' 유산이 코스에 담겼습니다.`);
-          renderCourseList();
-          updateMap(courseList);
-          
-          // Show Guidebook CTA block
-          document.getElementById('guidebook-cta-wrapper').style.display = 'block';
-        }
-      };
-
-      window.addAllToCourse = function() {
-        const toAdd = ragCards.filter(rc => !courseList.some(c => c.id === rc.id));
-        if (toAdd.length === 0) {
-          showToast('모든 유산이 이미 코스에 추가되어 있습니다.');
-          return;
-        }
-        courseList.push(...toAdd);
-        showToast(`🗺️ ${toAdd.length}개의 유산을 코스에 일괄 추가했습니다.`);
-        renderCourseList();
-        updateMap(courseList);
-        document.getElementById('guidebook-cta-wrapper').style.display = 'block';
-      };
-
-      // 12. RAG Recommendation Agent Query Executor (Sequential Pipeline)
+                 // 12. RAG Recommendation Agent Query Executor (Sequential Pipeline - Split Into Steps)
+      
+      // STEP 1: Search & Recommend 5 Heritages (Markers Only)
       async function handleRAGSearch() {
         const input = document.getElementById('rag-query-input');
         const query = input.value.trim();
@@ -1121,9 +1086,9 @@
         
         const searchBtn = document.getElementById('rag-search-btn');
         searchBtn.disabled = true;
-        searchBtn.textContent = '설계 중..';
-
-        // 1. Show and Reset Pipeline Widget
+        searchBtn.textContent = '추천 중..';
+ 
+        // Show and Reset Pipeline Widget
         const pipelineWidget = document.getElementById('rag-pipeline-widget');
         if (pipelineWidget) {
           pipelineWidget.style.display = 'flex';
@@ -1135,35 +1100,147 @@
         const icon1 = document.getElementById('step-1-icon');
         const icon2 = document.getElementById('step-2-icon');
         const icon3 = document.getElementById('step-3-icon');
-
+        const actionsArea = document.getElementById('pipeline-actions-area');
+ 
         if (step1) { step1.style.color = '#38bdf8'; icon1.textContent = '🔄'; }
         if (step2) { step2.style.color = '#64748b'; icon2.textContent = '🔘'; }
         if (step3) { step3.style.color = '#64748b'; icon3.textContent = '🔘'; }
-
+        if (actionsArea) { actionsArea.innerHTML = ''; }
+ 
         // Hide output sections initially
         document.getElementById('rag-output-text').style.display = 'none';
         document.getElementById('guidebook-section-output').style.display = 'none';
-
-        let heritages = [];
-        let touristSpots = [];
-        
+ 
         try {
-          // --- STEP 1: Fetch 5 Cultural Heritages ---
           showToast('⏳ 1단계: 문화유산 5선 탐색 중...');
           const resHeritages = await fetch(`${CLOUD_RUN_URL}/api/v1/agentic-rag`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ query: combinedQuery, area_code: region })
           });
+          
           if (!resHeritages.ok) throw new Error("1단계 문화유산 RAG 추천 오류");
           const dataHeritages = await resHeritages.json();
-          heritages = dataHeritages.output_heritages || [];
+          if (!dataHeritages) throw new Error("서버로부터 유효하지 않은 응답을 받았습니다.");
           
-          if (heritages.length === 0) {
+          ragCards = dataHeritages.output_heritages || [];
+          if (ragCards.length === 0) {
             throw new Error("검색 결과 수록된 문화유산이 없습니다.");
           }
           
+          // Draw recommendations (Markers Only, no path lines)
+          renderRAGCards();
+          updateMap(ragCards, false);
+          
           if (step1) { step1.style.color = '#10b981'; icon1.textContent = '✅'; }
+          if (step2) { step2.style.color = '#38bdf8'; icon2.textContent = '🔘'; }
+          showToast('✅ 1단계 완료: 문화유산 추천지가 지도에 표시되었습니다.');
+          
+          // Inject CTA Button for Step 2
+          if (actionsArea) {
+            actionsArea.innerHTML = `
+              <button onclick="createTourCourse()" class="btn-primary" style="width: 100%; padding: 8px 12px; background: linear-gradient(135deg, #00f5d4, #059669); color: #000; font-weight: bold; border: none; cursor: pointer;">
+                🗺️ 2단계: 추천 관광 코스 및 이동 경로 생성하기
+              </button>
+            `;
+          }
+ 
+        } catch (e) {
+          showToast(`❌ 1단계 에러: ${e.message}`);
+          console.error(e);
+          if (step1) { step1.style.color = '#ef4444'; icon1.textContent = '❌'; }
+        } finally {
+          searchBtn.disabled = false;
+          searchBtn.textContent = '🔍 RAG 추천';
+        }
+      }
+ 
+      // STEP 2: Map Courses with AntPath Routing
+      window.createTourCourse = function() {
+        const step2 = document.getElementById('pipeline-step-2');
+        const icon2 = document.getElementById('step-2-icon');
+        const step3 = document.getElementById('pipeline-step-3');
+        const icon3 = document.getElementById('step-3-icon');
+        const actionsArea = document.getElementById('pipeline-actions-area');
+        
+        if (ragCards.length === 0) {
+          showToast('❌ 추천된 문화유산이 없습니다. 먼저 1단계를 완료해 주세요.');
+          return;
+        }
+        
+        try {
+          if (step2) { step2.style.color = '#38bdf8'; icon2.textContent = '🔄'; }
+          showToast('⏳ 2단계: 최적 경로 연산 및 동선 맵 매핑 중...');
+          
+          // Set course destination list
+          courseList = [...ragCards];
+          renderCourseList();
+          
+          // Redraw map with AntPath active route lines
+          updateMap(courseList, true);
+          
+          if (step2) { step2.style.color = '#10b981'; icon2.textContent = '✅'; }
+          if (step3) { step3.style.color = '#38bdf8'; icon3.textContent = '🔘'; }
+          showToast('✅ 2단계 완료: 추천 코스 이동 동선이 지도에 연동되었습니다.');
+          
+          // Inject CTA Button for Step 3
+          if (actionsArea) {
+            actionsArea.innerHTML = `
+              <button onclick="generateGuidebook()" class="btn-primary" style="width: 100%; padding: 8px 12px; background: linear-gradient(135deg, #fbbf24, #d97706); color: #000; font-weight: bold; border: none; cursor: pointer;">
+                📖 3단계: AI 동화 가이드북 및 오디오 제작하기
+              </button>
+            `;
+          }
+        } catch(err) {
+          showToast(`❌ 2단계 에러: ${err.message}`);
+          if (step2) { step2.style.color = '#ef4444'; icon2.textContent = '❌'; }
+        }
+      }
+ 
+      // STEP 3: Generate Fairytale Guidebook Web RAG
+      window.generateGuidebook = async function() {
+        const step3 = document.getElementById('pipeline-step-3');
+        const icon3 = document.getElementById('step-3-icon');
+        const actionsArea = document.getElementById('pipeline-actions-area');
+        
+        if (courseList.length === 0) {
+          showToast('❌ 코스에 담긴 유산이 없습니다. 2단계를 먼저 가동해 주세요.');
+          return;
+        }
+        
+        try {
+          if (step3) { step3.style.color = '#38bdf8'; icon3.textContent = '🔄'; }
+          showToast('⏳ 3단계: 5선 가이드북/오디오 동화책 제작 중...');
+          
+          const names = courseList.map(c => c.name);
+          const resGuidebook = await fetch(`${CLOUD_RUN_URL}/api/v1/guidebook`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ heritages: names, transport })
+          });
+          
+          if (!resGuidebook.ok) throw new Error("3단계 AI 가이드북 편찬 오류");
+          guidebookResult = await resGuidebook.json();
+          if (!guidebookResult) throw new Error("가이드북 생성 응답이 올바르지 않습니다.");
+          
+          renderGuidebookResult();
+          
+          if (step3) { step3.style.color = '#10b981'; icon3.textContent = '✅'; }
+          showToast('🎉 AI 맞춤 가이드북이 성공적으로 제작 완료되었습니다!');
+          
+          // Clear actions area as all steps are done
+          if (actionsArea) { actionsArea.innerHTML = ''; }
+          
+          // Scroll output into view
+          setTimeout(() => {
+            const outSect = document.getElementById('guidebook-section-output');
+            if (outSect) outSect.scrollIntoView({ behavior: 'smooth' });
+          }, 300);
+        } catch(err) {
+          showToast(`❌ 3단계 에러: ${err.message}`);
+          if (step3) { step3.style.color = '#ef4444'; icon3.textContent = '❌'; }
+        }
+      }�'; }
           if (step2) { step2.style.color = '#38bdf8'; icon2.textContent = '🔄'; }
           showToast('✅ 1단계 완료: 문화유산 5선 선정');
 
