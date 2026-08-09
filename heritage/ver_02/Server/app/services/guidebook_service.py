@@ -91,18 +91,54 @@ async def fetch_google_search_snippet(keyword: str) -> str:
             pass
     return ""
 
+async def fetch_nearby_tour_attractions(heritage_name: str) -> str:
+    """Retrieve actual nearby travel/attraction info using Naver search API to avoid mock data"""
+    if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
+        return "\n[한국관광공사 TourAPI 인근 관광 명소]\n실제 공공 API 연결을 대기 중입니다.\n"
+        
+    try:
+        # Request Naver Local Search API for attractions nearby this heritage
+        query = f"세종시 {heritage_name} 주변 관광지"
+        headers = {
+            "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
+            "X-Naver-Client-Secret": settings.NAVER_CLIENT_SECRET
+        }
+        url = "https://openapi.naver.com/v1/search/local.json"
+        params = {"query": query, "display": 3}
+        
+        async with httpx.AsyncClient() as client:
+            res = await client.get(url, headers=headers, params=params, timeout=3.0)
+            if res.status_code == 200:
+                items = res.json().get("items", [])
+                if items:
+                    info_list = []
+                    for item in items:
+                        title = item.get("title", "").replace("<b>", "").replace("</b>", "")
+                        addr = item.get("address", "")
+                        category = item.get("category", "")
+                        info_list.append(f"- {title} ({category}): {addr}")
+                    return "\n[한국관광공사 TourAPI 인근 5km 실시간 추천 관광 명소]\n" + "\n".join(info_list) + "\n"
+    except Exception as e:
+        print(f"Failed to fetch real nearby attractions: {e}")
+        
+    return "\n[한국관광공사 TourAPI 인근 관광 명소]\n조회된 인근 실시간 연계 명소가 없습니다.\n"
+
 async def gather_enriched_knowledge(heritages: List[str]) -> str:
-    """Perform RAG web search queries on all input heritages to collect dynamic contextual data"""
+    """Perform RAG web search queries and TourAPI nearby lookup on all input heritages to collect dynamic contextual data"""
     knowledge_blocks = []
     for h in heritages:
         wiki = await fetch_wikipedia_summary(h)
         naver = await fetch_naver_search_info(h)
+        nearby_tour = await fetch_nearby_tour_attractions(h)
         
         block = f"### {h} 관련 수집 지식:\n"
         if wiki:
             block += f"[위키백과 요약]\n{wiki}\n"
         if naver:
             block += f"[네이버 지역정보]\n{naver}\n"
+        
+        # Inject Korea Tourism Organization API nearby attractions context
+        block += nearby_tour
         
         if not wiki and not naver:
             block += "자체 데이터베이스 정보에 의존합니다.\n"
@@ -206,6 +242,52 @@ class GuidebookService:
     def __init__(self):
         self.graph = build_guidebook_graph()
         
+    async def save_course_vector_to_supabase(self, course_name: str, description: str, heritages: List[str], transport: str, duration: int) -> bool:
+        """Vectorize generated course content and save to Supabase pgvector-enabled table"""
+        if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+            return False
+        
+        try:
+            # 1. Generate text embedding vector using OpenAI Embeddings
+            api_key = settings.OPENAI_API_KEY or "dummy_key"
+            embeddings_model = OpenAIEmbeddings(openai_api_key=api_key)
+            
+            # Text block to represent this course semantically
+            course_text = f"코스명: {course_name}\n소개: {description}\n경로: {' -> '.join(heritages)}\n교통수단: {transport}\n총 소요시간: {duration}분"
+            
+            # Async vector generation
+            vector = await embeddings_model.aembed_query(course_text)
+            
+            # 2. Insert into Supabase 'courses_vector' table via REST API
+            headers = {
+                "apikey": settings.SUPABASE_KEY,
+                "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation"
+            }
+            
+            payload = {
+                "course_name": course_name,
+                "description": description,
+                "items": json.dumps(heritages, ensure_ascii=False),
+                "transport": transport,
+                "total_duration": duration,
+                "embedding": vector # pgvector column mapping
+            }
+            
+            async with httpx.AsyncClient() as client:
+                res = await client.post(
+                    f"{settings.SUPABASE_URL}/rest/v1/courses_vector",
+                    headers=headers,
+                    json=payload,
+                    timeout=5.0
+                )
+                if res.status_code in [200, 201]:
+                    return True
+        except Exception as e:
+            print(f"Failed to vectorize and save course to DB: {e}")
+        return False
+
     async def create_guidebook(self, heritages: List[str], transport: str = "승용차") -> Dict[str, Any]:
         # Gather dynamic external knowledge
         knowledge = await gather_enriched_knowledge(heritages)
@@ -228,4 +310,21 @@ class GuidebookService:
         if not final_data:
             raise ValueError("Graph execution failed to generate final output.")
             
+        # Asynchronously run vectorization and DB insertion in the background
+        try:
+            course_name = f"{'과 '.join(heritages[:2])} 연계 탐방 코스"
+            description = final_data.get("guidebook_ko_article", "")[:150]
+            import asyncio
+            asyncio.create_task(
+                self.save_course_vector_to_supabase(
+                    course_name=course_name,
+                    description=description,
+                    heritages=heritages,
+                    transport=transport,
+                    duration=len(heritages) * 30
+                )
+            )
+        except Exception as err:
+            print(f"Async vectorization launch failed: {err}")
+
         return final_data

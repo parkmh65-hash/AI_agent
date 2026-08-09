@@ -93,3 +93,61 @@ END $$;
 -- 5. Build indexes for geographical coordinate queries
 CREATE INDEX IF NOT EXISTS idx_heritages_coords ON public.heritages(latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_citizen_coords ON public.citizen_recommendations(latitude, longitude);
+
+-- 6. Enable pgvector extension and create courses_vector table
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS public.courses_vector (
+    id SERIAL PRIMARY KEY,
+    course_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    transport VARCHAR(50) DEFAULT '승용차',
+    total_duration INT DEFAULT 0,
+    items JSONB DEFAULT '[]'::jsonb,
+    embedding vector(1536), -- OpenAI embedding dimensions
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 7. Create RPC function for pgvector similarity match search
+CREATE OR REPLACE FUNCTION match_courses (
+  query_embedding vector(1536),
+  match_threshold float,
+  match_count int
+)
+RETURNS TABLE (
+  id int,
+  course_name varchar,
+  description text,
+  transport varchar,
+  total_duration int,
+  items jsonb,
+  similarity float
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    courses_vector.id,
+    courses_vector.course_name,
+    courses_vector.description,
+    courses_vector.transport,
+    courses_vector.total_duration,
+    courses_vector.items,
+    1 - (courses_vector.embedding <=> query_embedding) AS similarity
+  FROM courses_vector
+  WHERE 1 - (courses_vector.embedding <=> query_embedding) > match_threshold
+  ORDER BY courses_vector.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;
+
+-- 8. Create users profile table for authentication session cache
+CREATE TABLE IF NOT EXISTS public.users_profile (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    nickname VARCHAR(100),
+    auth_provider VARCHAR(50) DEFAULT 'google',
+    last_login TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
