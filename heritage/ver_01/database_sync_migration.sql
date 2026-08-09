@@ -25,13 +25,24 @@ ALTER TABLE heritages ADD COLUMN IF NOT EXISTS longitude NUMERIC(11, 8);
 ALTER TABLE heritages ADD COLUMN IF NOT EXISTS heart INT DEFAULT 0;
 ALTER TABLE heritages ADD COLUMN IF NOT EXISTS photo_url TEXT;
 
-UPDATE heritages 
-SET 
-    latitude = COALESCE(latitude, lat),
-    longitude = COALESCE(longitude, lng),
-    heart = COALESCE(heart, like_count),
-    photo_url = COALESCE(photo_url, image_url)
-WHERE latitude IS NULL OR longitude IS NULL OR heart IS NULL;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='heritages' AND column_name='lat') THEN
+        UPDATE heritages SET latitude = COALESCE(latitude, lat);
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='heritages' AND column_name='lng') THEN
+        UPDATE heritages SET longitude = COALESCE(longitude, lng);
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='heritages' AND column_name='like_count') THEN
+        UPDATE heritages SET heart = COALESCE(heart, like_count);
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='heritages' AND column_name='image_url') THEN
+        UPDATE heritages SET photo_url = COALESCE(photo_url, image_url);
+    END IF;
+END $$;
 
 
 -- 2. 시민 제보 문화유산 테이블 (citizen_recommendations) 생성 및 필드 전면 동기화
@@ -59,15 +70,32 @@ ALTER TABLE citizen_recommendations ADD COLUMN IF NOT EXISTS photo_url TEXT;
 ALTER TABLE citizen_recommendations ADD COLUMN IF NOT EXISTS heart INT DEFAULT 0;
 ALTER TABLE citizen_recommendations ADD COLUMN IF NOT EXISTS recommend_count INT DEFAULT 0;
 
-UPDATE citizen_recommendations 
-SET 
-    latitude = COALESCE(latitude, lat),
-    longitude = COALESCE(longitude, lng),
-    reason = COALESCE(reason, description),
-    photo_url = COALESCE(photo_url, image_url),
-    heart = COALESCE(heart, like_count),
-    user_id = COALESCE(user_id, submitted_by)
-WHERE latitude IS NULL OR longitude IS NULL OR reason IS NULL OR photo_url IS NULL;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='lat') THEN
+        UPDATE citizen_recommendations SET latitude = COALESCE(latitude, lat);
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='lng') THEN
+        UPDATE citizen_recommendations SET longitude = COALESCE(longitude, lng);
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='description') THEN
+        UPDATE citizen_recommendations SET reason = COALESCE(reason, description);
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='image_url') THEN
+        UPDATE citizen_recommendations SET photo_url = COALESCE(photo_url, image_url);
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='like_count') THEN
+        UPDATE citizen_recommendations SET heart = COALESCE(heart, like_count);
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='citizen_recommendations' AND column_name='submitted_by') THEN
+        UPDATE citizen_recommendations SET user_id = COALESCE(user_id, submitted_by);
+    END IF;
+END $$;
 
 
 -- 3. 당일 맞춤 코스 테이블 (courses) 생성 및 컬럼 보완
