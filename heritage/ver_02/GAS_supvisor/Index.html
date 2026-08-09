@@ -475,9 +475,9 @@
 
       <!-- Section Tab 4: Interactive AI Workflow Diagrams -->
       <section id="view-ai-workflow" style="display: none;">
-        <div class="stats-card" style="padding: 24px;">
-          <h3 style="margin: 0 0 6px 0; font-size: 1.25rem; color: #fff;">🧠 시스템 AI 워크플로우 시각화</h3>
-          <p style="margin: 0 0 24px 0; font-size: 0.82rem; color: #9ca3af;">각 노드에 마우스를 가져가면(Hover) 에이전트 및 서비스 모듈의 세부 동작 설명을 실시간으로 확인하실 수 있습니다.</p>
+        <div class="glass-card" style="padding: 24px;">
+          <h3 style="margin: 0 0 8px 0; font-size: 1.15rem; color: #fff;">🧭 실시간 AI 여정 추론 워크플로우 명세</h3>
+          <p style="margin: 0 0 24px 0; font-size: 0.82rem; color: #9ca3af;">각 카드에 마우스를 올리시면(Hover) 에이전트 및 연동 공공 API의 상세 작동 방식과 RAG 지식 구성 메커니즘을 실시간으로 확인하실 수 있습니다.</p>
 
           <!-- Workflow 1 diagram block -->
           <div style="margin-bottom: 40px;">
@@ -493,18 +493,18 @@
                 <span style="font-size: 0.85rem; color: #fff;">사용자 자연어 질문</span>
                 <div class="agent-tooltip">
                   <strong>[Query Input]</strong><br />
-                  사용자가 검색창에 입력한 자유 키워드(예: '조용한 사찰')를 백엔드에 쿼리로 전달합니다.
+                  사용자가 검색창에 입력한 자유 키워드와 지역명(예: '세종시 조용한 사찰')을 백엔드에 쿼리로 전달합니다.
                 </div>
               </div>
 
               <div class="workflow-connector">➔</div>
 
               <div class="agent-node" style="border-left: 4px solid #10b981;">
-                <strong style="font-size: 0.8rem; color: #10b981; display: block; margin-bottom: 4px;">Chroma Vector DB</strong>
-                <span style="font-size: 0.85rem; color: #fff;">유산 데이터 임베딩 검색</span>
+                <strong style="font-size: 0.8rem; color: #10b981; display: block; margin-bottom: 4px;">공공 OpenAPI 검색</strong>
+                <span style="font-size: 0.85rem; color: #fff;">국가유산 지정 조회</span>
                 <div class="agent-tooltip">
-                  <strong>[Chroma Vector DB / SQL]</strong><br />
-                  질문 자연어를 벡터로 수치화하여 임베딩 공간에서 코사인 유사도가 가장 높은 유산 5선을 조회합니다.
+                  <strong>[국가유산 공간정보 Open API]</strong><br />
+                  국가유산청의 `SearchKindOpenapiList/Dt.do` 서비스를 연동하여 지정 문화유산 실시간 데이터를 조회하고 최적의 유산 5선을 매칭합니다.
                 </div>
               </div>
 
@@ -515,7 +515,7 @@
                 <span style="font-size: 0.85rem; color: #fff;">추천 맥락 및 이유 추론</span>
                 <div class="agent-tooltip">
                   <strong>[LLM Reasoning Brain]</strong><br />
-                  조회된 유산들의 데이터 메타정보를 조합하고, 질문한 의도에 어울리는 추천 근거 텍스트를 논리적으로 작성합니다.
+                  조회된 유산의 메타데이터 정보를 조합하고, 질문의 의도에 어울리는 추천 근거 텍스트를 추론을 거쳐 생성합니다.
                 </div>
               </div>
 
@@ -526,7 +526,7 @@
                 <span style="font-size: 0.85rem; color: #fff;">유산 5선 카드 & 맵 마킹</span>
                 <div class="agent-tooltip">
                   <strong>[Output Interface]</strong><br />
-                  종합된 5선 목록과 텍스트를 프론트엔드로 전달하여 지도 상에 시각적인 핀과 점선 경로를 동적으로 표시합니다.
+                  종합된 5선 목록을 인터페이스로 전달하여 지도 위에 시각적인 핀 마킹 및 선형 경로를 동적으로 표시합니다.
                 </div>
               </div>
 
@@ -543,22 +543,23 @@
             <div style="display: flex; flex-direction: column; gap: 16px; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.03); border-radius: 14px; padding: 24px;">
               
               <!-- Steps 1 and 2 -->
-              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                <div class="agent-node" style="flex: 1; min-width: 220px; border-left: 4px solid #f59e0b;">
-                  <strong style="font-size: 0.8rem; color: #f59e0b; display: block; margin-bottom: 4px;">1단계: 코스 유산 취합</strong>
-                  <span style="font-size: 0.82rem; color: #fff;">사용자 정의 여행 코스 노드</span>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; overflow-x: auto;">
+                
+                <div class="agent-node" style="border-left: 4px solid #3b82f6;">
+                  <strong style="font-size: 0.8rem; color: #3b82f6; display: block; margin-bottom: 4px;">입력 파라미터 수신</strong>
+                  <span style="font-size: 0.82rem; color: #fff;">여행 명소 10선 & 교통수단</span>
                   <div class="agent-tooltip">
-                    사용자가 코스 설계 탭에서 담아놓은 N개의 유산 순서 데이터를 에이전트의 입력값으로 지정합니다.
+                    사용자가 작성 완료한 10대 추천 여행 코스 목적지 목록과 이동 방식(도보/대중교통/차량) 파라미터를 에이전트 그래프에 입력합니다.
                   </div>
                 </div>
 
                 <div class="workflow-connector">➔</div>
 
-                <div class="agent-node" style="flex: 1; min-width: 220px; border-left: 4px solid #3b82f6;">
-                  <strong style="font-size: 0.8rem; color: #3b82f6; display: block; margin-bottom: 4px;">2단계: 지식 엔진 웹서치</strong>
-                  <span style="font-size: 0.82rem; color: #fff;">Naver / Wikipedia 크롤러</span>
+                <div class="agent-node" style="border-left: 4px solid #10b981;">
+                  <strong style="font-size: 0.8rem; color: #10b981; display: block; margin-bottom: 4px;">공공포털 API 지식 증강</strong>
+                  <span style="font-size: 0.82rem; color: #fff;">국가유산 OpenAPI & KTO TourAPI</span>
                   <div class="agent-tooltip">
-                    선택된 유산들의 공식 기록에 누락된 역사적 일화나 세부 안내사항을 외부 위키 웹 크롤링을 통해 수집하여 컨텍스트에 추가합니다.
+                    선택된 유산들의 공식 기록 정보와 관광공사 Open API 연계 주변 관광 명소 상세안내 사항을 실시간으로 수집하여 RAG 지식 풀을 보강합니다.
                   </div>
                 </div>
               </div>
@@ -575,31 +576,31 @@
                     <strong style="font-size: 0.78rem; color: #fbbf24; display: block; margin-bottom: 4px;">(1) 기획/동선 에이전트</strong>
                     <span style="font-size: 0.75rem; color: #cbd5e1;">교통수단에 따른 소요 시간 예측 및 동선 기획</span>
                     <div class="agent-tooltip">
-                      승용차, 도보 등 사용자의 교통 수단을 분석하여 이동 가이드 동선을 설계하고 시간 오차를 보정합니다.
+                      전체 코스 후보와 이동 수단을 분석하여 최적의 동선 흐름을 정렬하고 시간 오차를 예측 및 보정합니다.
                     </div>
                   </div>
 
                   <div class="agent-node" style="background: #111827; border: 1px solid rgba(251,191,36,0.3);">
-                    <strong style="font-size: 0.78rem; color: #fbbf24; display: block; margin-bottom: 4px;">(2) 스토리텔러 에이전트</strong>
+                    <strong style="font-size: 0.78rem; color: #fbbf24; display: block; margin-bottom: 4px;">(2) 스토리텔링 에이전트</strong>
                     <span style="font-size: 0.75rem; color: #cbd5e1;">어린이 눈높이 동화 구연 각본 창작</span>
                     <div class="agent-tooltip">
-                      아이들에게 들려주는 듯한 친근한 말투의 역사 동화 낭독 스크립트를 작성합니다.
+                      전통 역사와 유산 이야기를 부모님이 들려주듯 아늑하고 따뜻한 말투의 동화 구연 스크립트로 구성합니다.
                     </div>
                   </div>
 
                   <div class="agent-node" style="background: #111827; border: 1px solid rgba(251,191,36,0.3);">
-                    <strong style="font-size: 0.78rem; color: #fbbf24; display: block; margin-bottom: 4px;">(3) 글로벌 통번역 에이전트</strong>
-                    <span style="font-size: 0.75rem; color: #cbd5e1;">영문 번역 및 관광 안내 팁 추출</span>
+                    <strong style="font-size: 0.78rem; color: #fbbf24; display: block; margin-bottom: 4px;">(3) 글로벌 번역 에이전트</strong>
+                    <span style="font-size: 0.75rem; color: #cbd5e1;">영문 번역 및 외국어 가이드라인 보완</span>
                     <div class="agent-tooltip">
-                      원고에 대한 자연스러운 영문 번역본을 작성하고 각 장소별 화장실/주차장 팁을 병합합니다.
+                      해외 관광객도 편하게 이용할 수 있도록 영문 번역본 가이드를 생성하고 용어 해설을 추가 보강합니다.
                     </div>
                   </div>
 
                   <div class="agent-node" style="background: #111827; border: 1px solid rgba(251,191,36,0.3);">
                     <strong style="font-size: 0.78rem; color: #fbbf24; display: block; margin-bottom: 4px;">(4) 감수/피드백 에이전트</strong>
-                    <span style="font-size: 0.75rem; color: #cbd5e1;">지리 및 역사 고증 검증</span>
+                    <span style="font-size: 0.75rem; color: #cbd5e1;">지리 좌표 및 역사적 고증 최종 검수</span>
                     <div class="agent-tooltip">
-                      인쇄되기 전 지오코딩 좌표와 가이드북의 역사적 사건 명칭이 팩트에 부합하는지 최종 감수 후 승인합니다.
+                      출판 전 전체 텍스트와 좌표가 올바르게 기재되었는지 정합성을 크로스체크하여 오작동과 오류를 사전에 차단합니다.
                     </div>
                   </div>
 
@@ -609,10 +610,11 @@
               <!-- Final artifact output step -->
               <div class="agent-node" style="border-left: 4px solid #10b981; text-align: center;">
                 <strong style="font-size: 0.8rem; color: #10b981; display: block; margin-bottom: 4px;">최종 아티팩트 결과 도출</strong>
-                <span style="font-size: 0.82rem; color: #fff;">동화책 카드 뉴스 및 음성 TTS 낭독 오디오 스트림 재생</span>
+                <span style="font-size: 0.82rem; color: #fff;">동화책 카드 스토리보드 생성 & 한국어/영어 번역본 배포 및 오디오 TTS 합성</span>
                 <div class="agent-tooltip" style="bottom: 120%;">
-                  완성된 가이드라인 데이터를 카카오톡 카드 스타일의 스토리보드로 표현하고, 웹 SpeechSynthesis API로 성우 아나운서의 목소리로 즉시 낭독을 시작합니다.
+                  완성된 오디오 스크립트를 SpeechSynthesis API와 연동해 성우 보이스의 생생한 사운드로 즉시 낭독을 시작합니다.
                 </div>
+              </div>
             </div>
           </div>
 
@@ -620,7 +622,7 @@
           <div style="margin-top: 40px;">
             <h4 style="color: #fbbf24; margin: 0 0 16px 0; font-size: 0.98rem; display: flex; align-items: center; gap: 8px;">
               <span class="pulse-node" style="width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; display: inline-block;"></span>
-              3. 한국관광공사 TourAPI 연동 추천지 인근 관광지 융합 코스 추천 엔진 (LangGraph)
+              3. 3단계 자동 통합 AI 플래너 파이프라인 (Unified 3-Step AI Planner Pipeline)
             </h4>
             
             <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.03); border-radius: 14px; padding: 20px; overflow-x: auto;">
