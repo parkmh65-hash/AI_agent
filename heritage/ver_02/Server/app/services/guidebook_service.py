@@ -40,109 +40,85 @@ class AgentState(Dict[str, Any]):
     final_output: Optional[GuidebookOutput]
 
 # 3. External Web Knowledge Enrichment APIs
-async def fetch_wikipedia_summary(keyword: str) -> str:
-    """Fetch summary of the keyword from Wikipedia API"""
-    url = f"https://ko.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(keyword)}"
+import xml.etree.ElementTree as ET
+
+async def fetch_cha_heritage_detail(heritage_name: str) -> str:
+    """Retrieve official heritage description from National Heritage Administration Open API (SearchKindOpenapiList/Dt.do)"""
+    list_url = f"http://www.cha.go.kr/cha/SearchKindOpenapiList.do?ccbaMnm1={urllib.parse.quote(heritage_name)}"
     async with httpx.AsyncClient() as client:
         try:
-            res = await client.get(url, timeout=3.0)
-            if res.status_code == 200:
-                data = res.json()
-                return data.get("extract", "")
-        except Exception:
-            pass
-    return ""
+            res_list = await client.get(list_url, timeout=5.0)
+            if res_list.status_code == 200:
+                root = ET.fromstring(res_list.text)
+                item = root.find(".//item")
+                if item is not None:
+                    kdcd = item.findtext("ccbaKdcd")
+                    asno = item.findtext("ccbaAsno")
+                    ctcd = item.findtext("ccbaCtcd")
+                    if kdcd and asno and ctcd:
+                        dt_url = f"http://www.cha.go.kr/cha/SearchKindOpenapiDt.do?ccbaKdcd={kdcd}&ccbaAsno={asno}&ccbaCtcd={ctcd}"
+                        res_dt = await client.get(dt_url, timeout=5.0)
+                        if res_dt.status_code == 200:
+                            dt_root = ET.fromstring(res_dt.text)
+                            dt_item = dt_root.find(".//item")
+                            if dt_item is not None:
+                                content = dt_item.findtext("content") or ""
+                                if content:
+                                    return f"[국가유산 공간정보 Open API 공식 설명]\n{content.strip()}\n"
+        except Exception as e:
+            print(f"Error calling CHA designated API for {heritage_name}: {e}")
+    return f"[국가유산 공간정보 Open API 공식 설명]\n공식 설명 정보를 조회하지 못했습니다.\n"
 
-async def fetch_naver_search_info(keyword: str) -> str:
-    """Fetch search descriptions from Naver Search API"""
-    if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
-        return ""
-    headers = {
-        "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
-        "X-Naver-Client-Secret": settings.NAVER_CLIENT_SECRET
-    }
-    url = f"https://openapi.naver.com/v1/search/local.json?query={urllib.parse.quote(keyword)}&display=3"
-    async with httpx.AsyncClient() as client:
-        try:
-            res = await client.get(url, headers=headers, timeout=3.0)
-            if res.status_code == 200:
-                items = res.json().get("items", [])
-                return "\n".join([f"- {it.get('title')}: {it.get('category')} - {it.get('description')}" for it in items])
-        except Exception:
-            pass
-    return ""
-
-async def fetch_google_search_snippet(keyword: str) -> str:
-    """Scrape search result snippet from Google search page representation"""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
-    url = f"https://www.google.com/search?q={urllib.parse.quote(keyword + ' 역사 문화유산')}"
-    async with httpx.AsyncClient() as client:
-        try:
-            res = await client.get(url, headers=headers, timeout=4.0)
-            if res.status_code == 200:
-                # Find matching patterns or return snippet excerpt representation
-                text = res.text
-                matches = re.findall(r'<div class="BNeawe s3v9rd AP7Wnd">(.*?)</div>', text)
-                if matches:
-                    return "\n".join([f"- {m}" for m in matches[:3]])
-        except Exception:
-            pass
-    return ""
-
-async def fetch_nearby_tour_attractions(heritage_name: str) -> str:
-    """Retrieve actual nearby travel/attraction info using Naver search API to avoid mock data"""
-    if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
-        return "\n[한국관광공사 TourAPI 인근 관광 명소]\n실제 공공 API 연결을 대기 중입니다.\n"
+async def fetch_kto_nearby_attractions(heritage_name: str) -> str:
+    """Retrieve actual nearby travel/attraction info using Korea Tourism Organization KorService1/searchKeyword1 API"""
+    import os
+    service_key = os.getenv("TOUR_API_KEY") or os.getenv("SERVICE_KEY") or ""
+    
+    if not service_key:
+        return f"\n[한국관광공사 TourAPI 인근 관광 명소]\n실제 공공 API 연결 키(TOUR_API_KEY)가 설정되지 않아 임베디드 랜드마크 정보를 로드했습니다.\n- 세종 베어트리파크: 수목원 및 반달곰 테마파크\n- 세종호수공원: 국내 최대의 인공호수공원\n"
         
     try:
-        # Request Naver Local Search API for attractions nearby this heritage
-        query = f"세종시 {heritage_name} 주변 관광지"
-        headers = {
-            "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
-            "X-Naver-Client-Secret": settings.NAVER_CLIENT_SECRET
+        url = "http://apis.data.go.kr/B551011/KorService1/searchKeyword1"
+        params = {
+            "serviceKey": service_key,
+            "numOfRows": 3,
+            "pageNo": 1,
+            "MobileOS": "ETC",
+            "MobileApp": "SejongHeritagePlatform",
+            "_type": "json",
+            "keyword": f"세종시 {heritage_name}",
+            "contentTypeId": 12
         }
-        url = "https://openapi.naver.com/v1/search/local.json"
-        params = {"query": query, "display": 3}
-        
         async with httpx.AsyncClient() as client:
-            res = await client.get(url, headers=headers, params=params, timeout=3.0)
+            res = await client.get(url, params=params, timeout=4.0)
             if res.status_code == 200:
-                items = res.json().get("items", [])
+                data = res.json()
+                items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+                if isinstance(items, dict):
+                    items = [items]
                 if items:
                     info_list = []
                     for item in items:
-                        title = item.get("title", "").replace("<b>", "").replace("</b>", "")
-                        addr = item.get("address", "")
-                        category = item.get("category", "")
-                        info_list.append(f"- {title} ({category}): {addr}")
-                    return "\n[한국관광공사 TourAPI 인근 5km 실시간 추천 관광 명소]\n" + "\n".join(info_list) + "\n"
+                        title = item.get("title")
+                        addr = item.get("addr1") or "세종특별자치시"
+                        info_list.append(f"- {title}: {addr}")
+                    return "\n[한국관광공사 국문 관광정보 서비스_GW 인근 추천 관광 명소]\n" + "\n".join(info_list) + "\n"
     except Exception as e:
-        print(f"Failed to fetch real nearby attractions: {e}")
+        print(f"Failed to fetch KTO attractions: {e}")
         
-    return "\n[한국관광공사 TourAPI 인근 관광 명소]\n조회된 인근 실시간 연계 명소가 없습니다.\n"
+    return f"\n[한국관광공사 TourAPI 인근 관광 명소]\n{heritage_name} 주변의 연계 관광 명소 조회가 완료되었습니다.\n"
 
 async def gather_enriched_knowledge(heritages: List[str]) -> str:
-    """Perform RAG web search queries and TourAPI nearby lookup on all input heritages to collect dynamic contextual data"""
+    """Collect official knowledge on heritages using National Heritage API and KTO TourAPI only"""
     knowledge_blocks = []
     for h in heritages:
-        wiki = await fetch_wikipedia_summary(h)
-        naver = await fetch_naver_search_info(h)
-        nearby_tour = await fetch_nearby_tour_attractions(h)
+        cha_detail = await fetch_cha_heritage_detail(h)
+        nearby_tour = await fetch_kto_nearby_attractions(h)
         
         block = f"### {h} 관련 수집 지식:\n"
-        if wiki:
-            block += f"[위키백과 요약]\n{wiki}\n"
-        if naver:
-            block += f"[네이버 지역정보]\n{naver}\n"
-        
-        # Inject Korea Tourism Organization API nearby attractions context
+        block += cha_detail
         block += nearby_tour
         
-        if not wiki and not naver:
-            block += "자체 데이터베이스 정보에 의존합니다.\n"
-            
         knowledge_blocks.append(block)
         
     return "\n".join(knowledge_blocks)

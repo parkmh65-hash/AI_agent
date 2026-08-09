@@ -3,6 +3,8 @@
 import logging
 import json
 import httpx
+import xml.etree.ElementTree as ET
+import urllib.parse
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -144,39 +146,111 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                 "final_output": f"AI 분석 결과: 시맨틱 라우팅 결과 '코스 추천'으로 식별되어 과거에 보관된 명소 연계 코스 중 가장 적합한 추천 코스를 발굴했습니다."
             }
 
-    # Default Route / Route A: Heritage Search (Fetch directly from Supabase DB to eliminate dummy list)
+async def fetch_national_heritage_openapi(query: str, area_code: str = "전체") -> List[Dict[str, Any]]:
+    """Query cultural heritages using official National Heritage Open API"""
+    results = []
+    search_word = query
+    if area_code != "전체" and area_code in query:
+        search_word = query.replace(area_code, "").strip()
+    if not search_word:
+        search_word = query
+        
+    list_url = f"http://www.cha.go.kr/cha/SearchKindOpenapiList.do?ccbaMnm1={urllib.parse.quote(search_word)}"
+    async with httpx.AsyncClient() as client:
+        try:
+            res_list = await client.get(list_url, timeout=5.0)
+            if res_list.status_code == 200:
+                root = ET.fromstring(res_list.text)
+                items = root.findall(".//item")
+                for item in items[:5]:
+                    kdcd = item.findtext("ccbaKdcd")
+                    asno = item.findtext("ccbaAsno")
+                    ctcd = item.findtext("ccbaCtcd")
+                    if kdcd and asno and ctcd:
+                        dt_url = f"http://www.cha.go.kr/cha/SearchKindOpenapiDt.do?ccbaKdcd={kdcd}&ccbaAsno={asno}&ccbaCtcd={ctcd}"
+                        res_dt = await client.get(dt_url, timeout=5.0)
+                        if res_dt.status_code == 200:
+                            dt_root = ET.fromstring(res_dt.text)
+                            dt_item = dt_root.find(".//item")
+                            if dt_item is not None:
+                                name = dt_item.findtext("ccbaMnm1") or item.findtext("ccbaMnm1")
+                                desc = dt_item.findtext("content") or ""
+                                lng = dt_item.findtext("longitude")
+                                lat = dt_item.findtext("latitude")
+                                img = dt_item.findtext("imageUrl")
+                                addr = dt_item.findtext("ccbaLcnc") or item.findtext("ccbaLcnc") or ""
+                                
+                                coord_lat = float(lat) if lat else 0.0
+                                coord_lng = float(lng) if lng else 0.0
+                                if coord_lat > coord_lng:
+                                    latitude = coord_lng
+                                    longitude = coord_lat
+                                else:
+                                    latitude = coord_lat
+                                    longitude = coord_lng
+                                    
+                                if latitude == 0.0 or longitude == 0.0:
+                                    latitude = 36.48
+                                    longitude = 127.28
+                                    
+                                results.append({
+                                    "id": f"cha_{kdcd}_{asno}_{ctcd}",
+                                    "name": name,
+                                    "address": addr,
+                                    "category": "문화유산",
+                                    "era_normalized": "문화재청",
+                                    "latitude": latitude,
+                                    "longitude": longitude,
+                                    "description": desc[:300] + "..." if len(desc) > 300 else desc,
+                                    "image_url": img if img and img.startswith("http") else "https://via.placeholder.com/150"
+                                })
+        except Exception as e:
+            logger.error(f"National Heritage API call failed for {search_word}: {e}")
+    return results
+
+    # Default Route / Route A: Heritage Search (National Heritage Spatial Information Open API)
     matched = []
     try:
-        headers = {
-            "apikey": settings.SUPABASE_KEY,
-            "Authorization": f"Bearer {settings.SUPABASE_KEY}"
-        }
-        # PostgREST fuzzy keyword matching with 'or' query syntax
-        safe_query = f"*{query}*"
-        url = f"{settings.SUPABASE_URL}/rest/v1/heritages?or=(name.ilike.{safe_query},description.ilike.{safe_query},category.ilike.{safe_query})&limit=5"
-        
-        async with httpx.AsyncClient() as client:
-            res = await client.get(url, headers=headers, timeout=5.0)
-            if res.status_code == 200:
-                raw_list = res.json()
-                for item in raw_list:
-                    matched.append({
-                        "id": item.get("id") or item.get("h_id") or f"h_{item.get('id')}",
-                        "name": item.get("name"),
-                        "address": item.get("address") or "세종특별자치시",
-                        "category": item.get("category") or "문화유산",
-                        "era_normalized": item.get("era_normalized") or "조선시대",
-                        "latitude": float(item.get("latitude") or 36.48),
-                        "longitude": float(item.get("longitude") or 127.28),
-                        "description": item.get("description") or "",
-                        "image_url": item.get("image_url") or "https://via.placeholder.com/150"
-                    })
+        matched = await fetch_national_heritage_openapi(query, area_code)
     except Exception as e:
-        logger.error(f"Failed to query database for heritages: {e}")
-
-    # Fallback to general select if no keyword matches or DB error
+        logger.error(f"Failed to query official National Heritage API: {e}")
+        
     if len(matched) < 5 and settings.SUPABASE_URL and settings.SUPABASE_KEY:
         try:
+            headers = {
+                "apikey": settings.SUPABASE_KEY,
+                "Authorization": f"Bearer {settings.SUPABASE_KEY}"
+            }
+            safe_query = f"*{query}*"
+            url = f"{settings.SUPABASE_URL}/rest/v1/heritages?or=(name.ilike.{safe_query},description.ilike.{safe_query},category.ilike.{safe_query})&limit=5"
+            async with httpx.AsyncClient() as client:
+                res = await client.get(url, headers=headers, timeout=5.0)
+                if res.status_code == 200:
+                    raw_list = res.json()
+                    for item in raw_list:
+                        if not any(m["name"] == item.get("name") for m in matched):
+                            matched.append({
+                                "id": item.get("id") or item.get("h_id") or f"h_{item.get('id')}",
+                                "name": item.get("name"),
+                                "address": item.get("address") or "세종특별자치시",
+                                "category": item.get("category") or "문화유산",
+                                "era_normalized": item.get("era_normalized") or "조선시대",
+                                "latitude": float(item.get("latitude") or 36.48),
+                                "longitude": float(item.get("longitude") or 127.28),
+                                "description": item.get("description") or "",
+                                "image_url": item.get("image_url") or "https://via.placeholder.com/150"
+                            })
+                            if len(matched) == 5:
+                                break
+        except Exception as e:
+            logger.error(f"Failed to query backup database for heritages: {e}")
+
+    if len(matched) < 5 and settings.SUPABASE_URL and settings.SUPABASE_KEY:
+        try:
+            headers = {
+                "apikey": settings.SUPABASE_KEY,
+                "Authorization": f"Bearer {settings.SUPABASE_KEY}"
+            }
             url = f"{settings.SUPABASE_URL}/rest/v1/heritages?limit=5"
             async with httpx.AsyncClient() as client:
                 res = await client.get(url, headers=headers, timeout=5.0)
@@ -200,7 +274,6 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
         except Exception:
             pass
 
-    # Ensure final list is sliced to exactly 5 heritages
     matched = matched[:5]
             
     return {
@@ -541,38 +614,54 @@ async def tour_search(req: TourSearchRequest):
         except Exception as e:
             logger.error(f"Failed to query citizen recommendations: {e}")
             
-    # 2. Naver search local integration fallback
-    if len(matched) < 5 and settings.NAVER_CLIENT_ID and settings.NAVER_CLIENT_SECRET:
+    # 2. Korea Tourism Organization KorService1/searchKeyword1 API integration
+    import os
+    service_key = os.getenv("TOUR_API_KEY") or os.getenv("SERVICE_KEY") or ""
+    if len(matched) < 5 and service_key:
         try:
-            query_str = f"{area} {req.query} 관광지 명소"
-            headers = {
-                "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
-                "X-Naver-Client-Secret": settings.NAVER_CLIENT_SECRET
+            url = "http://apis.data.go.kr/B551011/KorService1/searchKeyword1"
+            query_str = f"{area} {req.query}"
+            params = {
+                "serviceKey": service_key,
+                "numOfRows": 10,
+                "pageNo": 1,
+                "MobileOS": "ETC",
+                "MobileApp": "SejongHeritagePlatform",
+                "_type": "json",
+                "keyword": query_str,
+                "contentTypeId": 12
             }
-            url = "https://openapi.naver.com/v1/search/local.json"
-            params = {"query": query_str, "display": 10}
             async with httpx.AsyncClient() as client:
-                res = await client.get(url, headers=headers, params=params, timeout=3.0)
+                res = await client.get(url, params=params, timeout=5.0)
                 if res.status_code == 200:
-                    items = res.json().get("items", [])
+                    data = res.json()
+                    items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+                    if isinstance(items, dict):
+                        items = [items]
                     for item in items:
-                        title = item.get("title", "").replace("<b>", "").replace("</b>", "")
-                        addr = item.get("address", "")
-                        category = item.get("category", "")
-                        matched.append({
-                            "id": f"naver_{title}",
-                            "name": title,
-                            "address": addr or f"{area} 주변",
-                            "category": category or "관광명소",
-                            "latitude": 36.50 + (len(matched) * 0.005),
-                            "longitude": 127.26 + (len(matched) * 0.005),
-                            "description": f"{title}은(는) {area}의 추천 {category} 관광명소입니다.",
-                            "image_url": "https://via.placeholder.com/150"
-                        })
-                        if len(matched) == 5:
-                            break
+                        title = item.get("title")
+                        if not title:
+                            continue
+                        addr = item.get("addr1") or f"{area} 관광지"
+                        mapx = item.get("mapx")
+                        mapy = item.get("mapy")
+                        img = item.get("firstimage") or item.get("firstimage2") or "https://via.placeholder.com/150"
+                        
+                        if not any(m["name"] == title for m in matched):
+                            matched.append({
+                                "id": f"kto_{item.get('contentid')}",
+                                "name": title,
+                                "address": addr,
+                                "category": "관광지",
+                                "latitude": float(mapy) if mapy else 36.50,
+                                "longitude": float(mapx) if mapx else 127.26,
+                                "description": f"{title}은(는) 한국관광공사 공인 추천 관광지입니다.",
+                                "image_url": img
+                            })
+                            if len(matched) == 5:
+                                break
         except Exception as e:
-            logger.error(f"Naver local search integration failed: {e}")
+            logger.error(f"KTO TourAPI call failed: {e}")
 
     # 3. Static fallback list of Sejong tourist attractions
     if len(matched) < 5:
