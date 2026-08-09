@@ -264,6 +264,15 @@
       .auth-input:focus {
         border-color: var(--accent-cyan);
       }
+ 
+      @keyframes pulse-marker {
+        0% { box-shadow: 0 0 0 0 rgba(0, 245, 212, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(0, 245, 212, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(0, 245, 212, 0); }
+      }
+      .custom-sequence-marker div {
+        animation: pulse-marker 2s infinite;
+      }
     </style>
   </head>
   <body>
@@ -576,6 +585,7 @@
 
     <!-- Leaflet Maps JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-ant-path@1.3.0/dist/leaflet-ant-path.min.js"></script>
     <!-- Dynamic JS Injection -->
     <script>
       // script.html - ver_02 User Client Vanilla JavaScript Engine
@@ -791,10 +801,11 @@
             zoomControl: true,
             scrollWheelZoom: true
           }).setView([36.50, 127.26], 12);
-
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            attribution: '&copy; OpenStreetMap contributors'
+ 
+          // Premium Dark Theme Map Layer by CARTO Basemaps
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 20,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           }).addTo(mapInstance);
           
           // Fix map size on render delay
@@ -805,7 +816,7 @@
           console.error("Map init failed:", e);
         }
       }
-
+ 
       // 6. Update Map Markers and Connecting Polyline Paths
       function updateMap(listToShow) {
         if (!mapInstance) return;
@@ -817,13 +828,13 @@
           mapInstance.removeLayer(mapPolyline);
           mapPolyline = null;
         }
-
+ 
         const latlngs = [];
         listToShow.forEach((item, index) => {
           const lat = parseFloat(item.latitude || item.lat) || 36.48;
           const lng = parseFloat(item.longitude || item.lng) || 127.28;
           latlngs.push([lat, lng]);
-
+ 
           const sequenceIcon = L.divIcon({
             className: 'custom-sequence-marker',
             html: `
@@ -838,8 +849,8 @@
                 align-items: center;
                 justify-content: center;
                 border: 2px solid #ffffff;
-                box-shadow: 0 0 10px rgba(0, 245, 212, 0.8);
                 font-size: 0.85rem;
+                box-shadow: 0 0 12px rgba(0, 245, 212, 0.6);
               ">
                 ${index + 1}
               </div>
@@ -847,7 +858,7 @@
             iconSize: [30, 30],
             iconAnchor: [15, 15]
           });
-
+ 
           const popupContent = `
             <div style="font-family: sans-serif; font-size: 0.85rem; color: #0f172a; padding: 4px; min-width: 180px;">
               <strong style="color: #7209b7; font-size: 0.95rem; display: block; margin-bottom: 4px;">
@@ -861,7 +872,7 @@
               </span>
             </div>
           `;
-
+ 
           const marker = L.marker([lat, lng], { icon: sequenceIcon }).addTo(mapInstance);
           marker.bindPopup(popupContent);
           if (index === 0 && listToShow.length === 1) {
@@ -869,14 +880,37 @@
           }
           mapMarkers.push(marker);
         });
-
+ 
         if (latlngs.length > 1) {
-          mapPolyline = L.polyline(latlngs, {
-            color: '#00f5d4',
-            weight: 4,
-            opacity: 0.85,
-            dashArray: '5, 10'
-          }).addTo(mapInstance);
+          try {
+            // Leaflet.AntPath animated route visualization
+            if (typeof L.polyline.antPath !== 'undefined') {
+              mapPolyline = L.polyline.antPath(latlngs, {
+                delay: 450,
+                dashArray: [10, 15],
+                weight: 5,
+                color: '#00f5d4',
+                pulseColor: '#7209b7',
+                paused: false,
+                reverse: false,
+                hardwareAccelerated: true
+              }).addTo(mapInstance);
+            } else {
+              mapPolyline = L.polyline(latlngs, {
+                color: '#00f5d4',
+                weight: 4,
+                opacity: 0.85,
+                dashArray: '5, 10'
+              }).addTo(mapInstance);
+            }
+          } catch(err) {
+            mapPolyline = L.polyline(latlngs, {
+              color: '#00f5d4',
+              weight: 4,
+              opacity: 0.85,
+              dashArray: '5, 10'
+            }).addTo(mapInstance);
+          }
           mapInstance.fitBounds(mapPolyline.getBounds(), { padding: [30, 30] });
         } else if (latlngs.length === 1) {
           mapInstance.setView(latlngs[0], 13);
