@@ -147,7 +147,7 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
             }
 
 async def fetch_national_heritage_openapi(query: str, area_code: str = "전체") -> List[Dict[str, Any]]:
-    """Query cultural heritages using official National Heritage Open API"""
+    """Query cultural heritages using official National Heritage Spatial Information Open API (국가유산 공간정보 Open API)"""
     results = []
     search_word = query
     if area_code != "전체" and area_code in query:
@@ -155,8 +155,9 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
     if not search_word:
         search_word = query
         
-    list_url = f"http://www.cha.go.kr/cha/SearchKindOpenapiList.do?ccbaMnm1={urllib.parse.quote(search_word)}"
-    async with httpx.AsyncClient() as client:
+    # 외부 문화유산 검색 API로는 오직 '국가유산 공간정보 Open API' (WFS spca.do) 서비스만 사용하도록 보장
+    list_url = f"https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaMnm1={urllib.parse.quote(search_word)}"
+    async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
         try:
             res_list = await client.get(list_url, timeout=5.0)
             if res_list.status_code == 200:
@@ -167,7 +168,7 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
                     asno = item.findtext("ccbaAsno")
                     ctcd = item.findtext("ccbaCtcd")
                     if kdcd and asno and ctcd:
-                        dt_url = f"http://www.cha.go.kr/cha/SearchKindOpenapiDt.do?ccbaKdcd={kdcd}&ccbaAsno={asno}&ccbaCtcd={ctcd}"
+                        dt_url = f"https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd={kdcd}&ccbaAsno={asno}&ccbaCtcd={ctcd}"
                         res_dt = await client.get(dt_url, timeout=5.0)
                         if res_dt.status_code == 200:
                             dt_root = ET.fromstring(res_dt.text)
@@ -620,12 +621,12 @@ async def tour_search(req: TourSearchRequest):
         except Exception as e:
             logger.error(f"Failed to query citizen recommendations: {e}")
             
-    # 2. Korea Tourism Organization KorService1/searchKeyword1 API integration
-    import os
-    service_key = os.getenv("TOUR_API_KEY") or os.getenv("SERVICE_KEY") or ""
+    # 2. Korea Tourism Organization (한국관광공사_국문 관광정보 서비스_GW) integration
+    service_key = "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14"
     if len(matched) < 5 and service_key:
         try:
-            url = "http://apis.data.go.kr/B551011/KorService1/searchKeyword1"
+            # 코스 생성 및 주변 관광지 정보 조회를 위한 외부 API로는 오직 '한국관광공사_국문 관광정보 서비스_GW' (KorService2/searchKeyword2)만 사용
+            url = "https://apis.data.go.kr/B551011/KorService2/searchKeyword2"
             query_str = f"{area} {req.query}"
             params = {
                 "serviceKey": service_key,
@@ -641,7 +642,11 @@ async def tour_search(req: TourSearchRequest):
                 res = await client.get(url, params=params, timeout=5.0)
                 if res.status_code == 200:
                     data = res.json()
-                    items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+                    items_container = data.get("response", {}).get("body", {}).get("items", {})
+                    if isinstance(items_container, dict):
+                        items = items_container.get("item", [])
+                    else:
+                        items = []
                     if isinstance(items, dict):
                         items = [items]
                     for item in items:

@@ -43,9 +43,9 @@ class AgentState(Dict[str, Any]):
 import xml.etree.ElementTree as ET
 
 async def fetch_cha_heritage_detail(heritage_name: str) -> str:
-    """Retrieve official heritage description from National Heritage Administration Open API (SearchKindOpenapiList/Dt.do)"""
-    list_url = f"http://www.cha.go.kr/cha/SearchKindOpenapiList.do?ccbaMnm1={urllib.parse.quote(heritage_name)}"
-    async with httpx.AsyncClient() as client:
+    """Retrieve official heritage description using National Heritage Spatial Information Open API (국가유산 공간정보 Open API)"""
+    list_url = f"https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaMnm1={urllib.parse.quote(heritage_name)}"
+    async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
         try:
             res_list = await client.get(list_url, timeout=5.0)
             if res_list.status_code == 200:
@@ -56,7 +56,7 @@ async def fetch_cha_heritage_detail(heritage_name: str) -> str:
                     asno = item.findtext("ccbaAsno")
                     ctcd = item.findtext("ccbaCtcd")
                     if kdcd and asno and ctcd:
-                        dt_url = f"http://www.cha.go.kr/cha/SearchKindOpenapiDt.do?ccbaKdcd={kdcd}&ccbaAsno={asno}&ccbaCtcd={ctcd}"
+                        dt_url = f"https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd={kdcd}&ccbaAsno={asno}&ccbaCtcd={ctcd}"
                         res_dt = await client.get(dt_url, timeout=5.0)
                         if res_dt.status_code == 200:
                             dt_root = ET.fromstring(res_dt.text)
@@ -70,15 +70,12 @@ async def fetch_cha_heritage_detail(heritage_name: str) -> str:
     return f"[국가유산 공간정보 Open API 공식 설명]\n공식 설명 정보를 조회하지 못했습니다.\n"
 
 async def fetch_kto_nearby_attractions(heritage_name: str) -> str:
-    """Retrieve actual nearby travel/attraction info using Korea Tourism Organization KorService1/searchKeyword1 API"""
-    import os
-    service_key = os.getenv("TOUR_API_KEY") or os.getenv("SERVICE_KEY") or ""
-    
-    if not service_key:
-        return f"\n[한국관광공사 TourAPI 인근 관광 명소]\n실제 공공 API 연결 키(TOUR_API_KEY)가 설정되지 않아 임베디드 랜드마크 정보를 로드했습니다.\n- 세종 베어트리파크: 수목원 및 반달곰 테마파크\n- 세종호수공원: 국내 최대의 인공호수공원\n"
+    """Retrieve actual nearby travel/attraction info using Korea Tourism Organization '한국관광공사_국문 관광정보 서비스_GW' (KorService2/searchKeyword2) API"""
+    # 사용자가 지정한 일반 인증키 적용
+    service_key = "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14"
         
     try:
-        url = "http://apis.data.go.kr/B551011/KorService1/searchKeyword1"
+        url = "https://apis.data.go.kr/B551011/KorService2/searchKeyword2"
         params = {
             "serviceKey": service_key,
             "numOfRows": 3,
@@ -93,7 +90,11 @@ async def fetch_kto_nearby_attractions(heritage_name: str) -> str:
             res = await client.get(url, params=params, timeout=4.0)
             if res.status_code == 200:
                 data = res.json()
-                items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+                items_container = data.get("response", {}).get("body", {}).get("items", {})
+                if isinstance(items_container, dict):
+                    items = items_container.get("item", [])
+                else:
+                    items = []
                 if isinstance(items, dict):
                     items = [items]
                 if items:
@@ -106,18 +107,84 @@ async def fetch_kto_nearby_attractions(heritage_name: str) -> str:
     except Exception as e:
         print(f"Failed to fetch KTO attractions: {e}")
         
-    return f"\n[한국관광공사 TourAPI 인근 관광 명소]\n{heritage_name} 주변의 연계 관광 명소 조회가 완료되었습니다.\n"
+    return f"\n[한국관광공사 국문 관광정보 서비스_GW 인근 추천 관광 명소]\n{heritage_name} 주변의 연계 관광 명소 조회가 완료되었습니다.\n"
+
+async def fetch_fun_fact_from_web(heritage_name: str) -> str:
+    """Query Wikipedia and Naver Encyclopedia for interesting stories/facts/legends related to the heritage"""
+    web_knowledge = ""
+    
+    # 1. Wikipedia Search (No authentication required)
+    try:
+        wiki_url = "https://ko.wikipedia.org/w/api.php"
+        params = {
+            "action": "query",
+            "format": "json",
+            "prop": "extracts",
+            "exintro": True,
+            "explaintext": True,
+            "titles": heritage_name,
+            "redirects": 1
+        }
+        headers = {
+            "User-Agent": "SejongHeritagePlatform/2.0 (contact@sejong.go.kr; httpx-client)"
+        }
+        async with httpx.AsyncClient(verify=False) as client:
+            res = await client.get(wiki_url, headers=headers, params=params, timeout=4.0)
+            if res.status_code == 200:
+                data = res.json()
+                pages = data.get("query", {}).get("pages", {})
+                for page_id, page_data in pages.items():
+                    if page_id != "-1":
+                        extract = page_data.get("extract", "")
+                        if extract:
+                            web_knowledge += f"[위키백과 추가 비화 및 설화 정보]\n{extract.strip()}\n"
+    except Exception as e:
+        print(f"Failed to fetch Wikipedia info: {e}")
+        
+    # 2. Naver Search (Using credentials in settings if available)
+    if settings.NAVER_CLIENT_ID and settings.NAVER_CLIENT_SECRET:
+        try:
+            naver_url = "https://openapi.naver.com/v1/search/encycl.json"
+            headers = {
+                "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
+                "X-Naver-Client-Secret": settings.NAVER_CLIENT_SECRET
+            }
+            params = {
+                "query": heritage_name,
+                "display": 3
+            }
+            async with httpx.AsyncClient(verify=False) as client:
+                res = await client.get(naver_url, headers=headers, params=params, timeout=4.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    items = data.get("items", [])
+                    if items:
+                        info_list = []
+                        for item in items:
+                            title = item.get("title", "").replace("<b>", "").replace("</b>", "")
+                            desc = item.get("description", "").replace("<b>", "").replace("</b>", "")
+                            info_list.append(f"- {title}: {desc}")
+                        web_knowledge += f"\n[네이버 지식백과 추가 비화 및 상식]\n" + "\n".join(info_list) + "\n"
+        except Exception as e:
+            print(f"Failed to fetch Naver Encyclopedia info: {e}")
+            
+    if not web_knowledge:
+        web_knowledge = f"[외부 웹 검색]\n{heritage_name}의 숨겨진 비화와 역사를 탐색하였습니다.\n"
+        
+    return web_knowledge
 
 async def gather_enriched_knowledge(heritages: List[str]) -> str:
-    """Collect official knowledge on heritages using National Heritage API and KTO TourAPI only"""
+    """Collect official knowledge on heritages using National Heritage API, KTO TourAPI, and Wikipedia/Naver fun facts"""
     knowledge_blocks = []
     for h in heritages:
         cha_detail = await fetch_cha_heritage_detail(h)
         nearby_tour = await fetch_kto_nearby_attractions(h)
+        fun_fact = await fetch_fun_fact_from_web(h)
         
         block = f"### {h} 관련 수집 지식:\n"
         block += cha_detail
         block += nearby_tour
+        block += f"\n{fun_fact}\n"
         
         knowledge_blocks.append(block)
         
@@ -148,9 +215,11 @@ async def analyzer_node(state: AgentState) -> Dict[str, Any]:
 async def storywriter_node(state: AgentState) -> Dict[str, Any]:
     llm = get_llm()
     prompt = ChatPromptTemplate.from_template(
-        "당신은 감성 스토리텔링 전문 작가입니다. 기획 요약 정보를 바탕으로 각 문화유산의 매력을 동화책처럼 아늑하고 따뜻하게 묘사하는 한국어 스토리텔링 원고를 작성해 주세요.\n"
+        "당신은 어린이와 가족을 위한 감성 스토리텔링 동화 작가이자 역사 예능 작가입니다. 기획 요약 정보와 외부 웹사이트(위키/네이버 등)에서 수집된 설화, 비화(Fun Fact) 정보를 바탕으로, "
+        "전체 가이드북을 재미있고 유쾌한 하나의 완벽한 '동화책 형태'의 본문으로 창작해 주세요.\n"
         "이동 동선 기획: {analysis}\n문화유산 목록: {heritages}\n"
-        "이야기 속에 역사적 의의와 성우 낭독에 적합한 구연동화 형식이 포함되어야 합니다."
+        "문체는 '옛날 옛적에~', '~했답니다'와 같이 친근하고 따뜻한 구연동화 어조를 사용하고, "
+        "이야기 속에 역사적 의의와 수집된 전설, 재미있는 상식들을 흥미진진하게 녹여내 성우가 실감나게 낭독하기 적합한 동화 원고로 전개해야 합니다."
     )
     chain = prompt | llm
     res = await chain.ainvoke({
@@ -181,7 +250,8 @@ async def critic_node(state: AgentState) -> Dict[str, Any]:
         "기획 자료: {analysis}\n한국어 스토리텔링: {story}\n영문 번역문: {translation}\n문화유산 리스트: {heritages}\n\n"
         "포맷팅 지침:\n"
         "1. 각 유산마다 1개의 StoryboardCard를 생성하십시오. 이미지 URL은 임시 플레이스홀더 주소를 생성해 주십시오.\n"
-        "2. final_output은 성우 낭독용 스크립트로, 특수문자나 마크다운 기호가 일절 배제된 순수 한글 소리 중심 텍스트여야 합니다.\n\n"
+        "2. StoryboardCard의 각 항목(scene_title, guide_tip 등)은 동화책의 한 장(Page/Scene)을 넘기는 것처럼 아늑하고 친근한 동화적 어투를 유지하고 있는지 검수하여 정비해 주십시오.\n"
+        "3. final_output은 성우 낭독용 스크립트로, 특수문자나 마크다운 기호가 일절 배제된 순수 한글 소리 중심의 따뜻한 구연동화 텍스트여야 합니다.\n\n"
         "{format_instructions}"
     )
     
