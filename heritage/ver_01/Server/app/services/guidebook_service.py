@@ -5,7 +5,7 @@ app/services/guidebook_service.py
 """
 
 import os
-from typing import List, Dict, Any, TypedDict
+from typing import List, Dict, Any, TypedDict, Optional
 from langgraph.graph import StateGraph, END
 from app.config import settings
 
