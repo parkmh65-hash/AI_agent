@@ -92,7 +92,7 @@ function getStandardHeritageImage(item, officialHeritages = []) {
     if (webUrl.includes('naver.net') || webUrl.includes('naver.com')) sourceLabel = '🍀 네이버 이미지';
     else if (webUrl.includes('google') || webUrl.includes('ggpht')) sourceLabel = '🔍 구글 이미지';
     else if (webUrl.includes('wikimedia') || webUrl.includes('wikipedia')) sourceLabel = '📖 위키백과 이미지';
-    
+
     return { url: webUrl, source: sourceLabel, tier: 2 };
   }
 
@@ -103,7 +103,7 @@ function getStandardHeritageImage(item, officialHeritages = []) {
   }
   const imgNum = (Math.abs(hash) % 8) + 1;
   const fallbackUrl = `https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H${imgNum}_H${imgNum}.jpg`;
-  
+
   return { url: fallbackUrl, source: '🏛️ Supabase Storage DB 이미지', tier: 1 };
 }
 
@@ -112,7 +112,7 @@ function normalizeHeritage(item, officialHeritages = [], likesMap = {}) {
   if (!item) return null;
   const name = item.name || item.heritage_name || item.title || '세종 문화유산';
   const address = item.address || item.dong_eup_myeon || item.location || '대한민국';
-  
+
   // Exctract dong
   let dong = item.dong_eup_myeon || '세종시';
   if (address.includes('연기면')) dong = '연기면';
@@ -125,7 +125,7 @@ function normalizeHeritage(item, officialHeritages = [], likesMap = {}) {
   const category = item.category || item.era_normalized || item.era || '조선시대';
   const description = item.description || item.reason || item.content || '대한민국에 위치한 아름다운 문화유산입니다.';
   const id = item.id || item.h_id || `h_${Math.random().toString(36).substr(2, 9)}`;
-  
+
   let likes = typeof item.like_count === 'number' ? item.like_count : 50;
   if (likesMap[id]) {
     likes += likesMap[id];
@@ -196,7 +196,7 @@ export default function App() {
   const [toastMessages, setToastMessages] = useState([]);
   const [statusSubTab, setStatusSubTab] = useState('official');
   const [showDetailOverlay, setShowDetailOverlay] = useState(false);
-  
+
 
   // Modal States
   const [showCitizenReportModal, setShowCitizenReportModal] = useState(false);
@@ -245,17 +245,17 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([]);
 
   // Admin Screen States
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
 
   // References
-  
-  
+
+
   const guidebookContainerRef = useRef(null);
 
   const addHeritageToCourseInPlace = (item) => {
@@ -365,11 +365,11 @@ export default function App() {
     try {
       showToast('⏳ 초기 데이터를 불러오는 중...');
       const initData = await fetchInitialAppData();
-      
+
       const hData = initData.official || [];
       const normHeritages = hData.map(item => normalizeHeritage(item, hData, likesMap));
       setOfficialHeritages(normHeritages.filter(h => h.rawObj.source !== 'citizen'));
-      
+
       const cData = initData.citizen || [];
       const normCitizen = cData.map(item => ({
         id: item.id || `cit_${item.name}`,
@@ -387,7 +387,7 @@ export default function App() {
         submitted_by: item.user_id || 'user@sejong.go.kr'
       }));
       setCitizenHeritages(normCitizen);
-      
+
       // Load saved courses
       const saved = await fetchSavedCourses();
       setSavedCourses(saved);
@@ -409,7 +409,7 @@ export default function App() {
     const perSiteMinutes = 30; // 30 mins per site
     const travelMinutesPerLeg = (courseTransport === '도보') ? 50 : (courseTransport === '대중교통') ? 30 : 15;
     const totalMinutes = (courseList.length * perSiteMinutes) + (Math.max(0, courseList.length - 1) * travelMinutesPerLeg);
-    
+
     const hours = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
     setCourseTotalTimeText(hours > 0 ? `${hours}시간 ${mins}분` : `${mins}분`);
@@ -512,7 +512,7 @@ export default function App() {
       setGuidebookStepsLog(prev => [...prev, '✅ [StateGraph Complete] 스토리보드 SVG & 가이드북 도출 완료!']);
       setGuidebookResult(data);
       setGuidebookLoading(false);
-      
+
       // Auto scroll to guidebook output
       setTimeout(() => {
         guidebookContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -530,7 +530,7 @@ export default function App() {
             guide_tip: item.description.slice(0, 100) + '...',
             image_url: item.image_url
           })),
-          final_output: `[AI 협업 4대 에이전트 국/영문 가이드]\n\n세종 문화유산 코스 안내:\n${courseList.map((it, i) => `${i+1}. ${it.name} - ${it.address}`).join('\n')}`
+          final_output: `[AI 협업 4대 에이전트 국/영문 가이드]\n\n세종 문화유산 코스 안내:\n${courseList.map((it, i) => `${i + 1}. ${it.name} - ${it.address}`).join('\n')}`
         });
         setGuidebookLoading(false);
       }, 3000);
@@ -547,7 +547,7 @@ export default function App() {
 
       let rawItems = data?.response?.body?.items?.item || data?.items || [];
       if (rawItems && !Array.isArray(rawItems)) rawItems = [rawItems];
-      
+
       setKorServiceCards(rawItems);
       setKorServiceLoading(false);
       showToast(`📡 OpenAPI 데이터 ${rawItems.length}건 로드 성공`);
@@ -594,9 +594,9 @@ export default function App() {
       showToast('필수 필드를 채워주세요.');
       return;
     }
-    
+
     showToast('📁 시민 제보 제출 및 이미지 업로드 처리 중...');
-    
+
     let uploadedUrl = '';
     if (citFormPhotoBase64) {
       try {
@@ -624,14 +624,14 @@ export default function App() {
       await submitCitizenRecommendation(payload);
       showToast('🌱 시민 제보가 정상 등록되었습니다.');
       setCurrentTab('home');
-      
+
       // Reset form
       setCitFormName('');
       setCitFormAddress('');
       setCitFormReason('');
       setCitFormPhotoPreview('');
       setCitFormPhotoBase64('');
-      
+
       // Reload recommendations
       loadInitialData();
     } catch (err) {
@@ -642,10 +642,10 @@ export default function App() {
   const handleHeartClick = async (item) => {
     const newHeart = (item.like_count || item.heart || 0) + 1;
     showToast('❤️ 좋아요 처리 완료!');
-    
+
     // Optimistic UI updates
     setCitizenHeritages(prev => prev.map(c => c.id === item.id ? { ...c, like_count: newHeart } : c));
-    
+
     // Sync backend
     await syncHeartToSupabase(item.id, newHeart, item.name);
   };
@@ -655,7 +655,7 @@ export default function App() {
     e.preventDefault();
     const titleInput = document.getElementById('saveCourseTitleInput')?.value || '';
     const memoInput = document.getElementById('saveCourseMemoInput')?.value || '';
-    
+
     if (!titleInput.trim()) {
       showToast('코스 제목은 필수입니다.');
       return;
@@ -674,7 +674,7 @@ export default function App() {
       await saveCourse(payload);
       showToast('✅ 코스가 Supabase DB에 안전하게 보관되었습니다!');
       setShowSaveCourseModal(false);
-      
+
       // Reload courses
       const saved = await fetchSavedCourses();
       setSavedCourses(saved);
@@ -770,7 +770,7 @@ export default function App() {
 
             {/* Split Screen layout: Map on the Left, Controls on the Right */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', alignItems: 'flex-start' }}>
-              
+
               {/* Centerpiece Map Section */}
               <div className="glass-card" style={{ padding: '18px', height: '540px', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center', marginBottom: '12px', justifyContent: 'space-between' }}>
@@ -782,7 +782,7 @@ export default function App() {
                 <div style={{ flex: 1, position: 'relative', minHeight: '380px' }}>
                   <MapComponent courseList={courseList.length > 0 ? courseList : (homeRecommendedCards.length > 0 ? homeRecommendedCards : officialHeritages.slice(0, 5))} />
                 </div>
-                
+
                 {/* Course Path Indicator Bar */}
                 <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(0,245,212,0.06)', borderRadius: '8px', border: '1px solid rgba(0,245,212,0.15)', overflowX: 'auto', whiteSpace: 'nowrap', display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <strong style={{ fontSize: '0.78rem', color: '#00f5d4', marginRight: '6px' }}>경로:</strong>
@@ -800,7 +800,7 @@ export default function App() {
 
               {/* Course & Recommended Control Pane */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                
+
                 {/* Selected Course List */}
                 <div className="glass-card" style={{ padding: '20px' }}>
                   <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center', marginBottom: '14px', justifyContent: 'space-between' }}>
@@ -850,7 +850,7 @@ export default function App() {
                         + 전체 코스에 담기
                       </button>
                     </div>
-                    
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
                       {homeRecommendedCards.map((item, idx) => (
                         <div key={idx} style={{ display: 'flex', justify: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.04)', justifyContent: 'space-between' }}>
@@ -886,7 +886,7 @@ export default function App() {
             {(guidebookLoading || guidebookResult) && (
               <div ref={guidebookContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-amber)', margin: 0 }}>📖 엄마가 읽어주는 세종시 문화유산 동화책</h3>
-                
+
                 {/* 🎙️ Announcer Voice TTS Controller Dashboard */}
                 {guidebookResult?.final_output && (
                   <div className="glass-card" style={{ display: 'flex', alignItems: 'center', justify: 'space-between', padding: '14px 20px', background: 'rgba(0, 245, 212, 0.04)', borderRadius: '12px', border: '1px solid rgba(0, 245, 212, 0.25)', marginBottom: '10px', justifyContent: 'space-between' }}>
@@ -923,7 +923,7 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Storyboard cards carousel */}
                 <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '10px' }}>
                   {guidebookResult?.storyboard_cards?.map((card, idx) => (
@@ -1128,7 +1128,7 @@ export default function App() {
 
             <div className="glass-card" style={{ padding: '28px', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid var(--accent-cyan)', borderRadius: '18px' }}>
               <form onSubmit={submitCitizenReport} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, color: '#38bdf8', marginBottom: '8px' }}>🏛️ 문화유산 이름</label>
