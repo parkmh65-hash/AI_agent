@@ -581,6 +581,12 @@ async def insert_official_heritage(item: Dict[str, Any]):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@app.get("/api/v1/heritage-search")
+async def heritage_search(query: str, area_code: Optional[str] = "전체"):
+    """Search heritages directly using official National Heritage Open API"""
+    results = await fetch_national_heritage_openapi(query, area_code)
+    return {"heritages": results}
+
 class TourSearchRequest(BaseModel):
     query: str
     area_code: Optional[str] = "전체"
