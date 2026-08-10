@@ -62,7 +62,7 @@
       .mobile-device-chassis {
         width: 100%;
         max-width: 480px;
-        height: 880px;
+        height: 980px;
         background: #090d16;
         border: 8px solid #1e293b;
         border-radius: 40px;
@@ -273,6 +273,25 @@
       .custom-sequence-marker div {
         animation: pulse-marker 2s infinite;
       }
+
+      /* Wizard Step indicators styling */
+      .step-indicator {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #64748b;
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 6px;
+        transition: all 0.25s ease;
+      }
+      .step-indicator.active {
+        color: #00f5d4;
+        background: rgba(0, 245, 212, 0.1);
+        border: 1px solid rgba(0, 245, 212, 0.3);
+      }
+      .step-indicator.completed {
+        color: #10b981;
+      }
     </style>
   </head>
   <body>
@@ -347,7 +366,7 @@
           </header>
 
           <!-- Common Leaflet Map Container (Fixed at top of content area, hidden in Report tab) -->
-          <div id="map-container" style="height: 250px; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1;">
+          <div id="map-container" style="height: 500px; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1;">
             <!-- Floating overlay controls for Map Style -->
             <div style="position: absolute; top: 12px; right: 12px; z-index: 1000; display: flex; gap: 8px;">
               <button id="map-theme-btn" style="background: rgba(9, 13, 22, 0.85); border: 1px solid rgba(0, 245, 212, 0.4); color: #00f5d4; font-size: 0.72rem; font-weight: bold; padding: 6px 10px; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.55); backdrop-filter: blur(4px); transition: all 0.2s;">
@@ -361,107 +380,159 @@
             
             <!-- Tab 1: Home View -->
             <section id="section-home">
-              <!-- AI RAG Search block -->
-              <div class="glass-card" style="padding: 18px; margin-bottom: 20px;">
-                <h3 style="margin: 0 0 6px 0; font-size: 1.1rem; color: #fff;">🏛️ 인공지능 지리기반 RAG 매칭 검색</h3>
-                <p style="margin: 0 0 12px 0; font-size: 0.8rem; color: var(--text-sub);">가보고 싶은 테마의 역사 유적지나 조용한 명소를 질문해 보세요.</p>
-                
-                <div style="display: flex; gap: 8px;">
-                  <select id="region-select" style="padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #111520; color: #fff; font-size: 0.85rem; outline: none; width: 90px; flex-shrink: 0;">
-                    <option value="세종시" selected>세종시</option>
-                    <option value="전체">전체</option>
-                    <option value="서울">서울</option>
-                    <option value="경기">경기</option>
-                    <option value="인천">인천</option>
-                    <option value="충남">충남</option>
-                    <option value="충북">충북</option>
-                    <option value="전남">전남</option>
-                    <option value="전북">전북</option>
-                    <option value="경남">경남</option>
-                    <option value="경북">경북</option>
-                    <option value="강원">강원</option>
-                    <option value="제주">제주</option>
-                  </select>
-                  <input 
-                    id="rag-query-input"
-                    type="text" 
-                    placeholder="사찰 관련 유산 추천해줘" 
-                    style="flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #111520; color: #fff; font-size: 0.85rem; outline: none; min-width: 0;"
-                  />
-                  <button id="rag-search-btn" class="btn-primary" style="padding: 10px 16px; font-size: 0.85rem; flex-shrink: 0;">
-                    🔍 RAG 추천
+              <!-- Wizard Progress Step Bar -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; background: rgba(11, 15, 20, 0.65); padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(0, 245, 212, 0.15); box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+                <div id="step-ind-1" class="step-indicator active" onclick="goToWizardStep(1)" style="flex: 1; text-align: center;">1. 유산 추천</div>
+                <div style="color: #64748b; font-size: 0.75rem; padding: 0 4px;">➔</div>
+                <div id="step-ind-2" class="step-indicator" onclick="goToWizardStep(2)" style="flex: 1; text-align: center;">2. 명소 & 동선</div>
+                <div style="color: #64748b; font-size: 0.75rem; padding: 0 4px;">➔</div>
+                <div id="step-ind-3" class="step-indicator" onclick="goToWizardStep(3)" style="flex: 1; text-align: center;">3. AI 가이드북</div>
+              </div>
+
+              <!-- WIZARD STEP 1: Heritage Search & Recommendations -->
+              <div id="wizard-step-1" class="wizard-step-container">
+                <!-- AI RAG Search block -->
+                <div class="glass-card" style="padding: 18px; margin-bottom: 16px;">
+                  <h3 style="margin: 0 0 6px 0; font-size: 1.15rem; color: #fff; font-weight: 800;">🏛️ 1단계: AI 문화유산 탐색</h3>
+                  <p style="margin: 0 0 12px 0; font-size: 0.8rem; color: var(--text-sub);">원하시는 역사 테마나 방문하고 싶은 사찰/유적을 입력해 보세요.</p>
+                  
+                  <div style="display: flex; gap: 8px;">
+                    <select id="region-select" style="padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #111520; color: #fff; font-size: 0.85rem; outline: none; width: 90px; flex-shrink: 0;">
+                      <option value="세종시" selected>세종시</option>
+                      <option value="전체">전체</option>
+                      <option value="서울">서울</option>
+                      <option value="경기">경기</option>
+                      <option value="인천">인천</option>
+                      <option value="충남">충남</option>
+                      <option value="충북">충북</option>
+                      <option value="전남">전남</option>
+                      <option value="전북">전북</option>
+                      <option value="경남">경남</option>
+                      <option value="경북">경북</option>
+                      <option value="강원">강원</option>
+                      <option value="제주">제주</option>
+                    </select>
+                    <input 
+                      id="rag-query-input"
+                      type="text" 
+                      placeholder="사찰 관련 유산 추천해줘" 
+                      style="flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #111520; color: #fff; font-size: 0.85rem; outline: none; min-width: 0;"
+                    />
+                    <button id="rag-search-btn" class="btn-primary" style="padding: 10px 16px; font-size: 0.85rem; flex-shrink: 0;">
+                      🔍 탐색
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Recommended Heritage List cards -->
+                <div id="step-1-results-wrapper" style="display: none; margin-bottom: 16px;">
+                  <div id="rag-header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; font-size: 0.95rem; color: #fff;">🤖 AI 추천 문화유산 리스트</h4>
+                    <button onclick="addAllToCourse()" style="background: none; border: none; color: #00f5d4; font-size: 0.75rem; font-weight: 800; cursor: pointer;">
+                      + 전체 코스에 담기
+                    </button>
+                  </div>
+                  <div id="rag-cards-list" style="margin-bottom: 16px;">
+                    <!-- RAG Cards load dynamically here -->
+                  </div>
+                  
+                  <button onclick="goToWizardStep(2)" class="btn-primary" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #00f5d4, #38bdf8); color: #000; font-weight: bold; border: none;">
+                    🗺️ 2단계: 코스 경로 생성하기 ➔
+                  </button>
+                </div>
+              </div>
+
+              <!-- WIZARD STEP 2: Course Mapping & Tourist Spots -->
+              <div id="wizard-step-2" class="wizard-step-container" style="display: none;">
+                <div class="glass-card" style="padding: 18px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 14px;">
+                  <h3 style="margin: 0 0 2px 0; font-size: 1.15rem; color: #fff; font-weight: 800;">🗺️ 2단계: 동선 기획 및 주변 관광 연동</h3>
+                  <p style="margin: 0; font-size: 0.8rem; color: var(--text-sub);">한국관광공사 실시간 API로 명소 인근의 즐길 거리(맛집, 카페, 편의시설)를 코스에 자동 병합합니다.</p>
+                  
+                  <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+                    <button onclick="triggerStep2Mapping()" id="step2-build-btn" class="btn-primary" style="width: 100%; padding: 10px; background: linear-gradient(135deg, #00f5d4, #059669); color: #000; font-weight: 900; border: none;">
+                      ⚡ 주변 관광지 연동 및 AntPath 경로 그리기
+                    </button>
+                  </div>
+
+                  <!-- Merged Course List container -->
+                  <div id="step-2-course-wrapper" style="display: none; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+                      <strong style="font-size: 0.88rem; color: #fff;">병합된 여행 코스 목록</strong>
+                      <button onclick="clearAllCourse()" style="background: none; border: none; color: #f43f5e; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
+                        🗑️ 비우기
+                      </button>
+                    </div>
+                    <div id="wizard-course-items-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto;">
+                      <!-- Dynamic merged course items -->
+                    </div>
+
+                    <div>
+                      <label style="font-size: 0.72rem; color: var(--text-sub); display: block; margin-bottom: 4px;">🚗 이동 수단 설정</label>
+                      <select id="wizard-transport-select" onchange="updateWizardTransport(this.value)" style="width: 100%; padding: 8px 10px; background: #111520; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; font-size: 0.82rem; outline: none; margin-bottom: 10px;">
+                        <option value="승용차">🚗 승용차 (자가용)</option>
+                        <option value="대중교통">🚌 대중교통 / 버스</option>
+                        <option value="도보">🚶 도보 / 자전거</option>
+                      </select>
+
+                      <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,245,212,0.06); padding: 10px 14px; border-radius: 8px;">
+                        <span style="font-size: 0.78rem; color: var(--text-sub);">⏱️ 예상 총 이동시간:</span>
+                        <strong id="wizard-total-duration" style="font-size: 1.05rem; color: #00f5d4;">약 0분</strong>
+                      </div>
+                    </div>
+
+                    <button onclick="goToWizardStep(3)" class="btn-primary" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #fbbf24, #d97706); color: #000; font-weight: bold; border: none; margin-top: 6px;">
+                      📖 3단계: AI 동화 가이드북 편찬하기 ➔
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- WIZARD STEP 3: Guidebook & Audio compilation -->
+              <div id="wizard-step-3" class="wizard-step-container" style="display: none;">
+                <!-- Guidebook Build CTA -->
+                <div id="guidebook-cta-wrapper" class="glass-card" style="padding: 18px; background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(15,23,42,0.75)); border: 1px solid rgba(251,191,36,0.4); margin-bottom: 16px;">
+                  <h4 style="margin: 0 0 6px 0; font-size: 0.98rem; color: #fbbf24; font-weight: 800;">📖 3단계: AI 스토리 가이드북 편찬</h4>
+                  <p style="margin: 0 0 12px 0; font-size: 0.75rem; color: var(--text-sub);">최종 코스 목록을 기반으로 LangGraph 협업 에이전트를 호출하여 아이 맞춤형 구연동화 책과 가이드를 편찬합니다.</p>
+                  <button id="create-guidebook-btn" onclick="handleCreateGuidebook()" class="btn-primary" style="width: 100%; padding: 10px; background: linear-gradient(135deg, #fbbf24, #d97706); color: #000; font-weight: 900; border: none;">
+                    ✨ AI 스토리 가이드북 만들기
                   </button>
                 </div>
 
-                <!-- Sequential RAG Pipeline Progress Tracker -->
-                <div id="rag-pipeline-widget" style="display: none; margin-top: 16px; padding: 14px; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,245,212,0.2); border-radius: 10px; font-size: 0.8rem; flex-direction: column; gap: 10px;">
-                  <div style="font-weight: 700; color: #00f5d4; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px; margin-bottom: 4px;">
-                    <span>🧭</span> AI 자동 여행 코스 설계 파이프라인
-                  </div>
-                  <div id="pipeline-step-1" style="color: #94a3b8; display: flex; align-items: center; gap: 8px;">
-                    <span id="step-1-icon">⏳</span>
-                    <span>1단계: 문화유산 5선 추천지 AI 탐색</span>
-                  </div>
-                  <div id="pipeline-step-2" style="color: #94a3b8; display: flex; align-items: center; gap: 8px;">
-                    <span id="step-2-icon">⏳</span>
-                    <span>2단계: 관광공사 API 연계 관광지 5선 검색 & 코스 생성</span>
-                  </div>
-                  <div id="pipeline-step-3" style="color: #94a3b8; display: flex; align-items: center; gap: 8px;">
-                    <span id="step-3-icon">⏳</span>
-                    <span>3단계: 추천 코스 맞춤 AI 스토리 가이드북 편찬</span>
-                  </div>
-                  
-                  <!-- Dynamic Actions Area for Step-by-Step Execution -->
-                  <div id="pipeline-actions-area" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; display: flex; flex-direction: column; gap: 8px;">
-                    <!-- Step buttons will be injected here -->
-                  </div>
-                </div>
+                <!-- Guidebook Story Output -->
+                <div id="guidebook-section-output" class="glass-card" style="display: none; padding: 18px; border: 1px solid var(--accent-cyan);">
+                  <h3 style="margin: 0 0 10px 0; font-size: 1.05rem; color: #00f5d4; font-weight: 800;">🎙️ 엄마의 아늑한 구연동화 책방</h3>
 
-                <div id="rag-output-text" style="display: none; margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; font-size: 0.78rem; color: #93c5fd; border-left: 3px solid #3b82f6; white-space: pre-wrap;"></div>
-              </div>
+                  <!-- Audio TTS controllers bar -->
+                  <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(0,245,212,0.05); border-radius: 8px; margin-bottom: 14px;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <span style="font-size: 1.2rem;">🔊</span>
+                      <div>
+                        <strong style="font-size: 0.8rem; color: #fff; display: block;">여성 아나운서 보이스 TTS</strong>
+                        <span id="tts-status-text" style="font-size: 0.65rem; color: #00f5d4;">⏸️ 재생 준비 완료</span>
+                      </div>
+                    </div>
 
-              <!-- Recommendation List Cards wrapper -->
-              <div style="margin-bottom: 20px;">
-                <div id="rag-header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                  <h4 style="margin: 0; font-size: 0.95rem; color: #fff;">🤖 AI 추천 문화유산 코스</h4>
-                </div>
-                <div id="rag-cards-list">
-                  <!-- Dynamic RAG Cards load here -->
-                </div>
-              </div>
-
-              <!-- Guidebook Build CTA -->
-              <div id="guidebook-cta-wrapper" class="glass-card" style="display: none; padding: 18px; background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(15,23,42,0.75)); border: 1px solid rgba(251,191,36,0.4); margin-bottom: 20px;">
-                <h4 style="margin: 0 0 6px 0; font-size: 0.98rem; color: #fbbf24;">📖 내 코스 맞춤 스토리북 제작</h4>
-                <p style="margin: 0 0 12px 0; font-size: 0.75rem; color: var(--text-sub);">설계하신 코스로 엄마가 들려주는 오디오 동화책과 가이드북을 자동 컴파일합니다.</p>
-                <button id="create-guidebook-btn" class="btn-primary" style="width: 100%; padding: 10px; background: linear-gradient(135deg, #fbbf24, #d97706); color: #000; font-weight: 900; border: none;">
-                  ✨ AI 스토리 가이드북 만들기
-                </button>
-              </div>
-
-              <!-- Guidebook Story Output -->
-              <div id="guidebook-section-output" class="glass-card" style="display: none; padding: 18px; border: 1px solid var(--accent-cyan);">
-                <h3 style="margin: 0 0 10px 0; font-size: 1.05rem; color: #00f5d4;">🎙️ 엄마의 아늑한 구연동화 책방</h3>
-
-                <!-- Audio TTS controllers bar -->
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(0,245,212,0.05); border-radius: 8px; margin-bottom: 14px;">
-                  <div style="display: flex; gap: 8px; align-items: center;">
-                    <span style="font-size: 1.2rem;">🔊</span>
-                    <div>
-                      <strong style="font-size: 0.8rem; color: #fff; display: block;">여성 아나운서 보이스 TTS</strong>
-                      <span id="tts-status-text" style="font-size: 0.65rem; color: #00f5d4;">⏸️ 재생 준비 완료</span>
+                    <div style="display: flex; gap: 6px;">
+                      <button id="tts-start-btn" class="btn-primary" style="padding: 6px 12px; font-size: 0.72rem; background: #00f5d4; color: #000;">▶️ 낭독 시작</button>
+                      <button id="tts-toggle-btn" class="btn-secondary" style="display: none; padding: 6px 10px; font-size: 0.7rem;">⏸️ 일시정지</button>
+                      <button id="tts-stop-btn" class="btn-secondary" style="display: none; padding: 6px 10px; font-size: 0.7rem; color: #f43f5e; border-color: #f43f5e;">⏹️ 정지</button>
                     </div>
                   </div>
 
-                  <div style="display: flex; gap: 6px;">
-                    <button id="tts-start-btn" class="btn-primary" style="padding: 6px 12px; font-size: 0.72rem; background: #00f5d4; color: #000;">▶️ 낭독 시작</button>
-                    <button id="tts-toggle-btn" class="btn-secondary" style="display: none; padding: 6px 10px; font-size: 0.7rem;">⏸️ 일시정지</button>
-                    <button id="tts-stop-btn" class="btn-secondary" style="display: none; padding: 6px 10px; font-size: 0.7rem; color: #f43f5e; border-color: #f43f5e;">⏹️ 정지</button>
+                  <!-- Story storyboard horizontal scroll -->
+                  <div id="guidebook-carousel" class="scroll-container" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 16px;"></div>
+
+                  <!-- Text Book content article -->
+                  <div style="background: #0b0f19; padding: 14px; border-radius: 10px; font-size: 0.82rem; color: #cbd5e1; white-space: pre-wrap; line-height: 1.6;">
+                    <h4 style="margin: 0 0 10px 0; color: #fbbf24; font-size: 0.9rem; font-weight: 700;">📝 상세 가이드 원고</h4>
+                    <div id="guidebook-detail-ko"></div>
+                    <hr style="border-color: rgba(255,255,255,0.06); margin: 14px 0;" />
+                    <h4 style="margin: 0 0 10px 0; color: #38bdf8; font-size: 0.9rem; font-weight: 700;">🇺🇸 English Translation</h4>
+                    <div id="guidebook-detail-en"></div>
                   </div>
                 </div>
-
-                <!-- Story storyboard horizontal scroll -->
-                <div id="guidebook-carousel" class="scroll-container" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 16px;"></div>
+              </div>
+            </section>: 12px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 16px;"></div>
 
                 <!-- Text Book content article -->
                 <div style="background: #0b0f19; padding: 14px; border-radius: 10px; font-size: 0.82rem; color: #cbd5e1; white-space: pre-wrap; line-height: 1.6;">
@@ -1080,7 +1151,11 @@
             mapInstance.invalidateSize();
             // Dynamic map focus source
             if (tab === 'home') {
-              updateMap(courseList.length > 0 ? courseList : ragCards, courseList.length > 0);
+              if (activeWizardStep === 1) {
+                updateMap(ragCards, false);
+              } else {
+                updateMap(courseList, true);
+              }
             } else if (tab === 'course') {
               updateMap(courseList, true);
             }
@@ -1166,9 +1241,50 @@
         renderCourseList();
         updateMap(courseList, true);
         showToast(`✅ [${item.name}]을(를) 코스에 담았습니다.`);
+      };      // 12. RAG Recommendation Agent Query Executor (Wizard Multi-Step Pipeline)
+      let activeWizardStep = 1;
+
+      window.goToWizardStep = function(step) {
+        if (step === 2 && ragCards.length === 0) {
+          showToast('❌ 먼저 1단계에서 AI 문화유산을 검색해 추천을 받으세요.');
+          return;
+        }
+        if (step === 3 && courseList.length === 0) {
+          showToast('❌ 먼저 2단계에서 주변 명소 연동 및 동선을 생성해 주세요.');
+          return;
+        }
+
+        activeWizardStep = step;
+
+        // Hide all step sections
+        document.getElementById('wizard-step-1').style.display = 'none';
+        document.getElementById('wizard-step-2').style.display = 'none';
+        document.getElementById('wizard-step-3').style.display = 'none';
+
+        // Show active step section
+        document.getElementById(`wizard-step-${step}`).style.display = 'block';
+
+        // Update indicators
+        document.getElementById('step-ind-1').classList.toggle('active', step === 1);
+        document.getElementById('step-ind-2').classList.toggle('active', step === 2);
+        document.getElementById('step-ind-3').classList.toggle('active', step === 3);
+        
+        document.getElementById('step-ind-1').classList.toggle('completed', step > 1);
+        document.getElementById('step-ind-2').classList.toggle('completed', step > 2);
+
+        // Map focus synchronization depending on step
+        if (mapInstance) {
+          setTimeout(() => {
+            mapInstance.invalidateSize();
+            if (step === 1) {
+              updateMap(ragCards, false);
+            } else if (step === 2 || step === 3) {
+              updateMap(courseList, true);
+            }
+          }, 100);
+        }
       };
-                 // 12. RAG Recommendation Agent Query Executor (Sequential Pipeline - Split Into Steps)
-      
+
       // STEP 1: Search & Recommend 5 Heritages (Markers Only)
       async function handleRAGSearch() {
         const input = document.getElementById('rag-query-input');
@@ -1185,30 +1301,7 @@
         const searchBtn = document.getElementById('rag-search-btn');
         searchBtn.disabled = true;
         searchBtn.textContent = '추천 중..';
- 
-        // Show and Reset Pipeline Widget
-        const pipelineWidget = document.getElementById('rag-pipeline-widget');
-        if (pipelineWidget) {
-          pipelineWidget.style.display = 'flex';
-        }
-        
-        const step1 = document.getElementById('pipeline-step-1');
-        const step2 = document.getElementById('pipeline-step-2');
-        const step3 = document.getElementById('pipeline-step-3');
-        const icon1 = document.getElementById('step-1-icon');
-        const icon2 = document.getElementById('step-2-icon');
-        const icon3 = document.getElementById('step-3-icon');
-        const actionsArea = document.getElementById('pipeline-actions-area');
- 
-        if (step1) { step1.style.color = '#38bdf8'; icon1.textContent = '🔄'; }
-        if (step2) { step2.style.color = '#64748b'; icon2.textContent = '🔘'; }
-        if (step3) { step3.style.color = '#64748b'; icon3.textContent = '🔘'; }
-        if (actionsArea) { actionsArea.innerHTML = ''; }
- 
-        // Hide output sections initially
-        document.getElementById('rag-output-text').style.display = 'none';
-        document.getElementById('guidebook-section-output').style.display = 'none';
- 
+
         try {
           showToast('⏳ 1단계: 문화유산 5선 탐색 중...');
           const resHeritages = await fetch(`${CLOUD_RUN_URL}/api/v1/agentic-rag`, {
@@ -1230,51 +1323,36 @@
           renderRAGCards();
           updateMap(ragCards, false);
           
-          if (step1) { step1.style.color = '#10b981'; icon1.textContent = '✅'; }
-          if (step2) { step2.style.color = '#38bdf8'; icon2.textContent = '🔘'; }
+          document.getElementById('step-1-results-wrapper').style.display = 'block';
           showToast('✅ 1단계 완료: 문화유산 추천지가 지도에 표시되었습니다.');
           
-          // Inject CTA Button for Step 2
-          if (actionsArea) {
-            actionsArea.innerHTML = `
-              <button onclick="createTourCourse()" class="btn-primary" style="width: 100%; padding: 8px 12px; background: linear-gradient(135deg, #00f5d4, #059669); color: #000; font-weight: bold; border: none; cursor: pointer;">
-                🗺️ 2단계: 추천 관광 코스 및 이동 경로 생성하기
-              </button>
-            `;
-          }
- 
         } catch (e) {
           showToast(`❌ 1단계 에러: ${e.message}`);
           console.error(e);
-          if (step1) { step1.style.color = '#ef4444'; icon1.textContent = '❌'; }
         } finally {
           searchBtn.disabled = false;
-          searchBtn.textContent = '🔍 RAG 추천';
+          searchBtn.textContent = '🔍 탐색';
         }
       }
- 
+
       // STEP 2: Map Courses with AntPath Routing
-      // STEP 2: Map Courses with AntPath Routing
-      window.createTourCourse = async function() {
-        const step2 = document.getElementById('pipeline-step-2');
-        const icon2 = document.getElementById('step-2-icon');
-        const step3 = document.getElementById('pipeline-step-3');
-        const icon3 = document.getElementById('step-3-icon');
-        const actionsArea = document.getElementById('pipeline-actions-area');
-        
+      window.triggerStep2Mapping = async function() {
         if (ragCards.length === 0) {
           showToast('❌ 추천된 문화유산이 없습니다. 먼저 1단계를 완료해 주세요.');
           return;
         }
         
+        const buildBtn = document.getElementById('step2-build-btn');
+        buildBtn.disabled = true;
+        buildBtn.textContent = '명소 수집 및 동선 그리는 중...';
+
         const regionSelect = document.getElementById('region-select');
         const region = regionSelect ? regionSelect.value : '세종시';
         const input = document.getElementById('rag-query-input');
         const query = input ? input.value.trim() : '';
 
         try {
-          if (step2) { step2.style.color = '#38bdf8'; icon2.textContent = '🔄'; }
-          showToast('⏳ 2단계: 관광공사 API 연계 주변 관광지 5개 검색 중...');
+          showToast('⏳ 2단계: 주변 관광지 검색 및 최적 동선 결합 중...');
           
           let tours = [];
           try {
@@ -1313,118 +1391,67 @@
           });
           
           renderCourseList();
-          
-          // Redraw map with AntPath active route lines
           updateMap(courseList, true);
           
-          if (step2) { step2.style.color = '#10b981'; icon2.textContent = '✅'; }
-          if (step3) { step3.style.color = '#38bdf8'; icon3.textContent = '🔄'; }
+          document.getElementById('step-2-course-wrapper').style.display = 'flex';
           showToast('✅ 2단계 완료: 문화유산 및 주변 관광지가 매핑되었습니다.');
-          
-          // Inject CTA Button for Step 3
-          if (actionsArea) {
-            actionsArea.innerHTML = `
-              <button onclick="generateGuidebook()" class="btn-primary" style="width: 100%; padding: 8px 12px; background: linear-gradient(135deg, #fbbf24, #d97706); color: #000; font-weight: bold; border: none; cursor: pointer;">
-                📖 3단계: AI 동화 가이드북 및 오디오 제작하기
-              </button>
-            `;
-          }
         } catch(err) {
           showToast(`❌ 2단계 에러: ${err.message}`);
-          if (step2) { step2.style.color = '#ef4444'; icon2.textContent = '❌'; }
+        } finally {
+          buildBtn.disabled = false;
+          buildBtn.textContent = '⚡ 주변 관광지 연동 및 AntPath 경로 그리기';
         }
-      }
- 
-      // STEP 3: Generate Fairytale Guidebook Web RAG
-      window.generateGuidebook = async function() {
-        const step3 = document.getElementById('pipeline-step-3');
-        const icon3 = document.getElementById('step-3-icon');
-        const actionsArea = document.getElementById('pipeline-actions-area');
-        
-        if (courseList.length === 0) {
-          showToast('❌ 코스에 담긴 유산이 없습니다. 2단계를 먼저 가동해 주세요.');
-          return;
-        }
-        
-        try {
-          if (step3) { step3.style.color = '#38bdf8'; icon3.textContent = '🔄'; }
-          showToast('⏳ 3단계: 5선 가이드북/오디오 동화책 제작 중...');
-          
-          const names = courseList.map(c => c.name);
-          const resGuidebook = await fetch(`${CLOUD_RUN_URL}/api/v1/guidebook`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ heritages: names, transport })
-          });
-          
-          if (!resGuidebook.ok) throw new Error("3단계 AI 가이드북 편찬 오류");
-          guidebookResult = await resGuidebook.json();
-          if (!guidebookResult) throw new Error("가이드북 생성 응답이 올바르지 않습니다.");
-          
-          renderGuidebookResult();
-          
-          if (step3) { step3.style.color = '#10b981'; icon3.textContent = '✅'; }
-          showToast('🎉 AI 맞춤 가이드북이 성공적으로 제작 완료되었습니다!');
-          
-          // Clear actions area as all steps are done
-          if (actionsArea) { actionsArea.innerHTML = ''; }
-          
-          // Scroll output into view
-          setTimeout(() => {
-            const outSect = document.getElementById('guidebook-section-output');
-            if (outSect) outSect.scrollIntoView({ behavior: 'smooth' });
-          }, 300);
-        } catch(err) {
-          showToast(`❌ 3단계 에러: ${err.message}`);
-          if (step3) { step3.style.color = '#ef4444'; icon3.textContent = '❌'; }
-        }
-      }
+      };
+
+      window.updateWizardTransport = function(val) {
+        transport = val;
+        const tabSelect = document.getElementById('transport-select');
+        if (tabSelect) tabSelect.value = val;
+        calculateCourseDuration();
+      };
 
       // 13. Course Planner Lists Rendering & Duration Calculations
       function renderCourseList() {
-        const container = document.getElementById('course-items-list');
-        if (!container) return;
-        container.innerHTML = '';
+        const tabContainer = document.getElementById('course-items-list');
+        const wizardContainer = document.getElementById('wizard-course-items-list');
 
-        const listActionsWrapper = document.getElementById('course-list-actions');
-        if (courseList.length > 0) {
-          listActionsWrapper.innerHTML = `
-            <strong style="font-size: 0.88rem; color: #fff;">목적지 목록 (${courseList.length}개)</strong>
-            <button id="clear-course-btn" onclick="clearAllCourse()" style="background: none; border: none; color: #f43f5e; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
-              🗑️ 전체 비우기
-            </button>
-          `;
-          document.getElementById('guidebook-cta-wrapper').style.display = 'block';
-        } else {
-          listActionsWrapper.innerHTML = `<strong style="font-size: 0.88rem; color: #fff;">목적지 목록 (0개)</strong>`;
-          document.getElementById('guidebook-cta-wrapper').style.display = 'none';
-          container.innerHTML = `
-            <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; padding: 20px 0;">
-              추가된 문화유산이 없습니다. 메인 탭에서 코스를 빌드하세요.
-            </div>
-          `;
-        }
-
-        courseList.forEach((item, idx) => {
-          const div = document.createElement('div');
-          div.style.display = 'flex';
-          div.style.justifyContent = 'space-between';
-          div.style.alignItems = 'center';
-          div.style.background = 'rgba(0,0,0,0.2)';
-          div.style.padding = '8px 12px';
-          div.style.borderRadius = '6px';
-          div.style.marginBottom = '8px';
-
-          div.innerHTML = `
+        const markup = courseList.map((item, idx) => `
+          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
             <span onclick="showDetailModal('${encodeURIComponent(JSON.stringify(item))}')" style="font-size: 0.8rem; color: #fff; font-weight: 600; cursor: pointer; transition: color 0.2s;">
               ${idx + 1}. ${item.name}
             </span>
             <button onclick="removeCourseItem('${item.id}')" style="background: none; border: none; color: #f43f5e; cursor: pointer; font-size: 0.78rem; position: relative; z-index: 2;">
               삭제
             </button>
+          </div>
+        `).join('');
+
+        if (tabContainer) {
+          const listActionsWrapper = document.getElementById('course-list-actions');
+          if (courseList.length > 0) {
+            listActionsWrapper.innerHTML = `
+              <strong style="font-size: 0.88rem; color: #fff;">목적지 목록 (${courseList.length}개)</strong>
+              <button id="clear-course-btn" onclick="clearAllCourse()" style="background: none; border: none; color: #f43f5e; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
+                🗑️ 전체 비우기
+              </button>
+            `;
+          } else {
+            listActionsWrapper.innerHTML = `<strong style="font-size: 0.88rem; color: #fff;">목적지 목록 (0개)</strong>`;
+          }
+          tabContainer.innerHTML = courseList.length > 0 ? markup : `
+            <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; padding: 20px 0;">
+              추가된 문화유산이 없습니다. 메인 탭에서 코스를 빌드하세요.
+            </div>
           `;
-          container.appendChild(div);
-        });
+        }
+
+        if (wizardContainer) {
+          wizardContainer.innerHTML = courseList.length > 0 ? markup : `
+            <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; padding: 20px 0;">
+              추가된 명소가 없습니다. 2단계 연동 버튼을 실행해 명소를 불러오세요.
+            </div>
+          `;
+        }
 
         calculateCourseDuration();
       }
@@ -1445,21 +1472,28 @@
 
       function calculateCourseDuration() {
         const textWrapper = document.getElementById('total-duration-text');
-        if (!textWrapper) return;
+        const wizardWrapper = document.getElementById('wizard-total-duration');
+        if (!textWrapper && !wizardWrapper) return;
+        
         if (courseList.length === 0) {
-          textWrapper.textContent = '약 0분';
+          if (textWrapper) textWrapper.textContent = '약 0분';
+          if (wizardWrapper) wizardWrapper.textContent = '약 0분';
           return;
         }
         const factor = transport === '도보' ? 45 : transport === '대중교통' ? 25 : 12;
         const totalMins = (courseList.length * 30) + (Math.max(0, courseList.length - 1) * factor);
         
+        let timeStr = '';
         if (totalMins >= 60) {
           const hrs = Math.floor(totalMins / 60);
           const mins = totalMins % 60;
-          textWrapper.textContent = `약 ${hrs}시간 ${mins}분`;
+          timeStr = `약 ${hrs}시간 ${mins}분`;
         } else {
-          textWrapper.textContent = `약 ${totalMins}분`;
+          timeStr = `약 ${totalMins}분`;
         }
+        
+        if (textWrapper) textWrapper.textContent = timeStr;
+        if (wizardWrapper) wizardWrapper.textContent = timeStr;
       }
 
       // 14. AI Storybook / Guidebook compilation engine
@@ -1494,7 +1528,8 @@
           btn.disabled = false;
           btn.textContent = '✨ AI 스토리 가이드북 만들기';
         }
-      }
+      };
+
 
       function renderGuidebookResult() {
         const wrapper = document.getElementById('guidebook-section-output');
