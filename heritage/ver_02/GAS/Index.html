@@ -312,12 +312,27 @@
         background: rgba(0, 245, 212, 0.1);
         border: 1px solid rgba(0, 245, 212, 0.3);
       }
-      .step-indicator.completed {
-        color: #10b981;
+      /* Rotating hourglass loader styling */
+      @keyframes spin-hourglass {
+        0% { transform: rotate(0deg); }
+        40% { transform: rotate(180deg); }
+        50% { transform: rotate(180deg); }
+        90% { transform: rotate(360deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .hourglass-spinner {
+        display: inline-block;
+        animation: spin-hourglass 2s infinite ease-in-out;
       }
     </style>
   </head>
   <body>
+    <!-- Global Loading Overlay -->
+    <div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 12, 20, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 99999; justify-content: center; align-items: center; flex-direction: column; gap: 16px; color: #fff;">
+      <div class="hourglass-spinner" style="font-size: 3.5rem;">⏳</div>
+      <div id="loading-message" style="font-size: 0.95rem; font-weight: 700; color: #00f5d4; text-shadow: 0 0 10px rgba(0, 245, 212, 0.4); text-align: center; padding: 0 20px;">처리 중...</div>
+    </div>
+
     <!-- Glassmorphic Auth Overlay -->
     <div id="auth-overlay" class="auth-overlay">
       <div class="auth-card">
@@ -777,6 +792,22 @@
           toast.style.opacity = '0';
           setTimeout(() => toast.remove(), 300);
         }, 3000);
+      }
+
+      // 3.1. UI Helper - Fullscreen Spinner Overlay
+      function showLoading(msg) {
+        const overlay = document.getElementById('loading-overlay');
+        const text = document.getElementById('loading-message');
+        if (overlay && text) {
+          text.textContent = msg || '처리 중...';
+          overlay.style.display = 'flex';
+        }
+      }
+      function hideLoading() {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+          overlay.style.display = 'none';
+        }
       }
 
       // 4. Initial Mount Load

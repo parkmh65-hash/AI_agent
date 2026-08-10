@@ -251,7 +251,7 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                                     "latitude": float(item.get("latitude") or 36.48),
                                     "longitude": float(item.get("longitude") or 127.28),
                                     "description": item.get("description") or "",
-                                    "image_url": item.get("photo_url") or item.get("image_url") or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
+                                    "image_url": item.get("photo_url") or item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                                 })
                                 if len(matched) >= 5:
                                     break
@@ -281,7 +281,7 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                                 "latitude": float(item.get("latitude") or 36.48),
                                 "longitude": float(item.get("longitude") or 127.28),
                                 "description": item.get("description") or "",
-                                "image_url": item.get("photo_url") or item.get("image_url") or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
+                                "image_url": item.get("photo_url") or item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                             })
                             if len(matched) == 5:
                                 break
@@ -328,7 +328,7 @@ async def get_or_create_heritage_image(name: str, current_img: Optional[str] = N
         return current_img
         
     if not settings.SUPABASE_URL or not settings.SUPABASE_KEY or not settings.OPENAI_API_KEY:
-        return current_img or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
+        return current_img or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
 
     safe_name = re.sub(r'[^\w\s]', '', name).strip()
     filename = f"gen_{safe_name.replace(' ', '_')}.jpg"
@@ -387,7 +387,7 @@ async def get_or_create_heritage_image(name: str, current_img: Optional[str] = N
     except Exception as e:
         logger.error(f"Failed to generate or upload DALL-E image for '{name}': {e}")
 
-    return current_img or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
+    return current_img or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
 
 async def get_openai_embedding_768(text: str) -> Optional[List[float]]:
     """Generate 768-dimensional OpenAI embedding for a given text"""
@@ -664,7 +664,7 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
                                 if dt_item is not None:
                                     name = dt_item.findtext("ccbaMnm1") or name
                                     desc = dt_item.findtext("content") or ""
-                                    img = dt_item.findtext("imageUrl") or ""
+                                    img = dt_item.findtext("imageUrl") or dt_item.findtext("imageurl") or ""
                                     
                                     ccbaLcad = dt_item.find("ccbaLcad")
                                     if ccbaLcad is not None:
@@ -731,7 +731,7 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
                             "latitude": latitude,
                             "longitude": longitude,
                             "description": desc[:300] + "..." if len(desc) > 300 else desc,
-                            "image_url": img if img and img.startswith("http") else "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
+                            "image_url": img if img and img.startswith("http") else "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                         })
         except Exception as e:
             import traceback
@@ -872,7 +872,7 @@ async def get_initial_db_data(role: Optional[str] = "user"):
                     if "category" not in row:
                         row["category"] = row.get("era_normalized") or "문화유산"
                     if "image_url" not in row:
-                        row["image_url"] = row.get("photo_url") or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
+                        row["image_url"] = row.get("photo_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                 result["official"] = raw_official
             else:
                 logger.error(f"Failed to fetch official heritages: {res_official.text}")
@@ -1191,7 +1191,7 @@ async def tour_search(req: TourSearchRequest):
                             "latitude": float(item.get("latitude") or 36.50),
                             "longitude": float(item.get("longitude") or 127.26),
                             "description": item.get("description") or "관광공사 연동 관광지 추천 명소입니다.",
-                            "image_url": item.get("image_url") or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
+                            "image_url": item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                         })
         except Exception as e:
             logger.error(f"Failed to query citizen recommendations: {e}")
@@ -1231,7 +1231,7 @@ async def tour_search(req: TourSearchRequest):
                         addr = item.get("addr1") or f"{area} 관광지"
                         mapx = item.get("mapx")
                         mapy = item.get("mapy")
-                        img = item.get("firstimage") or item.get("firstimage2") or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
+                        img = item.get("firstimage") or item.get("firstImage") or item.get("firstimage2") or item.get("firstImage2") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                         
                         if not any(m["name"] == title for m in matched):
                             matched.append({
@@ -1256,7 +1256,7 @@ async def tour_search(req: TourSearchRequest):
             {"name": "세종호수공원", "address": "세종특별자치시 다솜로 216", "latitude": 36.5023, "longitude": 127.2861, "category": "공원/호수", "description": "국내 최대의 인공호수공원으로 산책로와 문화행사가 어우러진 휴식공간입니다.", "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H2_H2.jpg"},
             {"name": "국립세종수목원", "address": "세종특별자치시 수목원로 136", "latitude": 36.4950, "longitude": 127.2910, "category": "식물원/수목원", "description": "도심형 수목원으로 거대한 사계절 온실과 전통 정원이 매우 인상적입니다.", "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H3_H3.jpg"},
             {"name": "금강보행교 (이응다리)", "address": "세종특별자치시 세종동 29-111", "latitude": 36.4862, "longitude": 127.2965, "category": "교량/랜드마크", "description": "금강을 가로지르는 국내 최초의 원형 보행교로 야경이 무척 아름답습니다.", "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H4_H4.jpg"},
-            {"name": "고복자연공원", "address": "세종특별자치시 연서면 고복리", "latitude": 36.5685, "longitude": 127.2345, "category": "자연/저수지", "description": "벚꽃 길과 데크길 산책로가 조성된 한적하고 평화로운 자연 공원 저수지입니다.", "image_url": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"}
+            {"name": "고복자연공원", "address": "세종특별자치시 연서면 고복리", "latitude": 36.5685, "longitude": 127.2345, "category": "자연/저수지", "description": "벚꽃 길과 데크길 산책로가 조성된 한적하고 평화로운 자연 공원 저수지입니다.", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"}
         ]
         for spot in sejong_spots:
             if not any(m["name"] == spot["name"] for m in matched):
