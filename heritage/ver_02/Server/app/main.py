@@ -4,6 +4,7 @@ import logging
 import json
 import httpx
 import re
+import asyncio
 import xml.etree.ElementTree as ET
 import urllib.parse
 from typing import List, Dict, Any, Optional
@@ -177,6 +178,15 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                     "description": f"기 생성 융합 코스: {rc.get('description')}",
                     "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H4_H4.jpg"
                 })
+            # Secure images for course recommendations as well
+            try:
+                tasks = [get_or_create_heritage_image(item["name"], item.get("image_url")) for item in matched_heritages[:3]]
+                resolved_images = await asyncio.gather(*tasks)
+                for idx, img in enumerate(resolved_images):
+                    matched_heritages[idx]["image_url"] = img
+            except Exception as e:
+                logger.error(f"Failed to secure images for matched courses: {e}")
+                
             return {
                 "output_heritages": matched_heritages[:3],
                 "final_output": f"AI 분석 결과: 시맨틱 라우팅 결과 '코스 추천'으로 식별되어 과거에 보관된 명소 연계 코스 중 가장 적합한 추천 코스를 발굴했습니다."
@@ -279,11 +289,106 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
             pass
 
     matched = matched[:5]
+    
+    # Resolve and secure image URLs for all matched heritages
+    try:
+        tasks = [get_or_create_heritage_image(item["name"], item.get("image_url")) for item in matched]
+        resolved_images = await asyncio.gather(*tasks)
+        for idx, img in enumerate(resolved_images):
+            matched[idx]["image_url"] = img
+    except Exception as e:
+        logger.error(f"Failed to secure images for matched heritages: {e}")
             
     return {
         "output_heritages": matched,
         "final_output": f"AI 분석 결과: 시맨틱 라우팅 결과 '유산 검색'으로 식별되어 원격 데이터베이스 실데이터 실시간 조회를 기반으로 추천 결과를 구성했습니다."
     }
+
+async def update_db_heritage_image(name: str, image_url: str):
+    """Update photo_url/image_url in the database for the matching heritage name"""
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            table = await get_heritage_table_name(client, headers)
+            patch_url = f"{settings.SUPABASE_URL}/rest/v1/{table}?name=eq.{urllib.parse.quote(name)}"
+            await client.patch(patch_url, headers=headers, json={"photo_url": image_url}, timeout=3.0)
+            logger.info(f"Updated database record for '{name}' with photo_url: {image_url}")
+    except Exception as e:
+        logger.warn(f"Failed to update database photo_url for '{name}': {e}")
+
+async def get_or_create_heritage_image(name: str, current_img: Optional[str] = None) -> str:
+    """Ensure a valid HTTP photo exists for the spot; generate via DALL-E if missing and save to Supabase bucket"""
+    if current_img and current_img.startswith("http") and "placeholder" not in current_img and "svg" not in current_img:
+        return current_img
+        
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY or not settings.OPENAI_API_KEY:
+        return current_img or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
+
+    safe_name = re.sub(r'[^\w\s]', '', name).strip()
+    filename = f"gen_{safe_name.replace(' ', '_')}.jpg"
+    public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/heritage-images/{filename}"
+
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}"
+    }
+
+    # 1. Check if the image file already exists in Supabase Storage
+    try:
+        async with httpx.AsyncClient() as client:
+            res_head = await client.head(public_url, timeout=3.0)
+            if res_head.status_code == 200:
+                logger.info(f"Using cached DALL-E image from Supabase storage for '{name}': {public_url}")
+                await update_db_heritage_image(name, public_url)
+                return public_url
+    except Exception as e:
+        pass
+
+    # 2. If it does not exist, call OpenAI DALL-E to generate it
+    try:
+        logger.info(f"Generating DALL-E image for heritage: '{name}'")
+        dalle_payload = {
+            "model": "dall-e-2",
+            "prompt": f"A realistic, beautiful photograph of the cultural heritage site or historic landmark '{name}' in South Korea, daylight, professional travel photography, clear details.",
+            "n": 1,
+            "size": "512x512",
+            "response_format": "url"
+        }
+        async with httpx.AsyncClient() as client:
+            res_dalle = await client.post(
+                "https://api.openai.com/v1/images/generations",
+                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
+                json=dalle_payload,
+                timeout=20.0
+            )
+            if res_dalle.status_code == 200:
+                dalle_url = res_dalle.json()["data"][0]["url"]
+                
+                # 3. Download the generated image bytes
+                res_img = await client.get(dalle_url, timeout=10.0)
+                if res_img.status_code == 200:
+                    img_bytes = res_img.content
+                    
+                    # 4. Upload to Supabase Storage
+                    upload_url = f"{settings.SUPABASE_URL}/storage/v1/object/heritage-images/{filename}"
+                    upload_headers = headers.copy()
+                    upload_headers["Content-Type"] = "image/jpeg"
+                    
+                    res_upload = await client.post(upload_url, headers=upload_headers, content=img_bytes, timeout=10.0)
+                    if res_upload.status_code in [200, 201]:
+                        logger.info(f"Successfully uploaded generated DALL-E image to storage for '{name}': {public_url}")
+                        await update_db_heritage_image(name, public_url)
+                        return public_url
+    except Exception as e:
+        logger.error(f"Failed to generate or upload DALL-E image for '{name}': {e}")
+
+    return current_img or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
 
 async def geocode_address(address: str) -> Optional[tuple[float, float]]:
     """Geocode address using OpenStreetMap Nominatim, with OpenAI fallback"""
@@ -915,6 +1020,13 @@ async def insert_official_heritage(item: Dict[str, Any]):
 async def heritage_search(query: str, area_code: Optional[str] = "전체"):
     """Search heritages directly using official National Heritage Open API"""
     results = await fetch_national_heritage_openapi(query, area_code)
+    try:
+        tasks = [get_or_create_heritage_image(item["name"], item.get("image_url")) for item in results]
+        resolved_images = await asyncio.gather(*tasks)
+        for idx, img in enumerate(resolved_images):
+            results[idx]["image_url"] = img
+    except Exception as e:
+        logger.error(f"Failed to secure images for heritage search results: {e}")
     return {"heritages": results}
 
 class TourSearchRequest(BaseModel):
@@ -1027,4 +1139,12 @@ async def tour_search(req: TourSearchRequest):
                 if len(matched) == 5:
                     break
                     
-    return {"tourist_spots": matched[:5]}
+    spots = matched[:5]
+    try:
+        tasks = [get_or_create_heritage_image(item["name"], item.get("image_url")) for item in spots]
+        resolved_images = await asyncio.gather(*tasks)
+        for idx, img in enumerate(resolved_images):
+            spots[idx]["image_url"] = img
+    except Exception as e:
+        logger.error(f"Failed to secure images for tourist spots: {e}")
+    return {"tourist_spots": spots}
