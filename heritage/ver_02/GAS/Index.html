@@ -1489,9 +1489,9 @@
         if (totalMins >= 60) {
           const hrs = Math.floor(totalMins / 60);
           const mins = totalMins % 60;
-          initialTimeStr = `약 ${hrs}시간 ${mins}분 (예상)`;
+          initialTimeStr = '약 ' + hrs + '시간 ' + mins + '분 (예상)';
         } else {
-          initialTimeStr = `약 ${totalMins}분 (예상)`;
+          initialTimeStr = '약 ' + totalMins + '분 (예상)';
         }
         
         // Show initial estimate first
@@ -1502,8 +1502,8 @@
         if (courseList.length > 1) {
           try {
             const mode = transport === '도보' ? 'foot' : 'driving';
-            const coordsStr = courseList.map(item => `${item.longitude},${item.latitude}`).join(';');
-            const url = `https://router.project-osrm.org/route/v1/${mode}/${coordsStr}?overview=false`;
+            const coordsStr = courseList.map(item => item.longitude + ',' + item.latitude).join(';');
+            const url = 'https://router.project-osrm.org/route/v1/' + mode + '/' + coordsStr + '?overview=false';
             
             const response = await fetch(url);
             if (response.ok) {
@@ -1518,9 +1518,9 @@
                 if (totalMinsPrecise >= 60) {
                   const hrs = Math.floor(totalMinsPrecise / 60);
                   const mins = totalMinsPrecise % 60;
-                  preciseTimeStr = `약 ${hrs}시간 ${mins}분`;
+                  preciseTimeStr = '약 ' + hrs + '시간 ' + mins + '분';
                 } else {
-                  preciseTimeStr = `약 ${totalMinsPrecise}분`;
+                  preciseTimeStr = '약 ' + totalMinsPrecise + '분';
                 }
                 
                 if (textWrapper) textWrapper.textContent = preciseTimeStr;
@@ -1798,7 +1798,7 @@
         document.getElementById('detail-image').src = item.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="100%" height="100%" fill="%23111520"/><path d="M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z" stroke="%2300f5d4" stroke-width="3" fill="none"/></svg>';
         document.getElementById('detail-image').alt = item.name;
         document.getElementById('detail-name').textContent = item.name;
-        document.getElementById('detail-address').textContent = `📍 ${item.address || '세종시'}`;
+        document.getElementById('detail-address').textContent = '📍 ' + (item.address || '세종시');
         
         const catBadge = document.getElementById('detail-category');
         catBadge.textContent = item.category || '문화유산';
