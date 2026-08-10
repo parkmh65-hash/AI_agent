@@ -1176,13 +1176,13 @@
         const headerWrapper = document.getElementById('rag-header-actions');
         if (ragCards.length > 0) {
           headerWrapper.innerHTML = `
-            <h4 style="margin: 0; fontSize: 0.95rem; color: #fff;">\u1f916 AI \ucd94\ucc9c \ubb38\ud654\uc720\uc0b0 \ucf54\uc2a4</h4>
-            <button onclick="addAllToCourse()" style="background: none; border: none; color: #00f5d4; fontSize: 0.75rem; fontWeight: 800; cursor: pointer;">
-              + \uc804\uccb4 \ucf54\uc2a4\uc5d0 \ub2f4\uae30
+            <h4 style="margin: 0; font-size: 0.95rem; color: #fff;">🤖 AI 추천 문화유산</h4>
+            <button onclick="addAllToCourse()" style="background: none; border: none; color: #00f5d4; font-size: 0.75rem; font-weight: 800; cursor: pointer;">
+              + 전체 코스에 담기
             </button>
           `;
         } else {
-          headerWrapper.innerHTML = `<h4 style="margin: 0; fontSize: 0.95rem; color: #fff;">\u1f916 AI \ucd94\ucc9c \ubb38\ud654\uc720\uc0b0 \ucf54\uc2a4</h4>`;
+          headerWrapper.innerHTML = `<h4 style="margin: 0; font-size: 0.95rem; color: #fff;">🤖 AI 추천 문화유산</h4>`;
         }
 
         ragCards.forEach((item, idx) => {
