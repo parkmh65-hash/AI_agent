@@ -327,12 +327,6 @@
     </style>
   </head>
   <body>
-    <!-- Global Loading Overlay -->
-    <div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 12, 20, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 99999; justify-content: center; align-items: center; flex-direction: column; gap: 16px; color: #fff;">
-      <div class="hourglass-spinner" style="font-size: 3.5rem;">⏳</div>
-      <div id="loading-message" style="font-size: 0.95rem; font-weight: 700; color: #00f5d4; text-shadow: 0 0 10px rgba(0, 245, 212, 0.4); text-align: center; padding: 0 20px;">처리 중...</div>
-    </div>
-
     <!-- Glassmorphic Auth Overlay -->
     <div id="auth-overlay" class="auth-overlay">
       <div class="auth-card">
@@ -756,21 +750,7 @@
         }, 3000);
       }
 
-      // 3.1. UI Helper - Fullscreen Spinner Overlay
-      function showLoading(msg) {
-        const overlay = document.getElementById('loading-overlay');
-        const text = document.getElementById('loading-message');
-        if (overlay && text) {
-          text.textContent = msg || '처리 중...';
-          overlay.style.display = 'flex';
-        }
-      }
-      function hideLoading() {
-        const overlay = document.getElementById('loading-overlay');
-        if (overlay) {
-          overlay.style.display = 'none';
-        }
-      }
+
 
       // 4. Initial Mount Load
       window.addEventListener('DOMContentLoaded', () => {
@@ -1022,7 +1002,7 @@
 
       async function loadInitialData() {
         try {
-          showLoading('⏳ 초기 데이터를 불러오는 중...');
+          showToast('⏳ 초기 데이터를 불러오는 중...');
           const data = await callGasMethod('getInitialWebAppData');
           
           officialHeritages = (data.official || []).map(item => ({
@@ -1054,8 +1034,6 @@
           showToast('✅ 로드 완료');
         } catch (err) {
           showToast('❌ 초기 로딩 오류가 발생했습니다.');
-        } finally {
-          hideLoading();
         }
       }
 
@@ -1294,10 +1272,9 @@
         
         const searchBtn = document.getElementById('rag-search-btn');
         searchBtn.disabled = true;
-        searchBtn.textContent = '\ucd94\ucc9c \uc911..';
+        searchBtn.innerHTML = '추천 중 <span class="hourglass-spinner" style="font-size: 0.9rem; margin-left: 6px;">⏳</span>';
 
         try {
-          showLoading('🔮 문화유산 5선을 추천받는 중입니다...');
           const resHeritages = await fetch(`${CLOUD_RUN_URL}/api/v1/agentic-rag`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1310,7 +1287,7 @@
           
           ragCards = dataHeritages.output_heritages || [];
           if (ragCards.length === 0) {
-            throw new Error("\uac80\uc0c9 \uacb0\uacfc \uc218\ub85d\ub41c \ubb38\ud654\uc720\uc0b0\uc774 \uc5c6\uc2b5\ub2c8\ub2e4.");
+            throw new Error("검색 결과 수록된 문화유산이 없습니다.");
           }
           
           // Automatically add all recommended heritages to the course list
@@ -1333,8 +1310,7 @@
           console.error(e);
         } finally {
           searchBtn.disabled = false;
-          searchBtn.textContent = '추천';
-          hideLoading();
+          searchBtn.innerHTML = '추천';
         }
       }
 
@@ -1347,16 +1323,14 @@
         
         const buildBtn = document.getElementById('step2-build-btn');
         buildBtn.disabled = true;
-        buildBtn.textContent = '\uba85\uc18c \uc218\uc9d1 \ubc0f \ub3d9\uc120 \uadf8\ub9ac\ub294 \uc911...';
+        buildBtn.innerHTML = '동선 설계 중 <span class="hourglass-spinner" style="font-size: 0.95rem; margin-left: 6px;">⏳</span>';
 
         const regionSelect = document.getElementById('region-select');
-        const region = regionSelect ? regionSelect.value : '\uc138\uc885\uc2dc';
+        const region = regionSelect ? regionSelect.value : '세종시';
         const input = document.getElementById('rag-query-input');
         const query = input ? input.value.trim() : '';
 
         try {
-          showLoading('🗺️ 최적의 이동 동선 및 주변 관광 명소를 탐색 중입니다...');
-          
           let tours = [];
           try {
             const resTours = await fetch(`${CLOUD_RUN_URL}/api/v1/tour-search`, {
@@ -1406,8 +1380,7 @@
           showToast(`❌ 2단계 에러: ${err.message}`);
         } finally {
           buildBtn.disabled = false;
-          buildBtn.textContent = '⚡ 주변 관광지 연동 및 AntPath 경로 그리기';
-          hideLoading();
+          buildBtn.innerHTML = '⚡ 주변 관광지 연동 및 AntPath 경로 그리기';
         }
       };
 
@@ -1549,10 +1522,9 @@
         }
         const btn = document.getElementById('create-guidebook-btn');
         btn.disabled = true;
-        btn.textContent = '\uc5d0\uc774\uc804\ud2b8 \ud611\uc5c5 \uc2a4\ud1a0\ub9ac\ubd81 \uc0dd\uc131 \uc911...';
+        btn.innerHTML = '가이드북 편찬 중 <span class="hourglass-spinner" style="font-size: 0.95rem; margin-left: 6px;">⏳</span>';
         
         try {
-          showLoading('🎙️ AI 동화 스토리북 및 오디오 가이드를 편찬 중입니다...');
           const names = courseList.map(c => c.name);
           const res = await fetch(`${CLOUD_RUN_URL}/api/v1/guidebook`, {
             method: "POST",
@@ -1572,8 +1544,7 @@
           showToast('❌ 가이드북 생성 도중 오류가 발생했습니다.');
         } finally {
           btn.disabled = false;
-          btn.textContent = '✨ AI 스토리 가이드북 만들기';
-          hideLoading();
+          btn.innerHTML = '✨ AI 스토리 가이드북 만들기';
         }
       };
 
@@ -1744,7 +1715,12 @@
           showToast('필수 필드(제보명, 주소)를 채워주세요.');
           return;
         }
-        showLoading('🌱 시민 제보 정보를 업로드하는 중입니다...');
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '제보 등록 제출 중 <span class="hourglass-spinner" style="font-size: 0.95rem; margin-left: 6px;">⏳</span>';
+        }
         
         let imageUrl = '';
         if (reportPhotoBase64) {
@@ -1793,7 +1769,10 @@
         } catch (err) {
           showToast('❌ 제보 제출 실패.');
         } finally {
-          hideLoading();
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '🌱 제보 등록 제출하기';
+          }
         }
       }
 
