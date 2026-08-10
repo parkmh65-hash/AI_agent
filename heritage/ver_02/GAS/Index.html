@@ -711,7 +711,7 @@
       let courseList = [];
       let ragCards = [];
       let ragOutputText = '';
-      let transport = '승용차';
+      let transport = '\uc2b9\uc6a9\ucc28';
       
       // Guidebook and TTS States
       let guidebookResult = null;
@@ -744,7 +744,7 @@
                 citizen: []
               });
             } else if (methodName === 'getCurrentGoogleUserGAS') {
-              resolve({ status: 'fallback', email: 'guest@sejong.go.kr', nickname: '게스트' });
+              resolve({ status: 'fallback', email: 'guest@sejong.go.kr', nickname: '\uac8c\uc2a4\ud2b8' });
             } else if (methodName === 'checkGasDbConfigurationStatus') {
               resolve({ configured: true, working: true, url: 'https://pdpmtgnagwzcsftavtap.supabase.co', error: '' });
             } else {
@@ -801,7 +801,7 @@
       function setupAuthListeners() {
         // Google OAuth Sign In
         document.getElementById('google-login-btn').addEventListener('click', async () => {
-          showToast('⏳ Google OAuth 인증 대행 요청 중...');
+          showToast('\u23f3 Google OAuth \uc778\uc99d \ub300\ud589 \uc694\uccad \uc911...');
           try {
             const userRes = await callGasMethod('getCurrentGoogleUserGAS');
             if (userRes.status === 'success' || userRes.status === 'fallback') {
@@ -813,16 +813,16 @@
               if (dbRes.status === 'success') {
                 safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
                 document.getElementById('auth-overlay').style.display = 'none';
-                showToast(`👋 환영합니다, ${nickname}님! (Google 로그인 완료)`);
+                showToast(`\u1f44b \ud658\uc601\ud569\ub2c8\ub2e4, ${nickname}\ub2d8! (Google \ub85c\uadf8\uc778 \uc644\ub8cc)`);
                 loadInitialData();
               } else {
-                showToast('❌ DB에 프로필을 등록하지 못했습니다.');
+                showToast('\u274c DB\uc5d0 \ud504\ub85c\ud544\uc744 \ub4f1\ub85d\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.');
               }
             } else {
-              showToast('❌ 구글 계정 정보를 가져오지 못했습니다.');
+              showToast('\u274c \uad6c\uae00 \uacc4\uc815 \uc815\ubcf4\ub97c \uac00\uc838\uc624\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.');
             }
           } catch(err) {
-            showToast('❌ 구글 연동 중 오류 발생.');
+            showToast('\u274c \uad6c\uae00 \uc5f0\ub3d9 \uc911 \uc624\ub958 \ubc1c\uc0dd.');
           }
         });
 
@@ -831,21 +831,21 @@
           const email = document.getElementById('auth-email-input').value.trim();
           const pw = document.getElementById('auth-password-input').value.trim();
           if (!email || !pw) {
-            showToast('이메일과 비밀번호를 모두 채워주세요.');
+            showToast('\uc774\uba54\uc77c\uacfc \ube44\ubc00\ubc88\ud638\ub97c \ubaa8\ub450 \ucc44\uc6cc\uc8fc\uc138\uc694.');
             return;
           }
           
-          showToast('⏳ 회원 프로필 등록 중...');
+          showToast('\u23f3 \ud68c\uc6d0 \ud504\ub85c\ud544 \ub4f1\ub85d \uc911...');
           try {
             const nickname = email.split('@')[0];
             const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'email');
             if (dbRes.status === 'success') {
-              showToast('✅ 성공적으로 가입되었습니다! 로그인 버튼을 눌러주세요.');
+              showToast('\u2705 \uc131\uacf5\uc801\uc73c\ub85c \uac00\uc785\ub418\uc5c8\uc2b5\ub2c8\ub2e4! \ub85c\uadf8\uc778 \ubc84\ud2bc\uc744 \ub20c\ub7ec\uc8fc\uc138\uc694.');
             } else {
-              showToast('❌ 가입 처리 중 오류 발생.');
+              showToast('\u274c \uac00\uc785 \ucc98\ub9ac \uc911 \uc624\ub958 \ubc1c\uc0dd.');
             }
           } catch (err) {
-            showToast('❌ 이메일 회원가입 실패.');
+            showToast('\u274c \uc774\uba54\uc77c \ud68c\uc6d0\uac00\uc785 \uc2e4\ud328.');
           }
         });
 
@@ -854,11 +854,11 @@
           const email = document.getElementById('auth-email-input').value.trim();
           const pw = document.getElementById('auth-password-input').value.trim();
           if (!email || !pw) {
-            showToast('이메일과 비밀번호를 모두 입력해 주세요.');
+            showToast('\uc774\uba54\uc77c\uacfc \ube44\ubc00\ubc88\ud638\ub97c \ubaa8\ub450 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
             return;
           }
 
-          showToast('⏳ 로그인 대조 및 세션 갱신 중...');
+          showToast('\u23f3 \ub85c\uadf8\uc778 \ub300\uc870 \ubc0f \uc138\uc158 \uac31\uc2e0 \uc911...');
           try {
             const nickname = email.split('@')[0];
             // PostgREST upsert will renew last_login in the database
@@ -866,13 +866,13 @@
             if (dbRes.status === 'success') {
               safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
               document.getElementById('auth-overlay').style.display = 'none';
-              showToast(`👋 반갑습니다, ${nickname}님!`);
+              showToast(`\u1f44b \ubc18\uac11\uc2b5\ub2c8\ub2e4, ${nickname}\ub2d8!`);
               loadInitialData();
             } else {
-              showToast('❌ 로그인 정보를 확인해 주세요.');
+              showToast('\u274c \ub85c\uadf8\uc778 \uc815\ubcf4\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694.');
             }
           } catch (err) {
-            showToast('❌ 이메일 로그인 실패.');
+            showToast('\u274c \uc774\uba54\uc77c \ub85c\uadf8\uc778 \uc2e4\ud328.');
           }
         });
       }
@@ -900,7 +900,7 @@
           transparent: true,
           version: '1.3.0',
           domain: 'https://gis-heritage.go.kr/',
-          attribution: '&copy; 국가유산 공간정보 서비스'
+          attribution: '&copy; \uad6d\uac00\uc720\uc0b0 \uacf5\uac04\uc815\ubcf4 \uc11c\ube44\uc2a4'
         }).addTo(mapInstance);
           
           // Fix map size on render delay
@@ -918,7 +918,7 @@
         const btn = document.getElementById('map-theme-btn');
         if (mapTheme === 'dark') {
           mapTheme = 'color';
-          btn.textContent = '🕶️ 흑백 지도';
+          btn.textContent = '\u1f576\ufe0f \ud751\ubc31 \uc9c0\ub3c4';
           if (activeTileLayer) mapInstance.removeLayer(activeTileLayer);
           activeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 20,
@@ -926,7 +926,7 @@
           }).addTo(mapInstance);
         } else {
           mapTheme = 'dark';
-          btn.textContent = '🎨 컬러 지도';
+          btn.textContent = '\u1f3a8 \uceec\ub7ec \uc9c0\ub3c4';
           if (activeTileLayer) mapInstance.removeLayer(activeTileLayer);
           activeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 20,
@@ -972,7 +972,7 @@
                 font-size: ${useSingleStyle ? '0.95rem' : '0.85rem'};
                 box-shadow: 0 0 12px ${useSingleStyle ? 'rgba(244, 63, 94, 0.6)' : 'rgba(0, 245, 212, 0.6)'};
               ">
-                ${useSingleStyle ? '🏛️' : (index + 1)}
+                ${useSingleStyle ? '\u1f3db\ufe0f' : (index + 1)}
               </div>
             `,
             iconSize: [30, 30],
@@ -985,14 +985,14 @@
                 ${index + 1}. ${item.name}
               </strong>
               <span style="color: #64748b; font-size: 0.8rem; display: block; margin-bottom: 4px;">
-                📍 주소: ${item.address || '세종시'}
+                \u1f4cd \uc8fc\uc18c: ${item.address || '\uc138\uc885\uc2dc'}
               </span>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; gap: 8px;">
                 <span style="display: inline-block; padding: 2px 6px; background: #e0f2fe; color: #0369a1; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">
-                  🏛️ ${item.category || '기타'}
+                  \u1f3db\ufe0f ${item.category || '\uae30\ud0c0'}
                 </span>
                 <button onclick="showDetailModal('${encodeURIComponent(JSON.stringify(item))}')" style="background: #7209b7; border: none; color: #fff; padding: 3px 6px; font-size: 0.72rem; font-weight: bold; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
-                  🔎 상세 정보
+                  \u1f50e \uc0c1\uc138 \uc815\ubcf4
                 </button>
               </div>
             </div>
@@ -1049,28 +1049,28 @@
       // 7. Load Initial Application Data
       async function loadInitialData() {
         try {
-          showToast('⏳ 초기 데이터를 불러오는 중...');
+          showToast('\u23f3 \ucd08\uae30 \ub370\uc774\ud130\ub97c \ubd88\ub7ec\uc624\ub294 \uc911...');
           const data = await callGasMethod('getInitialWebAppData');
           
           officialHeritages = (data.official || []).map(item => ({
             id: item.id || `h_${item.h_id || Math.random()}`,
             name: item.name,
-            address: item.address || '세종시',
-            category: item.category || '기타',
+            address: item.address || '\uc138\uc885\uc2dc',
+            category: item.category || '\uae30\ud0c0',
             latitude: parseFloat(item.latitude || item.lat) || 36.48,
             longitude: parseFloat(item.longitude || item.lng) || 127.28,
-            description: item.description || '세종시의 대표 역사 문화유산입니다.',
+            description: item.description || '\uc138\uc885\uc2dc\uc758 \ub300\ud45c \uc5ed\uc0ac \ubb38\ud654\uc720\uc0b0\uc785\ub2c8\ub2e4.',
             image_url: item.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="100%" height="100%" fill="%23111520"/><path d="M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z" stroke="%2300f5d4" stroke-width="3" fill="none"/></svg>'
           }));
 
           citizenHeritages = (data.citizen || []).map(item => ({
             id: item.id || `c_${Math.random()}`,
             name: item.name,
-            address: item.address || '세종시',
-            category: '시민 추천',
+            address: item.address || '\uc138\uc885\uc2dc',
+            category: '\uc2dc\ubbfc \ucd94\ucc9c',
             latitude: parseFloat(item.latitude || item.lat) || 36.48,
             longitude: parseFloat(item.longitude || item.lng) || 127.28,
-            description: item.description || '시민 제보 탐방 코스',
+            description: item.description || '\uc2dc\ubbfc \uc81c\ubcf4 \ud0d0\ubc29 \ucf54\uc2a4',
             image_url: item.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="100%" height="100%" fill="%23111520"/><path d="M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z" stroke="%2300f5d4" stroke-width="3" fill="none"/></svg>'
           }));
 
@@ -1078,9 +1078,9 @@
             ragCards = officialHeritages.slice(0, 3);
             renderRAGCards();
           }
-          showToast('✅ 로드 완료');
+          showToast('\u2705 \ub85c\ub4dc \uc644\ub8cc');
         } catch (err) {
-          showToast('❌ 초기 로딩 오류가 발생했습니다.');
+          showToast('\u274c \ucd08\uae30 \ub85c\ub529 \uc624\ub958\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4.');
         }
       }
 
@@ -1107,7 +1107,7 @@
         document.getElementById('clear-course-btn')?.addEventListener('click', () => {
           courseList = [];
           renderCourseList();
-          showToast('🗑️ 코스를 완전히 비웠습니다.');
+          showToast('\u1f5d1\ufe0f \ucf54\uc2a4\ub97c \uc644\uc804\ud788 \ube44\uc6e0\uc2b5\ub2c8\ub2e4.');
         });
 
         // Create guidebook trigger button
@@ -1173,13 +1173,13 @@
         const headerWrapper = document.getElementById('rag-header-actions');
         if (ragCards.length > 0) {
           headerWrapper.innerHTML = `
-            <h4 style="margin: 0; fontSize: 0.95rem; color: #fff;">🤖 AI 추천 문화유산 코스</h4>
+            <h4 style="margin: 0; fontSize: 0.95rem; color: #fff;">\u1f916 AI \ucd94\ucc9c \ubb38\ud654\uc720\uc0b0 \ucf54\uc2a4</h4>
             <button onclick="addAllToCourse()" style="background: none; border: none; color: #00f5d4; fontSize: 0.75rem; fontWeight: 800; cursor: pointer;">
-              + 전체 코스에 담기
+              + \uc804\uccb4 \ucf54\uc2a4\uc5d0 \ub2f4\uae30
             </button>
           `;
         } else {
-          headerWrapper.innerHTML = `<h4 style="margin: 0; fontSize: 0.95rem; color: #fff;">🤖 AI 추천 문화유산 코스</h4>`;
+          headerWrapper.innerHTML = `<h4 style="margin: 0; fontSize: 0.95rem; color: #fff;">\u1f916 AI \ucd94\ucc9c \ubb38\ud654\uc720\uc0b0 \ucf54\uc2a4</h4>`;
         }
 
         ragCards.forEach((item, idx) => {
@@ -1196,11 +1196,11 @@
               <img src="${item.image_url}" alt="${item.name}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;" />
               <div style="flex: 1;">
                 <h4 style="margin: 0 0 2px 0; font-size: 0.82rem; color: #fff;">${item.name}</h4>
-                <p style="margin: 0; font-size: 0.72rem; color: var(--text-sub);">${item.address || '세종시'} | ${item.category || '문화유산'}</p>
+                <p style="margin: 0; font-size: 0.72rem; color: var(--text-sub);">${item.address || '\uc138\uc885\uc2dc'} | ${item.category || '\ubb38\ud654\uc720\uc0b0'}</p>
               </div>
             </div>
             <button onclick="addIndividualToCourse(${idx})" style="background: rgba(0, 245, 212, 0.15); border: 1px solid rgba(0, 245, 212, 0.4); color: #00f5d4; padding: 4px 8px; font-size: 0.7rem; border-radius: 4px; cursor: pointer; font-weight: 700; position: relative; z-index: 2;">
-              + 담기
+              + \ub2f4\uae30
             </button>
           `;
           listContainer.appendChild(card);
@@ -1209,7 +1209,7 @@
 
       window.addAllToCourse = function() {
         if (ragCards.length === 0) {
-          showToast('❌ 추천된 유산이 없습니다.');
+          showToast('\u274c \ucd94\ucc9c\ub41c \uc720\uc0b0\uc774 \uc5c6\uc2b5\ub2c8\ub2e4.');
           return;
         }
         const seenNames = new Set(courseList.map(c => c.name));
@@ -1223,9 +1223,9 @@
         if (addedCount > 0) {
           renderCourseList();
           updateMap(courseList, true);
-          showToast(`✅ 추천 유산 ${addedCount}개를 코스에 담았습니다.`);
+          showToast(`\u2705 \ucd94\ucc9c \uc720\uc0b0 ${addedCount}\uac1c\ub97c \ucf54\uc2a4\uc5d0 \ub2f4\uc558\uc2b5\ub2c8\ub2e4.`);
         } else {
-          showToast('ℹ️ 이미 코스에 담겨 있습니다.');
+          showToast('\u2139\ufe0f \uc774\ubbf8 \ucf54\uc2a4\uc5d0 \ub2f4\uaca8 \uc788\uc2b5\ub2c8\ub2e4.');
         }
       };
 
@@ -1234,23 +1234,23 @@
         const item = ragCards[idx];
         const exists = courseList.some(c => c.name === item.name);
         if (exists) {
-          showToast('ℹ️ 이미 코스에 담겨 있습니다.');
+          showToast('\u2139\ufe0f \uc774\ubbf8 \ucf54\uc2a4\uc5d0 \ub2f4\uaca8 \uc788\uc2b5\ub2c8\ub2e4.');
           return;
         }
         courseList.push(item);
         renderCourseList();
         updateMap(courseList, true);
-        showToast(`✅ [${item.name}]을(를) 코스에 담았습니다.`);
+        showToast(`\u2705 [${item.name}]\uc744(\ub97c) \ucf54\uc2a4\uc5d0 \ub2f4\uc558\uc2b5\ub2c8\ub2e4.`);
       };      // 12. RAG Recommendation Agent Query Executor (Wizard Multi-Step Pipeline)
       let activeWizardStep = 1;
 
       window.goToWizardStep = function(step) {
         if (step === 2 && ragCards.length === 0) {
-          showToast('❌ 먼저 1단계에서 AI 문화유산을 검색해 추천을 받으세요.');
+          showToast('\u274c \uba3c\uc800 1\ub2e8\uacc4\uc5d0\uc11c AI \ubb38\ud654\uc720\uc0b0\uc744 \uac80\uc0c9\ud574 \ucd94\ucc9c\uc744 \ubc1b\uc73c\uc138\uc694.');
           return;
         }
         if (step === 3 && courseList.length === 0) {
-          showToast('❌ 먼저 2단계에서 주변 명소 연동 및 동선을 생성해 주세요.');
+          showToast('\u274c \uba3c\uc800 2\ub2e8\uacc4\uc5d0\uc11c \uc8fc\ubcc0 \uba85\uc18c \uc5f0\ub3d9 \ubc0f \ub3d9\uc120\uc744 \uc0dd\uc131\ud574 \uc8fc\uc138\uc694.');
           return;
         }
 
@@ -1290,33 +1290,33 @@
         const input = document.getElementById('rag-query-input');
         const query = input.value.trim();
         if (!query) {
-          showToast('추천 질문 키워드를 입력해 주세요.');
+          showToast('\ucd94\ucc9c \uc9c8\ubb38 \ud0a4\uc6cc\ub4dc\ub97c \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
           return;
         }
         
         const regionSelect = document.getElementById('region-select');
-        const region = regionSelect ? regionSelect.value : '세종시';
+        const region = regionSelect ? regionSelect.value : '\uc138\uc885\uc2dc';
         const combinedQuery = `${region} ${query}`;
         
         const searchBtn = document.getElementById('rag-search-btn');
         searchBtn.disabled = true;
-        searchBtn.textContent = '추천 중..';
+        searchBtn.textContent = '\ucd94\ucc9c \uc911..';
 
         try {
-          showToast('⏳ 1단계: 문화유산 5선 탐색 중...');
+          showToast('\u23f3 1\ub2e8\uacc4: \ubb38\ud654\uc720\uc0b0 5\uc120 \ud0d0\uc0c9 \uc911...');
           const resHeritages = await fetch(`${CLOUD_RUN_URL}/api/v1/agentic-rag`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ query: combinedQuery, area_code: region })
           });
           
-          if (!resHeritages.ok) throw new Error("1단계 문화유산 RAG 추천 오류");
+          if (!resHeritages.ok) throw new Error("1\ub2e8\uacc4 \ubb38\ud654\uc720\uc0b0 RAG \ucd94\ucc9c \uc624\ub958");
           const dataHeritages = await resHeritages.json();
-          if (!dataHeritages) throw new Error("서버로부터 유효하지 않은 응답을 받았습니다.");
+          if (!dataHeritages) throw new Error("\uc11c\ubc84\ub85c\ubd80\ud130 \uc720\ud6a8\ud558\uc9c0 \uc54a\uc740 \uc751\ub2f5\uc744 \ubc1b\uc558\uc2b5\ub2c8\ub2e4.");
           
           ragCards = dataHeritages.output_heritages || [];
           if (ragCards.length === 0) {
-            throw new Error("검색 결과 수록된 문화유산이 없습니다.");
+            throw new Error("\uac80\uc0c9 \uacb0\uacfc \uc218\ub85d\ub41c \ubb38\ud654\uc720\uc0b0\uc774 \uc5c6\uc2b5\ub2c8\ub2e4.");
           }
           
           // Draw recommendations (Markers Only, no path lines)
@@ -1324,35 +1324,35 @@
           updateMap(ragCards, false);
           
           document.getElementById('step-1-results-wrapper').style.display = 'block';
-          showToast('✅ 1단계 완료: 문화유산 추천지가 지도에 표시되었습니다.');
+          showToast('\u2705 1\ub2e8\uacc4 \uc644\ub8cc: \ubb38\ud654\uc720\uc0b0 \ucd94\ucc9c\uc9c0\uac00 \uc9c0\ub3c4\uc5d0 \ud45c\uc2dc\ub418\uc5c8\uc2b5\ub2c8\ub2e4.');
           
         } catch (e) {
-          showToast(`❌ 1단계 에러: ${e.message}`);
+          showToast(`\u274c 1\ub2e8\uacc4 \uc5d0\ub7ec: ${e.message}`);
           console.error(e);
         } finally {
           searchBtn.disabled = false;
-          searchBtn.textContent = '🔍 탐색';
+          searchBtn.textContent = '\u1f50d \ud0d0\uc0c9';
         }
       }
 
       // STEP 2: Map Courses with AntPath Routing
       window.triggerStep2Mapping = async function() {
         if (ragCards.length === 0) {
-          showToast('❌ 추천된 문화유산이 없습니다. 먼저 1단계를 완료해 주세요.');
+          showToast('\u274c \ucd94\ucc9c\ub41c \ubb38\ud654\uc720\uc0b0\uc774 \uc5c6\uc2b5\ub2c8\ub2e4. \uba3c\uc800 1\ub2e8\uacc4\ub97c \uc644\ub8cc\ud574 \uc8fc\uc138\uc694.');
           return;
         }
         
         const buildBtn = document.getElementById('step2-build-btn');
         buildBtn.disabled = true;
-        buildBtn.textContent = '명소 수집 및 동선 그리는 중...';
+        buildBtn.textContent = '\uba85\uc18c \uc218\uc9d1 \ubc0f \ub3d9\uc120 \uadf8\ub9ac\ub294 \uc911...';
 
         const regionSelect = document.getElementById('region-select');
-        const region = regionSelect ? regionSelect.value : '세종시';
+        const region = regionSelect ? regionSelect.value : '\uc138\uc885\uc2dc';
         const input = document.getElementById('rag-query-input');
         const query = input ? input.value.trim() : '';
 
         try {
-          showToast('⏳ 2단계: 주변 관광지 검색 및 최적 동선 결합 중...');
+          showToast('\u23f3 2\ub2e8\uacc4: \uc8fc\ubcc0 \uad00\uad11\uc9c0 \uac80\uc0c9 \ubc0f \ucd5c\uc801 \ub3d9\uc120 \uacb0\ud569 \uc911...');
           
           let tours = [];
           try {
@@ -1394,12 +1394,12 @@
           updateMap(courseList, true);
           
           document.getElementById('step-2-course-wrapper').style.display = 'flex';
-          showToast('✅ 2단계 완료: 문화유산 및 주변 관광지가 매핑되었습니다.');
+          showToast('\u2705 2\ub2e8\uacc4 \uc644\ub8cc: \ubb38\ud654\uc720\uc0b0 \ubc0f \uc8fc\ubcc0 \uad00\uad11\uc9c0\uac00 \ub9e4\ud551\ub418\uc5c8\uc2b5\ub2c8\ub2e4.');
         } catch(err) {
-          showToast(`❌ 2단계 에러: ${err.message}`);
+          showToast(`\u274c 2\ub2e8\uacc4 \uc5d0\ub7ec: ${err.message}`);
         } finally {
           buildBtn.disabled = false;
-          buildBtn.textContent = '⚡ 주변 관광지 연동 및 AntPath 경로 그리기';
+          buildBtn.textContent = '\u26a1 \uc8fc\ubcc0 \uad00\uad11\uc9c0 \uc5f0\ub3d9 \ubc0f AntPath \uacbd\ub85c \uadf8\ub9ac\uae30';
         }
       };
 
@@ -1421,7 +1421,7 @@
               ${idx + 1}. ${item.name}
             </span>
             <button onclick="removeCourseItem('${item.id}')" style="background: none; border: none; color: #f43f5e; cursor: pointer; font-size: 0.78rem; position: relative; z-index: 2;">
-              삭제
+              \uc0ad\uc81c
             </button>
           </div>
         `).join('');
@@ -1430,17 +1430,17 @@
           const listActionsWrapper = document.getElementById('course-list-actions');
           if (courseList.length > 0) {
             listActionsWrapper.innerHTML = `
-              <strong style="font-size: 0.88rem; color: #fff;">목적지 목록 (${courseList.length}개)</strong>
+              <strong style="font-size: 0.88rem; color: #fff;">\ubaa9\uc801\uc9c0 \ubaa9\ub85d (${courseList.length}\uac1c)</strong>
               <button id="clear-course-btn" onclick="clearAllCourse()" style="background: none; border: none; color: #f43f5e; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
-                🗑️ 전체 비우기
+                \u1f5d1\ufe0f \uc804\uccb4 \ube44\uc6b0\uae30
               </button>
             `;
           } else {
-            listActionsWrapper.innerHTML = `<strong style="font-size: 0.88rem; color: #fff;">목적지 목록 (0개)</strong>`;
+            listActionsWrapper.innerHTML = `<strong style="font-size: 0.88rem; color: #fff;">\ubaa9\uc801\uc9c0 \ubaa9\ub85d (0\uac1c)</strong>`;
           }
           tabContainer.innerHTML = courseList.length > 0 ? markup : `
             <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; padding: 20px 0;">
-              추가된 문화유산이 없습니다. 메인 탭에서 코스를 빌드하세요.
+              \ucd94\uac00\ub41c \ubb38\ud654\uc720\uc0b0\uc774 \uc5c6\uc2b5\ub2c8\ub2e4. \uba54\uc778 \ud0ed\uc5d0\uc11c \ucf54\uc2a4\ub97c \ube4c\ub4dc\ud558\uc138\uc694.
             </div>
           `;
         }
@@ -1448,7 +1448,7 @@
         if (wizardContainer) {
           wizardContainer.innerHTML = courseList.length > 0 ? markup : `
             <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; padding: 20px 0;">
-              추가된 명소가 없습니다. 2단계 연동 버튼을 실행해 명소를 불러오세요.
+              \ucd94\uac00\ub41c \uba85\uc18c\uac00 \uc5c6\uc2b5\ub2c8\ub2e4. 2\ub2e8\uacc4 \uc5f0\ub3d9 \ubc84\ud2bc\uc744 \uc2e4\ud589\ud574 \uba85\uc18c\ub97c \ubd88\ub7ec\uc624\uc138\uc694.
             </div>
           `;
         }
@@ -1460,14 +1460,14 @@
         courseList = [];
         renderCourseList();
         updateMap([]);
-        showToast('🗑️ 코스를 완전히 비웠습니다.');
+        showToast('\u1f5d1\ufe0f \ucf54\uc2a4\ub97c \uc644\uc804\ud788 \ube44\uc6e0\uc2b5\ub2c8\ub2e4.');
       };
 
       window.removeCourseItem = function(itemId) {
         courseList = courseList.filter(c => c.id !== itemId);
         renderCourseList();
         updateMap(courseList);
-        showToast('코스에서 유산을 삭제했습니다.');
+        showToast('\ucf54\uc2a4\uc5d0\uc11c \uc720\uc0b0\uc744 \uc0ad\uc81c\ud588\uc2b5\ub2c8\ub2e4.');
       };
 
       async function calculateCourseDuration() {
@@ -1476,22 +1476,22 @@
         if (!textWrapper && !wizardWrapper) return;
         
         if (courseList.length === 0) {
-          if (textWrapper) textWrapper.textContent = '약 0분';
-          if (wizardWrapper) wizardWrapper.textContent = '약 0분';
+          if (textWrapper) textWrapper.textContent = '\uc57d 0\ubd84';
+          if (wizardWrapper) wizardWrapper.textContent = '\uc57d 0\ubd84';
           return;
         }
 
         // 1. Initial heuristic fallback calculation (stay time 30m + buffer)
-        const factor = transport === '도보' ? 45 : transport === '대중교통' ? 25 : 12;
+        const factor = transport === '\ub3c4\ubcf4' ? 45 : transport === '\ub300\uc911\uad50\ud1b5' ? 25 : 12;
         let totalMins = (courseList.length * 30) + (Math.max(0, courseList.length - 1) * factor);
         
         let initialTimeStr = '';
         if (totalMins >= 60) {
           const hrs = Math.floor(totalMins / 60);
           const mins = totalMins % 60;
-          initialTimeStr = '약 ' + hrs + '시간 ' + mins + '분 (예상)';
+          initialTimeStr = '\uc57d ' + hrs + '\uc2dc\uac04 ' + mins + '\ubd84 (\uc608\uc0c1)';
         } else {
-          initialTimeStr = '약 ' + totalMins + '분 (예상)';
+          initialTimeStr = '\uc57d ' + totalMins + '\ubd84 (\uc608\uc0c1)';
         }
         
         // Show initial estimate first
@@ -1501,7 +1501,7 @@
         // 2. Fetch precise road network routing from OSRM API (OpenStreetMap)
         if (courseList.length > 1) {
           try {
-            const mode = transport === '도보' ? 'foot' : 'driving';
+            const mode = transport === '\ub3c4\ubcf4' ? 'foot' : 'driving';
             const coordsStr = courseList.map(item => item.longitude + ',' + item.latitude).join(';');
             const url = 'https://router.project-osrm.org/route/v1/' + mode + '/' + coordsStr + '?overview=false';
             
@@ -1518,9 +1518,9 @@
                 if (totalMinsPrecise >= 60) {
                   const hrs = Math.floor(totalMinsPrecise / 60);
                   const mins = totalMinsPrecise % 60;
-                  preciseTimeStr = '약 ' + hrs + '시간 ' + mins + '분';
+                  preciseTimeStr = '\uc57d ' + hrs + '\uc2dc\uac04 ' + mins + '\ubd84';
                 } else {
-                  preciseTimeStr = '약 ' + totalMinsPrecise + '분';
+                  preciseTimeStr = '\uc57d ' + totalMinsPrecise + '\ubd84';
                 }
                 
                 if (textWrapper) textWrapper.textContent = preciseTimeStr;
@@ -1536,12 +1536,12 @@
       // 14. AI Storybook / Guidebook compilation engine
       async function handleCreateGuidebook() {
         if (courseList.length === 0) {
-          showToast('코스 빌더에 문화유산이 최소 1개 이상 필요합니다.');
+          showToast('\ucf54\uc2a4 \ube4c\ub354\uc5d0 \ubb38\ud654\uc720\uc0b0\uc774 \ucd5c\uc18c 1\uac1c \uc774\uc0c1 \ud544\uc694\ud569\ub2c8\ub2e4.');
           return;
         }
         const btn = document.getElementById('create-guidebook-btn');
         btn.disabled = true;
-        btn.textContent = '에이전트 협업 스토리북 생성 중...';
+        btn.textContent = '\uc5d0\uc774\uc804\ud2b8 \ud611\uc5c5 \uc2a4\ud1a0\ub9ac\ubd81 \uc0dd\uc131 \uc911...';
         
         try {
           const names = courseList.map(c => c.name);
@@ -1554,16 +1554,16 @@
           guidebookResult = await res.json();
           
           renderGuidebookResult();
-          showToast('✅ AI 멀티에이전트 가이드북이 생성되었습니다!');
+          showToast('\u2705 AI \uba40\ud2f0\uc5d0\uc774\uc804\ud2b8 \uac00\uc774\ub4dc\ubd81\uc774 \uc0dd\uc131\ub418\uc5c8\uc2b5\ub2c8\ub2e4!');
           
           setTimeout(() => {
             document.getElementById('guidebook-section-output')?.scrollIntoView({ behavior: 'smooth' });
           }, 300);
         } catch (e) {
-          showToast('❌ 가이드북 생성 도중 오류가 발생했습니다.');
+          showToast('\u274c \uac00\uc774\ub4dc\ubd81 \uc0dd\uc131 \ub3c4\uc911 \uc624\ub958\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4.');
         } finally {
           btn.disabled = false;
-          btn.textContent = '✨ AI 스토리 가이드북 만들기';
+          btn.textContent = '\u2728 AI \uc2a4\ud1a0\ub9ac \uac00\uc774\ub4dc\ubd81 \ub9cc\ub4e4\uae30';
         }
       };
 
@@ -1592,7 +1592,7 @@
             <h4 style="margin: 0 0 2px 0; font-size: 0.8rem; color: #fff;">${card.name}</h4>
             <p style="margin: 0 0 6px 0; font-size: 0.7rem; color: var(--text-sub);">${card.scene_title}</p>
             <div style="padding: 6px; background: rgba(0,245,212,0.05); border-radius: 4px; font-size: 0.68rem; color: #a7f3d0;">
-              💡 ${card.guide_tip}
+              \u1f4a1 ${card.guide_tip}
             </div>
           `;
           carousel.appendChild(div);
@@ -1617,7 +1617,7 @@
           .replace(/###/g, '')
           .replace(/\*\*/g, '')
           .replace(/\*/g, '')
-          .replace(/📌/g, '')
+          .replace(/\u1f4cc/g, '')
           .replace(/-/g, '');
 
         utteranceInstance = new SpeechSynthesisUtterance(cleanText);
@@ -1676,32 +1676,32 @@
           startBtn.style.display = 'none';
           toggleBtn.style.display = 'inline-block';
           stopBtn.style.display = 'inline-block';
-          toggleBtn.textContent = isPaused ? '▶️ 재개' : '⏸️ 일시정지';
-          statusText.textContent = isPaused ? '⏸️ 일시 정지' : '🔊 스토리북 낭독 중...';
+          toggleBtn.textContent = isPaused ? '\u25b6\ufe0f \uc7ac\uac1c' : '\u23f8\ufe0f \uc77c\uc2dc\uc815\uc9c0';
+          statusText.textContent = isPaused ? '\u23f8\ufe0f \uc77c\uc2dc \uc815\uc9c0' : '\u1f50a \uc2a4\ud1a0\ub9ac\ubd81 \ub0ad\ub3c5 \uc911...';
         } else {
           startBtn.style.display = 'inline-block';
           toggleBtn.style.display = 'none';
           stopBtn.style.display = 'none';
-          statusText.textContent = '⏸️ 재생 준비 완료';
+          statusText.textContent = '\u23f8\ufe0f \uc7ac\uc0dd \uc900\ube44 \uc644\ub8cc';
         }
       }
 
       // 17. Geolocation GPS location collector
       function handleGPSFetch() {
         if (navigator.geolocation) {
-          showToast('📍 GPS 좌표 정보를 요청하는 중...');
+          showToast('\u1f4cd GPS \uc88c\ud45c \uc815\ubcf4\ub97c \uc694\uccad\ud558\ub294 \uc911...');
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               document.getElementById('report-lat-input').value = pos.coords.latitude.toFixed(6);
               document.getElementById('report-lng-input').value = pos.coords.longitude.toFixed(6);
-              showToast('✅ 위치가 정상 반영되었습니다.');
+              showToast('\u2705 \uc704\uce58\uac00 \uc815\uc0c1 \ubc18\uc601\ub418\uc5c8\uc2b5\ub2c8\ub2e4.');
             },
             () => {
-              showToast('❌ GPS 위치 정보 획득 실패. 기본 좌표로 대체합니다.');
+              showToast('\u274c GPS \uc704\uce58 \uc815\ubcf4 \ud68d\ub4dd \uc2e4\ud328. \uae30\ubcf8 \uc88c\ud45c\ub85c \ub300\uccb4\ud569\ub2c8\ub2e4.');
             }
           );
         } else {
-          showToast('❌ 이 브라우저는 Geolocation을 지원하지 않습니다.');
+          showToast('\u274c \uc774 \ube0c\ub77c\uc6b0\uc800\ub294 Geolocation\uc744 \uc9c0\uc6d0\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.');
         }
       }
 
@@ -1731,10 +1731,10 @@
         const lng = parseFloat(document.getElementById('report-lng-input').value) || 127.28;
 
         if (!name || !address) {
-          showToast('필수 필드(제보명, 주소)를 채워주세요.');
+          showToast('\ud544\uc218 \ud544\ub4dc(\uc81c\ubcf4\uba85, \uc8fc\uc18c)\ub97c \ucc44\uc6cc\uc8fc\uc138\uc694.');
           return;
         }
-        showToast('📁 시민 제보 등록 중...');
+        showToast('\u1f4c1 \uc2dc\ubbfc \uc81c\ubcf4 \ub4f1\ub85d \uc911...');
         
         let imageUrl = '';
         if (reportPhotoBase64) {
@@ -1757,7 +1757,7 @@
           longitude: lng,
           image_url: imageUrl,
           user_id: 'user@sejong.go.kr',
-          status: '대기',
+          status: '\ub300\uae30',
           recommend_count: 1,
           heart: 1
         };
@@ -1765,7 +1765,7 @@
         try {
           const res = await callGasMethod('submitCitizenRecommendationGAS', payload);
           if (res.status === 'success') {
-            showToast('🌱 시민 제보가 성공적으로 등록되었습니다.');
+            showToast('\u1f331 \uc2dc\ubbfc \uc81c\ubcf4\uac00 \uc131\uacf5\uc801\uc73c\ub85c \ub4f1\ub85d\ub418\uc5c8\uc2b5\ub2c8\ub2e4.');
             
             // Reset form inputs
             document.getElementById('report-name-input').value = '';
@@ -1778,10 +1778,10 @@
             loadInitialData();
             switchTab('home');
           } else {
-            showToast('❌ 제보 등록 중 에러가 발생했습니다.');
+            showToast('\u274c \uc81c\ubcf4 \ub4f1\ub85d \uc911 \uc5d0\ub7ec\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4.');
           }
         } catch (err) {
-          showToast('❌ 제보 제출 실패.');
+          showToast('\u274c \uc81c\ubcf4 \uc81c\ucd9c \uc2e4\ud328.');
         }
       }
 
@@ -1798,16 +1798,16 @@
         document.getElementById('detail-image').src = item.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="100%" height="100%" fill="%23111520"/><path d="M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z" stroke="%2300f5d4" stroke-width="3" fill="none"/></svg>';
         document.getElementById('detail-image').alt = item.name;
         document.getElementById('detail-name').textContent = item.name;
-        document.getElementById('detail-address').textContent = '📍 ' + (item.address || '세종시');
+        document.getElementById('detail-address').textContent = '\u1f4cd ' + (item.address || '\uc138\uc885\uc2dc');
         
         const catBadge = document.getElementById('detail-category');
-        catBadge.textContent = item.category || '문화유산';
+        catBadge.textContent = item.category || '\ubb38\ud654\uc720\uc0b0';
         
-        if (item.category === '시민 추천') {
+        if (item.category === '\uc2dc\ubbfc \ucd94\ucc9c') {
           catBadge.className = 'badge badge-pending';
           catBadge.style.background = '';
           catBadge.style.color = '';
-        } else if (item.category === '관광지') {
+        } else if (item.category === '\uad00\uad11\uc9c0') {
           catBadge.className = 'badge badge-approved';
           catBadge.style.background = '';
           catBadge.style.color = '';
@@ -1817,17 +1817,17 @@
           catBadge.style.color = '#00f5d4';
         }
         
-        document.getElementById('detail-description').textContent = item.description || '이 문화유산에 대한 상세 설명 정보가 기록되어 있지 않습니다.';
+        document.getElementById('detail-description').textContent = item.description || '\uc774 \ubb38\ud654\uc720\uc0b0\uc5d0 \ub300\ud55c \uc0c1\uc138 \uc124\uba85 \uc815\ubcf4\uac00 \uae30\ub85d\ub418\uc5b4 \uc788\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.';
         
         const addBtn = document.getElementById('detail-add-btn');
         const exists = courseList.some(c => c.name === item.name);
         if (exists) {
-          addBtn.textContent = '✅ 이미 담겨 있습니다';
+          addBtn.textContent = '\u2705 \uc774\ubbf8 \ub2f4\uaca8 \uc788\uc2b5\ub2c8\ub2e4';
           addBtn.disabled = true;
           addBtn.style.background = 'rgba(255,255,255,0.06)';
           addBtn.style.color = '#64748b';
         } else {
-          addBtn.textContent = '🗺️ 코스에 담기';
+          addBtn.textContent = '\u1f5fa\ufe0f \ucf54\uc2a4\uc5d0 \ub2f4\uae30';
           addBtn.disabled = false;
           addBtn.style.background = 'linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))';
           addBtn.style.color = '#fff';
@@ -1835,7 +1835,7 @@
             courseList.push(item);
             renderCourseList();
             updateMap(courseList, true);
-            showToast(`✅ [${item.name}]을(를) 코스에 담았습니다.`);
+            showToast(`\u2705 [${item.name}]\uc744(\ub97c) \ucf54\uc2a4\uc5d0 \ub2f4\uc558\uc2b5\ub2c8\ub2e4.`);
             closeDetailModal();
           };
         }

@@ -740,7 +740,7 @@
             } else if (methodName === 'getDatabaseStatsGAS') {
               resolve({ official_count: stats.official_count, citizen_pending: 0, citizen_approved: 0 });
             } else if (methodName === 'getCurrentGoogleUserGAS') {
-              resolve({ status: 'fallback', email: 'guest@sejong.go.kr', nickname: '게스트' });
+              resolve({ status: 'fallback', email: 'guest@sejong.go.kr', nickname: '\uac8c\uc2a4\ud2b8' });
             } else if (methodName === 'checkGasDbConfigurationStatus') {
               resolve({ configured: true, working: true, url: 'https://pdpmtgnagwzcsftavtap.supabase.co', error: '' });
             } else {
@@ -788,7 +788,7 @@
       function setupAuthListeners() {
         // Google OAuth Sign In
         document.getElementById('google-login-btn').addEventListener('click', async () => {
-          showToast('⏳ Google OAuth 인증 대행 요청 중...');
+          showToast('\u23f3 Google OAuth \uc778\uc99d \ub300\ud589 \uc694\uccad \uc911...');
           try {
             const userRes = await callGasMethod('getCurrentGoogleUserGAS');
             if (userRes.status === 'success' || userRes.status === 'fallback') {
@@ -800,16 +800,16 @@
               if (dbRes.status === 'success') {
                 safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
                 document.getElementById('auth-overlay').style.display = 'none';
-                showToast(`👋 환영합니다, ${nickname} 감독관님!`);
+                showToast(`\u1f44b \ud658\uc601\ud569\ub2c8\ub2e4, ${nickname} \uac10\ub3c5\uad00\ub2d8!`);
                 loadDashboardData();
               } else {
-                showToast('❌ DB에 관리자 프로필을 등록하지 못했습니다.');
+                showToast('\u274c DB\uc5d0 \uad00\ub9ac\uc790 \ud504\ub85c\ud544\uc744 \ub4f1\ub85d\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.');
               }
             } else {
-              showToast('❌ 구글 계정 정보를 가져오지 못했습니다.');
+              showToast('\u274c \uad6c\uae00 \uacc4\uc815 \uc815\ubcf4\ub97c \uac00\uc838\uc624\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.');
             }
           } catch(err) {
-            showToast('❌ 구글 연동 중 오류 발생.');
+            showToast('\u274c \uad6c\uae00 \uc5f0\ub3d9 \uc911 \uc624\ub958 \ubc1c\uc0dd.');
           }
         });
 
@@ -818,21 +818,21 @@
           const email = document.getElementById('auth-email-input').value.trim();
           const pw = document.getElementById('auth-password-input').value.trim();
           if (!email || !pw) {
-            showToast('이메일과 비밀번호를 모두 입력해 주세요.');
+            showToast('\uc774\uba54\uc77c\uacfc \ube44\ubc00\ubc88\ud638\ub97c \ubaa8\ub450 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
             return;
           }
           
-          showToast('⏳ 관리자 프로필 등록 요청 중...');
+          showToast('\u23f3 \uad00\ub9ac\uc790 \ud504\ub85c\ud544 \ub4f1\ub85d \uc694\uccad \uc911...');
           try {
             const nickname = email.split('@')[0];
             const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'email');
             if (dbRes.status === 'success') {
-              showToast('✅ 가입 처리되었습니다. 로그인해 주십시오.');
+              showToast('\u2705 \uac00\uc785 \ucc98\ub9ac\ub418\uc5c8\uc2b5\ub2c8\ub2e4. \ub85c\uadf8\uc778\ud574 \uc8fc\uc2ed\uc2dc\uc624.');
             } else {
-              showToast('❌ 가입 승인 처리 중 에러.');
+              showToast('\u274c \uac00\uc785 \uc2b9\uc778 \ucc98\ub9ac \uc911 \uc5d0\ub7ec.');
             }
           } catch (err) {
-            showToast('❌ 이메일 회원가입 실패.');
+            showToast('\u274c \uc774\uba54\uc77c \ud68c\uc6d0\uac00\uc785 \uc2e4\ud328.');
           }
         });
 
@@ -841,24 +841,24 @@
           const email = document.getElementById('auth-email-input').value.trim();
           const pw = document.getElementById('auth-password-input').value.trim();
           if (!email || !pw) {
-            showToast('이메일과 비밀번호를 모두 입력해 주세요.');
+            showToast('\uc774\uba54\uc77c\uacfc \ube44\ubc00\ubc88\ud638\ub97c \ubaa8\ub450 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
             return;
           }
 
-          showToast('⏳ 로그인 대조 및 세션 갱신 중...');
+          showToast('\u23f3 \ub85c\uadf8\uc778 \ub300\uc870 \ubc0f \uc138\uc158 \uac31\uc2e0 \uc911...');
           try {
             const nickname = email.split('@')[0];
             const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'email');
             if (dbRes.status === 'success') {
               safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
               document.getElementById('auth-overlay').style.display = 'none';
-              showToast(`👋 반갑습니다, ${nickname} 감독관님!`);
+              showToast(`\u1f44b \ubc18\uac11\uc2b5\ub2c8\ub2e4, ${nickname} \uac10\ub3c5\uad00\ub2d8!`);
               loadDashboardData();
             } else {
-              showToast('❌ 로그인 정보를 확인해 주세요.');
+              showToast('\u274c \ub85c\uadf8\uc778 \uc815\ubcf4\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694.');
             }
           } catch (err) {
-            showToast('❌ 이메일 로그인 실패.');
+            showToast('\u274c \uc774\uba54\uc77c \ub85c\uadf8\uc778 \uc2e4\ud328.');
           }
         });
       }
@@ -867,7 +867,7 @@
       async function loadDashboardData() {
         loading = true;
         const syncBtn = document.getElementById('sync-refresh-btn');
-        if (syncBtn) syncBtn.textContent = '동기화 중...';
+        if (syncBtn) syncBtn.textContent = '\ub3d9\uae30\ud654 \uc911...';
 
         try {
           // 1. Fetch tables data (including official, citizen, and courses)
@@ -904,20 +904,20 @@
           updateStatsUI();
           renderVettingTable();
           renderDBViewerTable();
-          showToast('🔄 통합 데이터 원격 동기화가 성공적으로 완료되었습니다.');
+          showToast('\u1f504 \ud1b5\ud569 \ub370\uc774\ud130 \uc6d0\uaca9 \ub3d9\uae30\ud654\uac00 \uc131\uacf5\uc801\uc73c\ub85c \uc644\ub8cc\ub418\uc5c8\uc2b5\ub2c8\ub2e4.');
         } catch (err) {
-          showToast('❌ 원격 대시보드 상태를 동기화하는 중 에러가 발생했습니다.');
+          showToast('\u274c \uc6d0\uaca9 \ub300\uc2dc\ubcf4\ub4dc \uc0c1\ud0dc\ub97c \ub3d9\uae30\ud654\ud558\ub294 \uc911 \uc5d0\ub7ec\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4.');
         } finally {
           loading = false;
-          if (syncBtn) syncBtn.innerHTML = '🔄 실시간 동기화';
+          if (syncBtn) syncBtn.innerHTML = '\u1f504 \uc2e4\uc2dc\uac04 \ub3d9\uae30\ud654';
         }
       }
 
       // 5. Update summary statistics card values
       function updateStatsUI() {
-        document.getElementById('stat-official-count').textContent = `${stats.official_count}개`;
-        document.getElementById('stat-citizen-pending').textContent = `${stats.citizen_pending}건`;
-        document.getElementById('stat-citizen-approved').textContent = `${stats.citizen_approved}건`;
+        document.getElementById('stat-official-count').textContent = `${stats.official_count}\uac1c`;
+        document.getElementById('stat-citizen-pending').textContent = `${stats.citizen_pending}\uac74`;
+        document.getElementById('stat-citizen-approved').textContent = `${stats.citizen_approved}\uac74`;
 
         const statusDot = document.getElementById('health-status-dot');
         const statusText = document.getElementById('health-status-text');
@@ -942,11 +942,11 @@
               serverDbEl.textContent = 'CONNECTED';
               serverDbEl.style.color = '#10b981';
             } else if (backendHealth.supabase_configured === false) {
-              serverDbEl.textContent = '설정 누락';
+              serverDbEl.textContent = '\uc124\uc815 \ub204\ub77d';
               serverDbEl.style.color = '#ef4444';
             } else {
               // Older server version doesn't export supabase_configured in /health, but server is online
-              serverDbEl.textContent = 'CONNECTED (구버전)';
+              serverDbEl.textContent = 'CONNECTED (\uad6c\ubc84\uc804)';
               serverDbEl.style.color = '#10b981';
             }
           } else {
@@ -963,11 +963,11 @@
             gasDbEl.style.color = '#10b981';
             gasDbEl.title = `Supabase URL: ${gasDbStatus.url}`;
           } else if (gasDbStatus.configured) {
-            gasDbEl.textContent = '연결 실패';
+            gasDbEl.textContent = '\uc5f0\uacb0 \uc2e4\ud328';
             gasDbEl.style.color = '#f59e0b';
             gasDbEl.title = `Error: ${gasDbStatus.error}`;
           } else {
-            gasDbEl.textContent = '설정 누락';
+            gasDbEl.textContent = '\uc124\uc815 \ub204\ub77d';
             gasDbEl.style.color = '#ef4444';
             gasDbEl.title = `Error: ${gasDbStatus.error}`;
           }
@@ -1000,9 +1000,9 @@
         document.getElementById('api-source-select').addEventListener('change', (e) => {
           const input = document.getElementById('openapi-query-input');
           if (e.target.value === 'tour') {
-            input.placeholder = "세종시 추천 관광지 및 명소 입력 (예: 베어트리파크, 호수공원)";
+            input.placeholder = "\uc138\uc885\uc2dc \ucd94\ucc9c \uad00\uad11\uc9c0 \ubc0f \uba85\uc18c \uc785\ub825 (\uc608: \ubca0\uc5b4\ud2b8\ub9ac\ud30c\ud06c, \ud638\uc218\uacf5\uc6d0)";
           } else {
-            input.placeholder = "문화유산 또는 자연 유산 명칭 입력 (예: 은행나무, 독락정)";
+            input.placeholder = "\ubb38\ud654\uc720\uc0b0 \ub610\ub294 \uc790\uc5f0 \uc720\uc0b0 \uba85\uce6d \uc785\ub825 (\uc608: \uc740\ud589\ub098\ubb34, \ub3c5\ub77d\uc815)";
           }
         });
       }
@@ -1035,7 +1035,7 @@
           tbody.innerHTML = `
             <tr>
               <td colSpan="6" style="padding: 40px 0; text-align: center; color: #9ca3af;">
-                접수된 제보 내역이 존재하지 않습니다.
+                \uc811\uc218\ub41c \uc81c\ubcf4 \ub0b4\uc5ed\uc774 \uc874\uc7ac\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.
               </td>
             </tr>
           `;
@@ -1049,17 +1049,17 @@
           tr.onmouseenter = () => tr.style.background = 'rgba(255, 255, 255, 0.02)';
           tr.onmouseleave = () => tr.style.background = 'transparent';
 
-          const statusBadgeClass = row.status === '승인' ? 'badge-approved' : row.status === '반려' ? 'badge-rejected' : 'badge-pending';
-          const statusLabel = row.status || '대기';
+          const statusBadgeClass = row.status === '\uc2b9\uc778' ? 'badge-approved' : row.status === '\ubc18\ub824' ? 'badge-rejected' : 'badge-pending';
+          const statusLabel = row.status || '\ub300\uae30';
           
           const lat = parseFloat(row.latitude || row.lat || 0).toFixed(4);
           const lng = parseFloat(row.longitude || row.lng || 0).toFixed(4);
 
-          let actionButtonsHtml = `<span style="font-size: 0.78rem; color: #9ca3af;">심사 종결</span>`;
-          if (statusLabel === '대기') {
+          let actionButtonsHtml = `<span style="font-size: 0.78rem; color: #9ca3af;">\uc2ec\uc0ac \uc885\uacb0</span>`;
+          if (statusLabel === '\ub300\uae30') {
             actionButtonsHtml = `
-              <button onclick="handleProcessVetting('${row.id}', '승인')" class="action-btn" style="background: #10b981; color: #fff; margin-right: 6px;">승인</button>
-              <button onclick="handleProcessVetting('${row.id}', '반려')" class="action-btn" style="background: #ef4444; color: #fff;">반려</button>
+              <button onclick="handleProcessVetting('${row.id}', '\uc2b9\uc778')" class="action-btn" style="background: #10b981; color: #fff; margin-right: 6px;">\uc2b9\uc778</button>
+              <button onclick="handleProcessVetting('${row.id}', '\ubc18\ub824')" class="action-btn" style="background: #ef4444; color: #fff;">\ubc18\ub824</button>
             `;
           }
 
@@ -1067,7 +1067,7 @@
             <td style="padding: 14px 20px; font-weight: bold; color: #fff;">${row.name}</td>
             <td style="padding: 14px 20px; color: #cbd5e1;">${row.address}</td>
             <td style="padding: 14px 20px; color: #cbd5e1; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${row.description || ''}">
-              ${row.description || '내용 없음'}
+              ${row.description || '\ub0b4\uc6a9 \uc5c6\uc74c'}
             </td>
             <td style="padding: 14px 20px; color: #9ca3af;">${lat}, ${lng}</td>
             <td style="padding: 14px 20px;">
@@ -1084,16 +1084,16 @@
       // Process recommendation status update
       window.handleProcessVetting = async function(id, newStatus) {
         try {
-          showToast(`📁 제보 심사 상태 변경 중 (${newStatus})...`);
+          showToast(`\u1f4c1 \uc81c\ubcf4 \uc2ec\uc0ac \uc0c1\ud0dc \ubcc0\uacbd \uc911 (${newStatus})...`);
           const res = await callGasMethod('updateRecommendationStatusGAS', id, newStatus);
           if (res.status === 'success') {
-            showToast(`✅ 성공적으로 ${newStatus} 처리 완료되었습니다.`);
+            showToast(`\u2705 \uc131\uacf5\uc801\uc73c\ub85c ${newStatus} \ucc98\ub9ac \uc644\ub8cc\ub418\uc5c8\uc2b5\ub2c8\ub2e4.`);
             loadDashboardData();
           } else {
-            showToast(`❌ 상태 업데이트 실패: ${res.message}`);
+            showToast(`\u274c \uc0c1\ud0dc \uc5c5\ub370\uc774\ud2b8 \uc2e4\ud328: ${res.message}`);
           }
         } catch (err) {
-          showToast('❌ 심사 요청 처리 중 네트워크 오류가 발생했습니다.');
+          showToast('\u274c \uc2ec\uc0ac \uc694\uccad \ucc98\ub9ac \uc911 \ub124\ud2b8\uc6cc\ud06c \uc624\ub958\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4.');
         }
       };
 
@@ -1118,11 +1118,11 @@
           table.innerHTML = `
             <thead>
               <tr>
-                <th>유산 ID</th>
-                <th>문화유산명</th>
-                <th>주소 / 소재지</th>
-                <th>분류 / 카테고리</th>
-                <th>위치 (위/경도)</th>
+                <th>\uc720\uc0b0 ID</th>
+                <th>\ubb38\ud654\uc720\uc0b0\uba85</th>
+                <th>\uc8fc\uc18c / \uc18c\uc7ac\uc9c0</th>
+                <th>\ubd84\ub958 / \uce74\ud14c\uace0\ub9ac</th>
+                <th>\uc704\uce58 (\uc704/\uacbd\ub3c4)</th>
               </tr>
             </thead>
             <tbody id="db-viewer-official-tbody"></tbody>
@@ -1131,7 +1131,7 @@
           
           const tbody = document.getElementById('db-viewer-official-tbody');
           if (officialHeritages.length === 0) {
-            tbody.innerHTML = `<tr><td colSpan="5" style="text-align: center; padding: 30px 0;">공식 DB 테이블이 비어있습니다.</td></tr>`;
+            tbody.innerHTML = `<tr><td colSpan="5" style="text-align: center; padding: 30px 0;">\uacf5\uc2dd DB \ud14c\uc774\ube14\uc774 \ube44\uc5b4\uc788\uc2b5\ub2c8\ub2e4.</td></tr>`;
           } else {
             officialHeritages.forEach(item => {
               const tr = document.createElement('tr');
@@ -1158,11 +1158,11 @@
             <thead>
               <tr>
                 <th>ID</th>
-                <th>제보명</th>
-                <th>주소</th>
-                <th>상태</th>
-                <th>제보자</th>
-                <th>등록일자</th>
+                <th>\uc81c\ubcf4\uba85</th>
+                <th>\uc8fc\uc18c</th>
+                <th>\uc0c1\ud0dc</th>
+                <th>\uc81c\ubcf4\uc790</th>
+                <th>\ub4f1\ub85d\uc77c\uc790</th>
               </tr>
             </thead>
             <tbody id="db-viewer-citizen-tbody"></tbody>
@@ -1171,18 +1171,18 @@
 
           const tbody = document.getElementById('db-viewer-citizen-tbody');
           if (citizenSubmissions.length === 0) {
-            tbody.innerHTML = `<tr><td colSpan="6" style="text-align: center; padding: 30px 0;">시민 제보 테이블이 비어있습니다.</td></tr>`;
+            tbody.innerHTML = `<tr><td colSpan="6" style="text-align: center; padding: 30px 0;">\uc2dc\ubbfc \uc81c\ubcf4 \ud14c\uc774\ube14\uc774 \ube44\uc5b4\uc788\uc2b5\ub2c8\ub2e4.</td></tr>`;
           } else {
             citizenSubmissions.forEach(item => {
               const tr = document.createElement('tr');
-              const badgeClass = item.status === '승인' ? 'badge-approved' : item.status === '반려' ? 'badge-rejected' : 'badge-pending';
+              const badgeClass = item.status === '\uc2b9\uc778' ? 'badge-approved' : item.status === '\ubc18\ub824' ? 'badge-rejected' : 'badge-pending';
               const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString() : '-';
               tr.innerHTML = `
                 <td>${item.id}</td>
                 <td style="color: #fff; font-weight: 600;">${item.name}</td>
                 <td>${item.address}</td>
                 <td>
-                  <span class="badge ${badgeClass}">${item.status || '대기'}</span>
+                  <span class="badge ${badgeClass}">${item.status || '\ub300\uae30'}</span>
                 </td>
                 <td style="color: #9ca3af;">${item.user_id}</td>
                 <td style="color: #9ca3af;">${dateStr}</td>
@@ -1196,12 +1196,12 @@
           table.innerHTML = `
             <thead>
               <tr>
-                <th>코스 ID</th>
-                <th>코스 명칭</th>
-                <th>코스 개요 설명</th>
-                <th>이동 수단</th>
-                <th>총 소요시간</th>
-                <th>구성 노드 수</th>
+                <th>\ucf54\uc2a4 ID</th>
+                <th>\ucf54\uc2a4 \uba85\uce6d</th>
+                <th>\ucf54\uc2a4 \uac1c\uc694 \uc124\uba85</th>
+                <th>\uc774\ub3d9 \uc218\ub2e8</th>
+                <th>\ucd1d \uc18c\uc694\uc2dc\uac04</th>
+                <th>\uad6c\uc131 \ub178\ub4dc \uc218</th>
               </tr>
             </thead>
             <tbody id="db-viewer-courses-tbody"></tbody>
@@ -1210,7 +1210,7 @@
 
           const tbody = document.getElementById('db-viewer-courses-tbody');
           if (coursesList.length === 0) {
-            tbody.innerHTML = `<tr><td colSpan="6" style="text-align: center; padding: 30px 0;">저장된 여행 코스가 없습니다.</td></tr>`;
+            tbody.innerHTML = `<tr><td colSpan="6" style="text-align: center; padding: 30px 0;">\uc800\uc7a5\ub41c \uc5ec\ud589 \ucf54\uc2a4\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.</td></tr>`;
           } else {
             coursesList.forEach(item => {
               const tr = document.createElement('tr');
@@ -1223,14 +1223,14 @@
               tr.innerHTML = `
                 <td>${item.id}</td>
                 <td style="color: #fbbf24; font-weight: 600;">${item.course_name}</td>
-                <td>${item.description || '설명 없음'}</td>
+                <td>${item.description || '\uc124\uba85 \uc5c6\uc74c'}</td>
                 <td>
                   <span style="padding: 2px 6px; background: rgba(245,158,11,0.1); color: #fbbf24; border-radius: 4px; font-size: 0.7rem;">
                     ${item.transport}
                   </span>
                 </td>
-                <td style="color: #fff;">${item.total_duration}분</td>
-                <td style="color: #10b981; font-weight: bold;">${nodeCount}개 유산</td>
+                <td style="color: #fff;">${item.total_duration}\ubd84</td>
+                <td style="color: #10b981; font-weight: bold;">${nodeCount}\uac1c \uc720\uc0b0</td>
               `;
               tbody.appendChild(tr);
             });
@@ -1244,14 +1244,14 @@
         const apiSource = document.getElementById('api-source-select').value;
         apiSearchQuery = input.value.trim();
         if (!apiSearchQuery) {
-          showToast(apiSource === 'tour' ? '🔍 관광지 명칭을 입력해 주세요.' : '🔍 유산 명칭을 입력해 주세요.');
+          showToast(apiSource === 'tour' ? '\u1f50d \uad00\uad11\uc9c0 \uba85\uce6d\uc744 \uc785\ub825\ud574 \uc8fc\uc138\uc694.' : '\u1f50d \uc720\uc0b0 \uba85\uce6d\uc744 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
           return;
         }
         
         apiSearchLoading = true;
         const searchBtn = document.getElementById('openapi-search-btn');
         searchBtn.disabled = true;
-        searchBtn.textContent = '연동 로딩 중..';
+        searchBtn.textContent = '\uc5f0\ub3d9 \ub85c\ub529 \uc911..';
 
         try {
           let res;
@@ -1259,29 +1259,29 @@
             res = await fetch(`${CLOUD_RUN_URL}/api/v1/tour-search`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ query: apiSearchQuery, area_code: "세종시" })
+              body: JSON.stringify({ query: apiSearchQuery, area_code: "\uc138\uc885\uc2dc" })
             });
-            if (!res.ok) throw new Error("관광지 API 조회 실패");
+            if (!res.ok) throw new Error("\uad00\uad11\uc9c0 API \uc870\ud68c \uc2e4\ud328");
             const data = await res.json();
             apiSearchResults = data.tourist_spots || [];
           } else {
-            res = await fetch(`${CLOUD_RUN_URL}/api/v1/heritage-search?query=${encodeURIComponent(apiSearchQuery)}&area_code=세종시`, {
+            res = await fetch(`${CLOUD_RUN_URL}/api/v1/heritage-search?query=${encodeURIComponent(apiSearchQuery)}&area_code=\uc138\uc885\uc2dc`, {
               method: "GET"
             });
-            if (!res.ok) throw new Error("문화유산 API 조회 실패");
+            if (!res.ok) throw new Error("\ubb38\ud654\uc720\uc0b0 API \uc870\ud68c \uc2e4\ud328");
             const data = await res.json();
             apiSearchResults = data.heritages || [];
           }
           
           renderOpenAPISearchResults(apiSource);
-          showToast(`🔍 공공 API 검색 완료 (결과 ${apiSearchResults.length}건)`);
+          showToast(`\u1f50d \uacf5\uacf5 API \uac80\uc0c9 \uc644\ub8cc (\uacb0\uacfc ${apiSearchResults.length}\uac74)`);
         } catch (e) {
-          showToast(`❌ 공공 API 검색 실패: ${e.message}`);
+          showToast(`\u274c \uacf5\uacf5 API \uac80\uc0c9 \uc2e4\ud328: ${e.message}`);
           console.error(e);
         } finally {
           apiSearchLoading = false;
           searchBtn.disabled = false;
-          searchBtn.textContent = 'OpenAPI 검색';
+          searchBtn.textContent = 'OpenAPI \uac80\uc0c9';
         }
       }
 
@@ -1293,7 +1293,7 @@
         if (apiSearchResults.length === 0) {
           container.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; padding: 40px 0; color: #9ca3af; border: 1px dashed rgba(255,255,255,0.05); border-radius: 8px;">
-              ${apiSearchQuery ? '검색 결과가 존재하지 않습니다.' : '관광지나 문화유산을 검색하여 동기화할 데이터를 발굴해 보세요.'}
+              ${apiSearchQuery ? '\uac80\uc0c9 \uacb0\uacfc\uac00 \uc874\uc7ac\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.' : '\uad00\uad11\uc9c0\ub098 \ubb38\ud654\uc720\uc0b0\uc744 \uac80\uc0c9\ud558\uc5ec \ub3d9\uae30\ud654\ud560 \ub370\uc774\ud130\ub97c \ubc1c\uad74\ud574 \ubcf4\uc138\uc694.'}
             </div>
           `;
           return;
@@ -1309,7 +1309,7 @@
           card.style.flexDirection = 'column';
           card.style.justifyContent = 'space-between';
 
-          const badgeLabel = apiSource === 'tour' ? '🗺️ TourAPI 관광지' : '🌐 OpenAPI 지정 유산';
+          const badgeLabel = apiSource === 'tour' ? '\u1f5fa\ufe0f TourAPI \uad00\uad11\uc9c0' : '\u1f310 OpenAPI \uc9c0\uc815 \uc720\uc0b0';
           const badgeBg = apiSource === 'tour' ? 'rgba(59,130,246,0.1)' : 'rgba(52,211,153,0.1)';
           const badgeColor = apiSource === 'tour' ? '#60a5fa' : '#34d399';
 
@@ -1322,11 +1322,11 @@
                 <span style="font-size: 0.75rem; color: #fbbf24; font-weight: bold;">${item.category}</span>
               </div>
               <h4 style="margin: 0 0 6px 0; color: #fff; font-size: 1rem;">${item.name}</h4>
-              <p style="margin: 0 0 10px 0; font-size: 0.75rem; color: #9ca3af;">📍 ${item.address}</p>
+              <p style="margin: 0 0 10px 0; font-size: 0.75rem; color: #9ca3af;">\u1f4cd ${item.address}</p>
               <p style="margin: 0 0 16px 0; font-size: 0.8rem; color: #cbd5e1; line-height: 1.5;">${item.description}</p>
             </div>
             <button onclick="handleSyncToDB(${idx}, '${apiSource}')" class="action-btn" style="width: 100%; background: #10b981; color: #fff; font-weight: bold; padding: 10px;">
-              💾 공식 DB로 동기화(추가)
+              \u1f4be \uacf5\uc2dd DB\ub85c \ub3d9\uae30\ud654(\ucd94\uac00)
             </button>
           `;
           container.appendChild(card);
@@ -1338,9 +1338,9 @@
         if (!item) return;
 
         try {
-          showToast(`💾 [${item.name}] 유산을 공식 DB에 추가하는 중...`);
+          showToast(`\u1f4be [${item.name}] \uc720\uc0b0\uc744 \uacf5\uc2dd DB\uc5d0 \ucd94\uac00\ud558\ub294 \uc911...`);
           if (officialHeritages.some(oh => oh.name === item.name)) {
-            showToast('⚠️ 이미 공식 DB에 추가되어 있는 문화유산입니다.');
+            showToast('\u26a0\ufe0f \uc774\ubbf8 \uacf5\uc2dd DB\uc5d0 \ucd94\uac00\ub418\uc5b4 \uc788\ub294 \ubb38\ud654\uc720\uc0b0\uc785\ub2c8\ub2e4.');
             return;
           }
 
@@ -1358,13 +1358,13 @@
 
           const res = await callGasMethod('insertOfficialHeritageGAS', payload);
           if (res.status === 'success') {
-            showToast(`✅ [${item.name}] 공식 DB 추가(동기화)가 완료되었습니다.`);
+            showToast(`\u2705 [${item.name}] \uacf5\uc2dd DB \ucd94\uac00(\ub3d9\uae30\ud654)\uac00 \uc644\ub8cc\ub418\uc5c8\uc2b5\ub2c8\ub2e4.`);
             loadDashboardData();
           } else {
-            showToast(`❌ DB 동기화 실패: ${res.message}`);
+            showToast(`\u274c DB \ub3d9\uae30\ud654 \uc2e4\ud328: ${res.message}`);
           }
         } catch (err) {
-          showToast('❌ DB 동기화 처리 중 서버 연동 실패.');
+          showToast('\u274c DB \ub3d9\uae30\ud654 \ucc98\ub9ac \uc911 \uc11c\ubc84 \uc5f0\ub3d9 \uc2e4\ud328.');
         }
       };
     </script>
