@@ -54,30 +54,33 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 100vh;
-        padding: 20px;
+        height: 100vh;
+        background: #080c14;
+        margin: 0;
+        padding: 0;
         box-sizing: border-box;
       }
 
       .mobile-device-chassis {
         width: 100%;
-        max-width: 480px;
-        height: 980px;
+        max-width: 500px;
+        height: 100%;
         background: #090d16;
-        border: 8px solid #1e293b;
-        border-radius: 40px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.85);
         overflow: hidden;
         display: flex;
         flex-direction: column;
         position: relative;
+        border-left: 1px solid rgba(255, 255, 255, 0.05);
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
       }
 
       .mobile-app-content {
         flex: 1;
-        overflow-y: auto;
+        overflow: hidden;
         display: flex;
         flex-direction: column;
+        height: 100%;
       }
 
       .btn-primary {
@@ -366,7 +369,7 @@
           </header>
 
           <!-- Common Leaflet Map Container (Fixed at top of content area, hidden in Report tab) -->
-          <div id="map-container" style="height: 500px; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1;">
+          <div id="map-container" style="height: 280px; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1;">
             <!-- Floating overlay controls for Map Style -->
             <div style="position: absolute; top: 12px; right: 12px; z-index: 1000; display: flex; gap: 8px;">
               <button id="map-theme-btn" style="background: rgba(9, 13, 22, 0.85); border: 1px solid rgba(0, 245, 212, 0.4); color: #00f5d4; font-size: 0.72rem; font-weight: bold; padding: 6px 10px; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.55); backdrop-filter: blur(4px); transition: all 0.2s;">
