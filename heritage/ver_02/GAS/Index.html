@@ -929,6 +929,7 @@
       // 6. Update Map Markers and Connecting Polyline Paths
       function updateMap(listToShow, showPath = true) {
         if (!mapInstance) return;
+        window.mapItemCache = listToShow; // Cache items globally to prevent single quote syntax errors
         
         // Clear old markers & paths
         mapMarkers.forEach(m => mapInstance.removeLayer(m));
@@ -982,7 +983,7 @@
                 <span style="display: inline-block; padding: 2px 6px; background: #e0f2fe; color: #0369a1; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">
                   \u1f3db\ufe0f ${item.category || '\uae30\ud0c0'}
                 </span>
-                <button onclick="showDetailModal('${encodeURIComponent(JSON.stringify(item))}')" style="background: #7209b7; border: none; color: #fff; padding: 3px 6px; font-size: 0.72rem; font-weight: bold; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
+                <button onclick="showDetailModalByIndex(${index})" style="background: #7209b7; border: none; color: #fff; padding: 3px 6px; font-size: 0.72rem; font-weight: bold; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
                   \u1f50e \uc0c1\uc138 \uc815\ubcf4
                 </button>
               </div>
@@ -1195,7 +1196,7 @@
           card.style.marginBottom = '10px';
 
           card.innerHTML = `
-            <div onclick="showDetailModal('${encodeURIComponent(JSON.stringify(item))}')" style="display: flex; gap: 12px; align-items: center; flex: 1; cursor: pointer;">
+            <div onclick="showRAGCardDetail(${idx})" style="display: flex; gap: 12px; align-items: center; flex: 1; cursor: pointer;">
               <img src="${item.image_url}" alt="${item.name}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;" />
               <div style="flex: 1;">
                 <h4 style="margin: 0 0 2px 0; font-size: 0.82rem; color: #fff;">${item.name}</h4>
@@ -1427,7 +1428,7 @@
 
         const markup = courseList.map((item, idx) => `
           <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
-            <span onclick="showDetailModal('${encodeURIComponent(JSON.stringify(item))}')" style="font-size: 0.8rem; color: #fff; font-weight: 600; cursor: pointer; transition: color 0.2s;">
+            <span onclick="showCourseCardDetail(${idx})" style="font-size: 0.8rem; color: #fff; font-weight: 600; cursor: pointer; transition: color 0.2s;">
               ${idx + 1}. ${item.name}
             </span>
             <button onclick="removeCourseItem('${item.id}')" style="background: none; border: none; color: #f43f5e; cursor: pointer; font-size: 0.78rem; position: relative; z-index: 2;">
