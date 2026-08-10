@@ -273,24 +273,6 @@
       .custom-sequence-marker div {
         animation: pulse-marker 2s infinite;
       }
-
-      /* Landscape mode styles */
-      .mobile-device-chassis.landscape-chassis {
-        max-width: 920px !important;
-        height: 580px !important;
-        border-radius: 30px !important;
-      }
-      
-      .mobile-device-chassis.landscape-chassis .mobile-app-content {
-        flex-direction: row !important;
-      }
-      
-      .mobile-device-chassis.landscape-chassis #map-container {
-        width: 45% !important;
-        height: 100% !important;
-        border-bottom: none !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
-      }
     </style>
   </head>
   <body>
@@ -366,13 +348,10 @@
 
           <!-- Common Leaflet Map Container (Fixed at top of content area, hidden in Report tab) -->
           <div id="map-container" style="height: 250px; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1;">
-            <!-- Floating overlay controls for Map Style & Orientation -->
+            <!-- Floating overlay controls for Map Style -->
             <div style="position: absolute; top: 12px; right: 12px; z-index: 1000; display: flex; gap: 8px;">
               <button id="map-theme-btn" style="background: rgba(9, 13, 22, 0.85); border: 1px solid rgba(0, 245, 212, 0.4); color: #00f5d4; font-size: 0.72rem; font-weight: bold; padding: 6px 10px; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.55); backdrop-filter: blur(4px); transition: all 0.2s;">
-                🎨 컬러 지도
-              </button>
-              <button id="map-layout-btn" style="background: rgba(9, 13, 22, 0.85); border: 1px solid rgba(0, 245, 212, 0.4); color: #00f5d4; font-size: 0.72rem; font-weight: bold; padding: 6px 10px; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.55); backdrop-filter: blur(4px); transition: all 0.2s;">
-                🔄 가로보기
+                🕶️ 흑백 지도
               </button>
             </div>
           </div>
@@ -674,8 +653,7 @@
       let mapMarkers = [];
       let mapPolyline = null;
       let activeTileLayer = null;
-      let mapTheme = 'dark';
-      let isLandscape = false;
+      let mapTheme = 'color';
 
       // Image Upload Base64 Cache
       let reportPhotoBase64 = '';
@@ -838,8 +816,8 @@
             scrollWheelZoom: true
           }).setView([36.50, 127.26], 12);
  
-          // Premium Dark Theme Map Layer by CARTO Basemaps
-          activeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          // Premium Color Theme Map Layer by CARTO Basemaps
+          activeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 20,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           }).addTo(mapInstance);
@@ -883,27 +861,6 @@
             maxZoom: 20,
             attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
           }).addTo(mapInstance);
-        }
-      }
-
-      function toggleAppLayout() {
-        const chassis = document.querySelector('.mobile-device-chassis');
-        const btn = document.getElementById('map-layout-btn');
-        if (!chassis) return;
-        
-        isLandscape = !isLandscape;
-        if (isLandscape) {
-          chassis.classList.add('landscape-chassis');
-          btn.textContent = '📱 세로보기';
-        } else {
-          chassis.classList.remove('landscape-chassis');
-          btn.textContent = '🔄 가로보기';
-        }
-        
-        if (mapInstance) {
-          setTimeout(() => {
-            mapInstance.invalidateSize();
-          }, 150);
         }
       }
  
@@ -1096,7 +1053,6 @@
 
         // Map overlay controls click listeners
         document.getElementById('map-theme-btn').addEventListener('click', toggleMapTheme);
-        document.getElementById('map-layout-btn').addEventListener('click', toggleAppLayout);
       }
 
       // 9. Tab View switcher
