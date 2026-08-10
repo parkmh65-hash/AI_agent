@@ -15,6 +15,40 @@ from langgraph.graph import StateGraph, END
 
 from app.config import settings
 
+_cached_heritage_table = None
+
+async def get_heritage_table_name(client: httpx.AsyncClient, headers: dict) -> str:
+    global _cached_heritage_table
+    if _cached_heritage_table is not None:
+        return _cached_heritage_table
+    if not settings.SUPABASE_URL:
+        return "heritages"
+    try:
+        res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/heritages?select=id&limit=1",
+            headers=headers,
+            timeout=3.0
+        )
+        if res.status_code != 404:
+            _cached_heritage_table = "heritages"
+            return "heritages"
+    except Exception:
+        pass
+        
+    try:
+        res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/heritage?select=id&limit=1",
+            headers=headers,
+            timeout=3.0
+        )
+        if res.status_code != 404:
+            _cached_heritage_table = "heritage"
+            return "heritage"
+    except Exception:
+        pass
+        
+    return "heritages"
+
 # 1. Output Schemas
 class StoryboardCard(BaseModel):
     name: str = Field(description="문화유산 이름")
@@ -181,8 +215,9 @@ async def get_heritage_coords(heritage_name: str) -> tuple:
                 "apikey": settings.SUPABASE_KEY,
                 "Authorization": f"Bearer {settings.SUPABASE_KEY}"
             }
-            url = f"{settings.SUPABASE_URL}/rest/v1/heritages?name=eq.{urllib.parse.quote(heritage_name)}&select=latitude,longitude"
             async with httpx.AsyncClient() as client:
+                table = await get_heritage_table_name(client, headers)
+                url = f"{settings.SUPABASE_URL}/rest/v1/{table}?name=eq.{urllib.parse.quote(heritage_name)}&select=latitude,longitude"
                 res = await client.get(url, headers=headers, timeout=3.0)
                 if res.status_code == 200:
                     data = res.json()

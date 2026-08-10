@@ -22,6 +22,40 @@ from app.services.guidebook_service import GuidebookService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ver_02_backend")
 
+_cached_heritage_table = None
+
+async def get_heritage_table_name(client: httpx.AsyncClient, headers: dict) -> str:
+    global _cached_heritage_table
+    if _cached_heritage_table is not None:
+        return _cached_heritage_table
+    if not settings.SUPABASE_URL:
+        return "heritages"
+    try:
+        res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/heritages?select=id&limit=1",
+            headers=headers,
+            timeout=3.0
+        )
+        if res.status_code != 404:
+            _cached_heritage_table = "heritages"
+            return "heritages"
+    except Exception:
+        pass
+        
+    try:
+        res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/heritage?select=id&limit=1",
+            headers=headers,
+            timeout=3.0
+        )
+        if res.status_code != 404:
+            _cached_heritage_table = "heritage"
+            return "heritage"
+    except Exception:
+        pass
+        
+    return "heritages"
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="전국 스마트 문화유산 통합 서비스 백엔드 API 서비스",
@@ -67,6 +101,7 @@ def health_check():
 async def handle_agentic_rag_query(req: RagQueryRequest):
     """Provide RAG optimized recommended cards for Sejong official heritages"""
     query = req.query.strip().lower()
+    area_code = req.area_code
     logger.info(f"Received Agentic RAG Query: {query} (area: {req.area_code})")
     
     if not query:
@@ -146,68 +181,6 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                 "final_output": f"AI 분석 결과: 시맨틱 라우팅 결과 '코스 추천'으로 식별되어 과거에 보관된 명소 연계 코스 중 가장 적합한 추천 코스를 발굴했습니다."
             }
 
-async def fetch_national_heritage_openapi(query: str, area_code: str = "전체") -> List[Dict[str, Any]]:
-    """Query cultural heritages using official National Heritage Spatial Information Open API (국가유산 공간정보 Open API)"""
-    results = []
-    search_word = query
-    if area_code != "전체" and area_code in query:
-        search_word = query.replace(area_code, "").strip()
-    if not search_word:
-        search_word = query
-        
-    # 외부 문화유산 검색 API로는 오직 '국가유산 공간정보 Open API' (WFS spca.do) 서비스만 사용하도록 보장
-    list_url = f"https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaMnm1={urllib.parse.quote(search_word)}"
-    async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
-        try:
-            res_list = await client.get(list_url, timeout=5.0)
-            if res_list.status_code == 200:
-                root = ET.fromstring(res_list.text)
-                items = root.findall(".//item")
-                for item in items[:5]:
-                    kdcd = item.findtext("ccbaKdcd")
-                    asno = item.findtext("ccbaAsno")
-                    ctcd = item.findtext("ccbaCtcd")
-                    if kdcd and asno and ctcd:
-                        dt_url = f"https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd={kdcd}&ccbaAsno={asno}&ccbaCtcd={ctcd}"
-                        res_dt = await client.get(dt_url, timeout=5.0)
-                        if res_dt.status_code == 200:
-                            dt_root = ET.fromstring(res_dt.text)
-                            dt_item = dt_root.find(".//item")
-                            if dt_item is not None:
-                                name = dt_item.findtext("ccbaMnm1") or item.findtext("ccbaMnm1")
-                                desc = dt_item.findtext("content") or ""
-                                lng = dt_item.findtext("longitude")
-                                lat = dt_item.findtext("latitude")
-                                img = dt_item.findtext("imageUrl")
-                                addr = dt_item.findtext("ccbaLcnc") or item.findtext("ccbaLcnc") or ""
-                                
-                                coord_lat = float(lat) if lat else 0.0
-                                coord_lng = float(lng) if lng else 0.0
-                                if coord_lat > coord_lng:
-                                    latitude = coord_lng
-                                    longitude = coord_lat
-                                else:
-                                    latitude = coord_lat
-                                    longitude = coord_lng
-                                    
-                                if latitude == 0.0 or longitude == 0.0:
-                                    latitude = 36.48
-                                    longitude = 127.28
-                                    
-                                results.append({
-                                    "id": f"cha_{kdcd}_{asno}_{ctcd}",
-                                    "name": name,
-                                    "address": addr,
-                                    "category": "문화유산",
-                                    "era_normalized": "문화재청",
-                                    "latitude": latitude,
-                                    "longitude": longitude,
-                                    "description": desc[:300] + "..." if len(desc) > 300 else desc,
-                                    "image_url": img if img and img.startswith("http") else "https://via.placeholder.com/150"
-                                })
-        except Exception as e:
-            logger.error(f"National Heritage API call failed for {search_word}: {e}")
-    return results
 
     # Default Route / Route A: Heritage Search (National Heritage Spatial Information Open API)
     matched = []
@@ -223,8 +196,9 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
                 "Authorization": f"Bearer {settings.SUPABASE_KEY}"
             }
             safe_query = f"*{query}*"
-            url = f"{settings.SUPABASE_URL}/rest/v1/heritages?or=(name.ilike.{safe_query},description.ilike.{safe_query},category.ilike.{safe_query})&limit=5"
             async with httpx.AsyncClient() as client:
+                table = await get_heritage_table_name(client, headers)
+                url = f"{settings.SUPABASE_URL}/rest/v1/{table}?or=(name.ilike.{safe_query},description.ilike.{safe_query},category.ilike.{safe_query})&limit=5"
                 res = await client.get(url, headers=headers, timeout=5.0)
                 if res.status_code == 200:
                     raw_list = res.json()
@@ -252,8 +226,9 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
                 "apikey": settings.SUPABASE_KEY,
                 "Authorization": f"Bearer {settings.SUPABASE_KEY}"
             }
-            url = f"{settings.SUPABASE_URL}/rest/v1/heritages?limit=5"
             async with httpx.AsyncClient() as client:
+                table = await get_heritage_table_name(client, headers)
+                url = f"{settings.SUPABASE_URL}/rest/v1/{table}?limit=5"
                 res = await client.get(url, headers=headers, timeout=5.0)
                 if res.status_code == 200:
                     raw_list = res.json()
@@ -281,6 +256,152 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
         "output_heritages": matched,
         "final_output": f"AI 분석 결과: 시맨틱 라우팅 결과 '유산 검색'으로 식별되어 원격 데이터베이스 실데이터 실시간 조회를 기반으로 추천 결과를 구성했습니다."
     }
+
+async def fetch_national_heritage_openapi(query: str, area_code: str = "전체") -> List[Dict[str, Any]]:
+    """Query cultural heritages combining SearchKindOpenapiList, SearchKindOpenapiDt, and Heritage GIS APIs"""
+    results = []
+    
+    # Sido code mapping for Korea
+    REGIONS_MAP = {
+        "서울": "11", "서울특별시": "11",
+        "부산": "21", "부산광역시": "21",
+        "대구": "22", "대구광역시": "22",
+        "인천": "23", "인천광역시": "23",
+        "광주": "24", "광주광역시": "24",
+        "대전": "25", "대전광역시": "25",
+        "울산": "26", "울산광역시": "26",
+        "세종": "45", "세종특별자치시": "45",
+        "경기": "31", "경기도": "31",
+        "강원": "32", "강원특별자치도": "32",
+        "충북": "33", "충청북도": "33",
+        "충남": "34", "충청남도": "34",
+        "전북": "35", "전라북도": "35", "전북특별자치도": "35",
+        "전남": "36", "전라남도": "36",
+        "경북": "37", "경상북도": "37",
+        "경남": "38", "경상남도": "38",
+        "제주": "50", "제주특별자치도": "50"
+    }
+    
+    ctcd = ""
+    if area_code != "전체":
+        ctcd = REGIONS_MAP.get(area_code, "")
+        if not ctcd:
+            for k, v in REGIONS_MAP.items():
+                if k in area_code or area_code in k:
+                    ctcd = v
+                    break
+
+    search_word = query
+    if area_code != "전체" and area_code in query:
+        search_word = query.replace(area_code, "").strip()
+    if not search_word:
+        search_word = query
+        
+    # 1. Query List API (SearchKindOpenapiList.do)
+    list_url = f"http://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaMnm1={urllib.parse.quote(search_word)}"
+    if ctcd:
+        list_url += f"&ccbaCtcd={ctcd}"
+        
+    async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
+        try:
+            res_list = await client.get(list_url, timeout=6.0)
+            if res_list.status_code == 200:
+                root = ET.fromstring(res_list.text)
+                items = root.findall(".//item")
+                for item in items[:5]:
+                    kdcd_val = item.findtext("ccbaKdcd")
+                    asno_val = item.findtext("ccbaAsno")
+                    ctcd_val = item.findtext("ccbaCtcd")
+                    
+                    if kdcd_val and asno_val and ctcd_val:
+                        # Default values from list item
+                        name = item.findtext("ccbaMnm1") or ""
+                        addr = item.findtext("ccbaLcnc") or ""
+                        list_lng = item.findtext("longitude")
+                        list_lat = item.findtext("latitude")
+                        
+                        desc = ""
+                        img = ""
+                        
+                        # 2. Query Detail API (SearchKindOpenapiDt.do)
+                        dt_url = f"http://www.khs.go.kr/cha/SearchKindOpenapiDt.do?ccbaKdcd={kdcd_val}&ccbaAsno={asno_val}&ccbaCtcd={ctcd_val}"
+                        try:
+                            res_dt = await client.get(dt_url, timeout=5.0)
+                            if res_dt.status_code == 200:
+                                dt_root = ET.fromstring(res_dt.text)
+                                dt_item = dt_root.find(".//item")
+                                if dt_item is not None:
+                                    name = dt_item.findtext("ccbaMnm1") or name
+                                    desc = dt_item.findtext("content") or ""
+                                    img = dt_item.findtext("imageUrl") or ""
+                                    
+                                    ccbaLcad = dt_item.find("ccbaLcad")
+                                    if ccbaLcad is not None:
+                                        addr = "".join(ccbaLcad.itertext()).strip()
+                        except Exception as e:
+                            logger.warn(f"Detail API failed for {kdcd_val}-{asno_val}: {e}")
+                            
+                        # Extract coordinates (Detail API priority, then List API, then GIS API fallback)
+                        lng_val = 0.0
+                        lat_val = 0.0
+                        
+                        # Try to parse detail XML coordinates first if present in root
+                        dt_lng = dt_root.findtext("longitude") if 'dt_root' in locals() else None
+                        dt_lat = dt_root.findtext("latitude") if 'dt_root' in locals() else None
+                        
+                        coord_lng = dt_lng or list_lng
+                        coord_lat = dt_lat or list_lat
+                        
+                        if coord_lng and coord_lng != "0":
+                            lng_val = float(coord_lng)
+                        if coord_lat and coord_lat != "0":
+                            lat_val = float(coord_lat)
+                            
+                        # 3. Fallback to GIS Location API (spca.do) if coordinates are zero/invalid
+                        if lng_val == 0.0 or lat_val == 0.0:
+                            gis_url = f"https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd={kdcd_val}&ccbaAsno={asno_val}&ccbaCtcd={ctcd_val}"
+                            try:
+                                res_gis = await client.get(gis_url, timeout=5.0)
+                                if res_gis.status_code == 200:
+                                    gis_root = ET.fromstring(res_gis.text)
+                                    gis_item = gis_root.find(".//item")
+                                    if gis_item is not None:
+                                        gis_lng = gis_item.findtext("longitude")
+                                        gis_lat = gis_item.findtext("latitude")
+                                        if gis_lng and gis_lng != "0":
+                                            lng_val = float(gis_lng)
+                                        if gis_lat and gis_lat != "0":
+                                            lat_val = float(gis_lat)
+                            except Exception as e:
+                                logger.warn(f"GIS API failed for {kdcd_val}-{asno_val}: {e}")
+                                
+                        # Coordinate normalization / swap check
+                        if lat_val > lng_val:
+                            latitude = lng_val
+                            longitude = lat_val
+                        else:
+                            latitude = lat_val
+                            longitude = lng_val
+                            
+                        if latitude == 0.0 or longitude == 0.0:
+                            latitude = 36.48
+                            longitude = 127.28
+                            
+                        results.append({
+                            "id": f"cha_{kdcd_val}_{asno_val}_{ctcd_val}",
+                            "name": name,
+                            "address": addr,
+                            "category": "문화유산",
+                            "era_normalized": "국가유산청",
+                            "latitude": latitude,
+                            "longitude": longitude,
+                            "description": desc[:300] + "..." if len(desc) > 300 else desc,
+                            "image_url": img if img and img.startswith("http") else "https://via.placeholder.com/150"
+                        })
+        except Exception as e:
+            logger.error(f"Combined Heritage APIs call failed for {search_word}: {e}")
+            
+    return results
 
 @app.post("/api/v1/guidebook")
 async def generate_travel_guidebook(req: GuidebookRequest):
@@ -365,8 +486,9 @@ async def db_health_check():
         try:
             headers = get_supabase_headers()
             async with httpx.AsyncClient() as client:
+                table = await get_heritage_table_name(client, headers)
                 res = await client.get(
-                    f"{settings.SUPABASE_URL}/rest/v1/heritages?select=id&limit=1",
+                    f"{settings.SUPABASE_URL}/rest/v1/{table}?select=id&limit=1",
                     headers=headers,
                     timeout=3.0
                 )
@@ -399,8 +521,9 @@ async def get_initial_db_data(role: Optional[str] = "user"):
     try:
         async with httpx.AsyncClient() as client:
             # 1. Fetch official heritages
+            table = await get_heritage_table_name(client, headers)
             res_official = await client.get(
-                f"{settings.SUPABASE_URL}/rest/v1/heritages?select=*",
+                f"{settings.SUPABASE_URL}/rest/v1/{table}?select=*",
                 headers=headers,
                 timeout=5.0
             )
@@ -568,8 +691,9 @@ async def get_database_stats():
     try:
         async with httpx.AsyncClient() as client:
             # Official count
+            table = await get_heritage_table_name(client, headers)
             res_official = await client.get(
-                f"{settings.SUPABASE_URL}/rest/v1/heritages?select=id",
+                f"{settings.SUPABASE_URL}/rest/v1/{table}?select=id",
                 headers=headers,
                 timeout=5.0
             )
@@ -610,8 +734,9 @@ async def insert_official_heritage(item: Dict[str, Any]):
     
     try:
         async with httpx.AsyncClient() as client:
+            table = await get_heritage_table_name(client, headers)
             res = await client.post(
-                f"{settings.SUPABASE_URL}/rest/v1/heritages",
+                f"{settings.SUPABASE_URL}/rest/v1/{table}",
                 headers=headers,
                 json=item,
                 timeout=5.0

@@ -1018,6 +1018,10 @@
         document.getElementById('view-db-viewer').style.display = tab === 'db_viewer' ? 'block' : 'none';
         document.getElementById('view-api-search').style.display = tab === 'api_search' ? 'block' : 'none';
         document.getElementById('view-ai-workflow').style.display = tab === 'ai_workflow' ? 'block' : 'none';
+
+        if (tab === 'db_viewer') {
+          renderDBViewerTable();
+        }
       }
 
       // 8. Render Citizen Submissions table entries

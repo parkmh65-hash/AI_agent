@@ -812,6 +812,16 @@
             maxZoom: 20,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           }).addTo(mapInstance);
+
+        // National Heritage GIS WMS Overlay Layer
+        L.tileLayer.wms('https://gis-heritage.go.kr/checkKey.do', {
+          layers: 'TB_THFS_MID',
+          format: 'image/png',
+          transparent: true,
+          version: '1.3.0',
+          domain: 'https://gis-heritage.go.kr/',
+          attribution: '&copy; 국가유산 공간정보 서비스'
+        }).addTo(mapInstance);
           
           // Fix map size on render delay
           setTimeout(() => {
@@ -1057,7 +1067,7 @@
           headerWrapper.innerHTML = `<h4 style="margin: 0; fontSize: 0.95rem; color: #fff;">🤖 AI 추천 문화유산 코스</h4>`;
         }
 
-        ragCards.forEach(item => {
+        ragCards.forEach((item, idx) => {
           const card = document.createElement('div');
           card.className = 'glass-card';
           card.style.padding = '12px';
@@ -1069,6 +1079,52 @@
           card.innerHTML = `
             <img src="${item.image_url}" alt="${item.name}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;" />
             <div style="flex: 1;">
+              <h4 style="margin: 0 0 2px 0; font-size: 0.82rem; color: #fff;">${item.name}</h4>
+              <p style="margin: 0; font-size: 0.72rem; color: var(--text-sub);">${item.address || '세종시'} | ${item.category || '문화유산'}</p>
+            </div>
+            <button onclick="addIndividualToCourse(${idx})" style="background: rgba(0, 245, 212, 0.15); border: 1px solid rgba(0, 245, 212, 0.4); color: #00f5d4; padding: 4px 8px; font-size: 0.7rem; border-radius: 4px; cursor: pointer; font-weight: 700;">
+              + 담기
+            </button>
+          `;
+          listContainer.appendChild(card);
+        });
+      }
+
+      window.addAllToCourse = function() {
+        if (ragCards.length === 0) {
+          showToast('❌ 추천된 유산이 없습니다.');
+          return;
+        }
+        const seenNames = new Set(courseList.map(c => c.name));
+        let addedCount = 0;
+        ragCards.forEach(item => {
+          if (!seenNames.has(item.name)) {
+            courseList.push(item);
+            addedCount++;
+          }
+        });
+        if (addedCount > 0) {
+          renderCourseList();
+          updateMap(courseList, true);
+          showToast(`✅ 추천 유산 ${addedCount}개를 코스에 담았습니다.`);
+        } else {
+          showToast('ℹ️ 이미 코스에 담겨 있습니다.');
+        }
+      };
+
+      window.addIndividualToCourse = function(idx) {
+        if (idx < 0 || idx >= ragCards.length) return;
+        const item = ragCards[idx];
+        const exists = courseList.some(c => c.name === item.name);
+        if (exists) {
+          showToast('ℹ️ 이미 코스에 담겨 있습니다.');
+          return;
+        }
+        courseList.push(item);
+        renderCourseList();
+        updateMap(courseList, true);
+        showToast(`✅ [${item.name}]을(를) 코스에 담았습니다.`);
+      };
                  // 12. RAG Recommendation Agent Query Executor (Sequential Pipeline - Split Into Steps)
       
       // STEP 1: Search & Recommend 5 Heritages (Markers Only)
@@ -1156,7 +1212,8 @@
       }
  
       // STEP 2: Map Courses with AntPath Routing
-      window.createTourCourse = function() {
+      // STEP 2: Map Courses with AntPath Routing
+      window.createTourCourse = async function() {
         const step2 = document.getElementById('pipeline-step-2');
         const icon2 = document.getElementById('step-2-icon');
         const step3 = document.getElementById('pipeline-step-3');
@@ -1168,20 +1225,59 @@
           return;
         }
         
+        const regionSelect = document.getElementById('region-select');
+        const region = regionSelect ? regionSelect.value : '세종시';
+        const input = document.getElementById('rag-query-input');
+        const query = input ? input.value.trim() : '';
+
         try {
           if (step2) { step2.style.color = '#38bdf8'; icon2.textContent = '🔄'; }
-          showToast('⏳ 2단계: 최적 경로 연산 및 동선 맵 매핑 중...');
+          showToast('⏳ 2단계: 관광공사 API 연계 주변 관광지 5개 검색 중...');
           
-          // Set course destination list
-          courseList = [...ragCards];
+          let tours = [];
+          try {
+            const resTours = await fetch(`${CLOUD_RUN_URL}/api/v1/tour-search`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: query, area_code: region })
+            });
+            
+            if (resTours.ok) {
+              const dataTours = await resTours.json();
+              tours = dataTours.tourist_spots || [];
+            } else {
+              console.warn("Tour search API failed, falling back to static list.");
+            }
+          } catch (apiErr) {
+            console.error("Failed to fetch tour-search:", apiErr);
+          }
+          
+          // Merge ragCards (heritages) and tours without duplicates
+          const seenNames = new Set();
+          courseList = [];
+          
+          ragCards.forEach(item => {
+            if (!seenNames.has(item.name)) {
+              seenNames.add(item.name);
+              courseList.push(item);
+            }
+          });
+          
+          tours.forEach(item => {
+            if (!seenNames.has(item.name)) {
+              seenNames.add(item.name);
+              courseList.push(item);
+            }
+          });
+          
           renderCourseList();
           
           // Redraw map with AntPath active route lines
           updateMap(courseList, true);
           
           if (step2) { step2.style.color = '#10b981'; icon2.textContent = '✅'; }
-          if (step3) { step3.style.color = '#38bdf8'; icon3.textContent = '🔘'; }
-          showToast('✅ 2단계 완료: 추천 코스 이동 동선이 지도에 연동되었습니다.');
+          if (step3) { step3.style.color = '#38bdf8'; icon3.textContent = '🔄'; }
+          showToast('✅ 2단계 완료: 문화유산 및 주변 관광지가 매핑되었습니다.');
           
           // Inject CTA Button for Step 3
           if (actionsArea) {
@@ -1239,55 +1335,6 @@
         } catch(err) {
           showToast(`❌ 3단계 에러: ${err.message}`);
           if (step3) { step3.style.color = '#ef4444'; icon3.textContent = '❌'; }
-        }
-      }�'; }
-          if (step2) { step2.style.color = '#38bdf8'; icon2.textContent = '🔄'; }
-          showToast('✅ 1단계 완료: 문화유산 5선 선정');
-
-          // --- STEP 2: Map Mapping & Course Generation ---
-          showToast('⏳ 2단계: RAG 추천 경로 맵 매핑 및 코스 생성 중...');
-          courseList = heritages;
-          
-          ragCards = courseList;
-          renderRAGCards();
-          renderCourseList();
-          updateMap(courseList, false);
-
-          if (step2) { step2.style.color = '#10b981'; icon2.textContent = '✅'; }
-          if (step3) { step3.style.color = '#38bdf8'; icon3.textContent = '🔄'; }
-          showToast('✅ 2단계 완료: 문화유산 5선 코스 자동 매핑 완료');
-
-          // --- STEP 3: Auto-create AI Guidebook ---
-          showToast('⏳ 3단계: 5선 가이드북/오디오 동화책 제작 중...');
-          const names = courseList.map(c => c.name);
-          const resGuidebook = await fetch(`${CLOUD_RUN_URL}/api/v1/guidebook`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ heritages: names, transport })
-          });
-          if (!resGuidebook.ok) throw new Error("3단계 AI 가이드북 편찬 오류");
-          guidebookResult = await resGuidebook.json();
-          
-          renderGuidebookResult();
-          
-          if (step3) { step3.style.color = '#10b981'; icon3.textContent = '✅'; }
-          showToast('🎉 AI 맞춤 가이드북이 성공적으로 제작 완료되었습니다!');
-          
-          // Scroll output into view
-          setTimeout(() => {
-            const outSect = document.getElementById('guidebook-section-output');
-            if (outSect) outSect.scrollIntoView({ behavior: 'smooth' });
-          }, 300);
-
-        } catch (e) {
-          showToast(`❌ 에러 발생: ${e.message}`);
-          console.error(e);
-          if (step1 && icon1.textContent === '🔄') { step1.style.color = '#ef4444'; icon1.textContent = '❌'; }
-          if (step2 && icon2.textContent === '🔄') { step2.style.color = '#ef4444'; icon2.textContent = '❌'; }
-          if (step3 && icon3.textContent === '🔄') { step3.style.color = '#ef4444'; icon3.textContent = '❌'; }
-        } finally {
-          searchBtn.disabled = false;
-          searchBtn.textContent = '🔍 RAG 추천';
         }
       }
 
