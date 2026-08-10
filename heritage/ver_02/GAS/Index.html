@@ -273,6 +273,24 @@
       .custom-sequence-marker div {
         animation: pulse-marker 2s infinite;
       }
+
+      /* Landscape mode styles */
+      .mobile-device-chassis.landscape-chassis {
+        max-width: 920px !important;
+        height: 580px !important;
+        border-radius: 30px !important;
+      }
+      
+      .mobile-device-chassis.landscape-chassis .mobile-app-content {
+        flex-direction: row !important;
+      }
+      
+      .mobile-device-chassis.landscape-chassis #map-container {
+        width: 45% !important;
+        height: 100% !important;
+        border-bottom: none !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+      }
     </style>
   </head>
   <body>
@@ -347,7 +365,17 @@
           </header>
 
           <!-- Common Leaflet Map Container (Fixed at top of content area, hidden in Report tab) -->
-          <div id="map-container" style="height: 250px; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1;"></div>
+          <div id="map-container" style="height: 250px; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1;">
+            <!-- Floating overlay controls for Map Style & Orientation -->
+            <div style="position: absolute; top: 12px; right: 12px; z-index: 1000; display: flex; gap: 8px;">
+              <button id="map-theme-btn" style="background: rgba(9, 13, 22, 0.85); border: 1px solid rgba(0, 245, 212, 0.4); color: #00f5d4; font-size: 0.72rem; font-weight: bold; padding: 6px 10px; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.55); backdrop-filter: blur(4px); transition: all 0.2s;">
+                🎨 컬러 지도
+              </button>
+              <button id="map-layout-btn" style="background: rgba(9, 13, 22, 0.85); border: 1px solid rgba(0, 245, 212, 0.4); color: #00f5d4; font-size: 0.72rem; font-weight: bold; padding: 6px 10px; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.55); backdrop-filter: blur(4px); transition: all 0.2s;">
+                🔄 가로보기
+              </button>
+            </div>
+          </div>
 
           <!-- Scrollable Main Content Viewport -->
           <main style="padding: 16px; flex: 1; overflow-y: auto; display: flex; flex-direction: column;">
@@ -595,7 +623,7 @@
     <script>
       // script.html - ver_02 User Client Vanilla JavaScript Engine
       
-      const CLOUD_RUN_URL = 'https://heritage-react-538192513096.us-central1.run.app';
+      const CLOUD_RUN_URL = 'https://heritage-538192513096.us-central1.run.app';
 
       // Safe storage wrapper to prevent crashes in sandboxed iframe environments (e.g. Google Apps Script Web App)
       const safeLocalStorage = {
@@ -645,6 +673,9 @@
       let mapInstance = null;
       let mapMarkers = [];
       let mapPolyline = null;
+      let activeTileLayer = null;
+      let mapTheme = 'dark';
+      let isLandscape = false;
 
       // Image Upload Base64 Cache
       let reportPhotoBase64 = '';
@@ -808,7 +839,7 @@
           }).setView([36.50, 127.26], 12);
  
           // Premium Dark Theme Map Layer by CARTO Basemaps
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          activeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 20,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           }).addTo(mapInstance);
@@ -829,6 +860,50 @@
           }, 500);
         } catch (e) {
           console.error("Map init failed:", e);
+        }
+      }
+
+      // 5b. Map Styling and Orientation Controls
+      function toggleMapTheme() {
+        if (!mapInstance) return;
+        const btn = document.getElementById('map-theme-btn');
+        if (mapTheme === 'dark') {
+          mapTheme = 'color';
+          btn.textContent = '🕶️ 흑백 지도';
+          if (activeTileLayer) mapInstance.removeLayer(activeTileLayer);
+          activeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 20,
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+          }).addTo(mapInstance);
+        } else {
+          mapTheme = 'dark';
+          btn.textContent = '🎨 컬러 지도';
+          if (activeTileLayer) mapInstance.removeLayer(activeTileLayer);
+          activeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 20,
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+          }).addTo(mapInstance);
+        }
+      }
+
+      function toggleAppLayout() {
+        const chassis = document.querySelector('.mobile-device-chassis');
+        const btn = document.getElementById('map-layout-btn');
+        if (!chassis) return;
+        
+        isLandscape = !isLandscape;
+        if (isLandscape) {
+          chassis.classList.add('landscape-chassis');
+          btn.textContent = '📱 세로보기';
+        } else {
+          chassis.classList.remove('landscape-chassis');
+          btn.textContent = '🔄 가로보기';
+        }
+        
+        if (mapInstance) {
+          setTimeout(() => {
+            mapInstance.invalidateSize();
+          }, 150);
         }
       }
  
@@ -952,7 +1027,7 @@
             latitude: parseFloat(item.latitude || item.lat) || 36.48,
             longitude: parseFloat(item.longitude || item.lng) || 127.28,
             description: item.description || '세종시의 대표 역사 문화유산입니다.',
-            image_url: item.image_url || 'https://via.placeholder.com/150'
+            image_url: item.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="100%" height="100%" fill="%23111520"/><path d="M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z" stroke="%2300f5d4" stroke-width="3" fill="none"/></svg>'
           }));
 
           citizenHeritages = (data.citizen || []).map(item => ({
@@ -963,7 +1038,7 @@
             latitude: parseFloat(item.latitude || item.lat) || 36.48,
             longitude: parseFloat(item.longitude || item.lng) || 127.28,
             description: item.description || '시민 제보 탐방 코스',
-            image_url: item.image_url || 'https://via.placeholder.com/150'
+            image_url: item.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="100%" height="100%" fill="%23111520"/><path d="M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z" stroke="%2300f5d4" stroke-width="3" fill="none"/></svg>'
           }));
 
           if (officialHeritages.length > 0) {
@@ -1013,6 +1088,10 @@
 
         // Submission form handler
         document.getElementById('report-form').addEventListener('submit', handleReportSubmit);
+
+        // Map overlay controls click listeners
+        document.getElementById('map-theme-btn').addEventListener('click', toggleMapTheme);
+        document.getElementById('map-layout-btn').addEventListener('click', toggleAppLayout);
       }
 
       // 9. Tab View switcher

@@ -106,7 +106,7 @@ async def fetch_cha_heritage_detail(heritage_name: str) -> str:
 async def fetch_kto_nearby_attractions(heritage_name: str) -> str:
     """Retrieve actual nearby travel/attraction info using Korea Tourism Organization '한국관광공사_국문 관광정보 서비스_GW' (KorService2/searchKeyword2) API"""
     # 사용자가 지정한 일반 인증키 적용
-    service_key = "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14"
+    service_key = settings.TOUR_API_KEY
         
     try:
         url = "https://apis.data.go.kr/B551011/KorService2/searchKeyword2"
@@ -262,7 +262,7 @@ async def fetch_kto_nearby_facilities(latitude: float, longitude: float) -> str:
         return "\n[한국관광공사 국문 관광정보 서비스_GW 10km 인근 시설 정보]\n기준 좌표가 유효하지 않아 인근 시설 정보를 조회할 수 없습니다.\n"
         
     url = "https://apis.data.go.kr/B551011/KorService2/locationBasedList2"
-    key = "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14"
+    key = settings.TOUR_API_KEY
     params = {
         "serviceKey": key,
         "numOfRows": 20,

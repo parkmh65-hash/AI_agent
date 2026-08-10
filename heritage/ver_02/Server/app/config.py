@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # Web API settings
     NAVER_CLIENT_ID: str = os.getenv("NAVER_CLIENT_ID", "")
     NAVER_CLIENT_SECRET: str = os.getenv("NAVER_CLIENT_SECRET", "")
+    TOUR_API_KEY: str = os.getenv("TOUR_API_KEY", "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14")
 
     class Config:
         env_file = ".env"

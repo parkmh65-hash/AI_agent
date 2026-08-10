@@ -448,6 +448,7 @@
               <span style="font-size: 0.8rem; color: var(--text-sub);">🌐 연동 API 데이터 출처 선택:</span>
               <select id="api-source-select" style="padding: 8px 12px; background: #0b0f19; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 0.82rem; outline: none; border-color: rgba(255,255,255,0.08);">
                 <option value="heritage">🏛️ 국가유산청 공공 OpenAPI (지정 문화유산)</option>
+                <option value="tour">🗺️ 한국관광공사 TourAPI (관광지/명소)</option>
               </select>
             </div>
             <div style="display: flex; gap: 10px;">
@@ -671,7 +672,7 @@
     <script>
       // script.html - ver_02 Supervisor Control Dashboard Vanilla JavaScript Engine
       
-      const CLOUD_RUN_URL = 'https://heritage-react-538192513096.us-central1.run.app';
+      const CLOUD_RUN_URL = 'https://heritage-538192513096.us-central1.run.app';
 
       // Safe storage wrapper to prevent crashes in sandboxed iframe environments (e.g. Google Apps Script Web App)
       const safeLocalStorage = {
@@ -1253,12 +1254,24 @@
         searchBtn.textContent = '연동 로딩 중..';
 
         try {
-          const res = await fetch(`${CLOUD_RUN_URL}/api/v1/heritage-search?query=${encodeURIComponent(apiSearchQuery)}&area_code=세종시`, {
-            method: "GET"
-          });
-          if (!res.ok) throw new Error("문화유산 API 조회 실패");
-          const data = await res.json();
-          apiSearchResults = data.heritages || [];
+          let res;
+          if (apiSource === 'tour') {
+            res = await fetch(`${CLOUD_RUN_URL}/api/v1/tour-search`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: apiSearchQuery, area_code: "세종시" })
+            });
+            if (!res.ok) throw new Error("관광지 API 조회 실패");
+            const data = await res.json();
+            apiSearchResults = data.tourist_spots || [];
+          } else {
+            res = await fetch(`${CLOUD_RUN_URL}/api/v1/heritage-search?query=${encodeURIComponent(apiSearchQuery)}&area_code=세종시`, {
+              method: "GET"
+            });
+            if (!res.ok) throw new Error("문화유산 API 조회 실패");
+            const data = await res.json();
+            apiSearchResults = data.heritages || [];
+          }
           
           renderOpenAPISearchResults(apiSource);
           showToast(`🔍 공공 API 검색 완료 (결과 ${apiSearchResults.length}건)`);

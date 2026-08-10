@@ -3,6 +3,7 @@
 import logging
 import json
 import httpx
+import re
 import xml.etree.ElementTree as ET
 import urllib.parse
 from typing import List, Dict, Any, Optional
@@ -189,36 +190,63 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
     except Exception as e:
         logger.error(f"Failed to query official National Heritage API: {e}")
         
-    if len(matched) < 5 and settings.SUPABASE_URL and settings.SUPABASE_KEY:
+    if len(matched) < 5 and settings.SUPABASE_URL and settings.SUPABASE_KEY and settings.OPENAI_API_KEY:
         try:
-            headers = {
-                "apikey": settings.SUPABASE_KEY,
-                "Authorization": f"Bearer {settings.SUPABASE_KEY}"
+            # 1. Generate query embedding of 768 dimensions (for heritages table)
+            embed_payload = {
+                "input": [query],
+                "model": "text-embedding-3-small",
+                "dimensions": 768
             }
-            safe_query = f"*{query}*"
+            query_vector = None
             async with httpx.AsyncClient() as client:
-                table = await get_heritage_table_name(client, headers)
-                url = f"{settings.SUPABASE_URL}/rest/v1/{table}?or=(name.ilike.{safe_query},description.ilike.{safe_query},category.ilike.{safe_query})&limit=5"
-                res = await client.get(url, headers=headers, timeout=5.0)
-                if res.status_code == 200:
-                    raw_list = res.json()
-                    for item in raw_list:
-                        if not any(m["name"] == item.get("name") for m in matched):
-                            matched.append({
-                                "id": item.get("id") or item.get("h_id") or f"h_{item.get('id')}",
-                                "name": item.get("name"),
-                                "address": item.get("address") or "세종특별자치시",
-                                "category": item.get("category") or "문화유산",
-                                "era_normalized": item.get("era_normalized") or "조선시대",
-                                "latitude": float(item.get("latitude") or 36.48),
-                                "longitude": float(item.get("longitude") or 127.28),
-                                "description": item.get("description") or "",
-                                "image_url": item.get("image_url") or "https://via.placeholder.com/150"
-                            })
-                            if len(matched) == 5:
-                                break
+                res_embed = await client.post(
+                    "https://api.openai.com/v1/embeddings",
+                    headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
+                    json=embed_payload,
+                    timeout=5.0
+                )
+                if res_embed.status_code == 200:
+                    query_vector = res_embed.json()["data"][0]["embedding"]
+                    
+            if query_vector:
+                # 2. Call match_heritages RPC function in Supabase
+                headers = {
+                    "apikey": settings.SUPABASE_KEY,
+                    "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+                    "Content-Type": "application/json"
+                }
+                rpc_payload = {
+                    "query_embedding": query_vector,
+                    "match_threshold": 0.2,
+                    "match_count": 5
+                }
+                async with httpx.AsyncClient() as client:
+                    res = await client.post(
+                        f"{settings.SUPABASE_URL}/rest/v1/rpc/match_heritages",
+                        headers=headers,
+                        json=rpc_payload,
+                        timeout=5.0
+                    )
+                    if res.status_code == 200:
+                        raw_list = res.json()
+                        for item in raw_list:
+                            if not any(m["name"] == item.get("name") for m in matched):
+                                matched.append({
+                                    "id": item.get("id") or item.get("h_id") or f"h_{item.get('id')}",
+                                    "name": item.get("name"),
+                                    "address": item.get("address") or "세종특별자치시",
+                                    "category": item.get("category") or item.get("era_normalized") or "문화유산",
+                                    "era_normalized": item.get("era_normalized") or "조선시대",
+                                    "latitude": float(item.get("latitude") or 36.48),
+                                    "longitude": float(item.get("longitude") or 127.28),
+                                    "description": item.get("description") or "",
+                                    "image_url": item.get("photo_url") or item.get("image_url") or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
+                                })
+                                if len(matched) >= 5:
+                                    break
         except Exception as e:
-            logger.error(f"Failed to query backup database for heritages: {e}")
+            logger.error(f"Failed to query semantic vector search database for heritages: {e}")
 
     if len(matched) < 5 and settings.SUPABASE_URL and settings.SUPABASE_KEY:
         try:
@@ -238,12 +266,12 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                                 "id": item.get("id") or item.get("h_id") or f"h_{item.get('id')}",
                                 "name": item.get("name"),
                                 "address": item.get("address") or "세종특별자치시",
-                                "category": item.get("category") or "문화유산",
+                                "category": item.get("category") or item.get("era_normalized") or "문화유산",
                                 "era_normalized": item.get("era_normalized") or "조선시대",
                                 "latitude": float(item.get("latitude") or 36.48),
                                 "longitude": float(item.get("longitude") or 127.28),
                                 "description": item.get("description") or "",
-                                "image_url": item.get("image_url") or "https://via.placeholder.com/150"
+                                "image_url": item.get("photo_url") or item.get("image_url") or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
                             })
                             if len(matched) == 5:
                                 break
@@ -256,6 +284,81 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
         "output_heritages": matched,
         "final_output": f"AI 분석 결과: 시맨틱 라우팅 결과 '유산 검색'으로 식별되어 원격 데이터베이스 실데이터 실시간 조회를 기반으로 추천 결과를 구성했습니다."
     }
+
+async def geocode_address(address: str) -> Optional[tuple[float, float]]:
+    """Geocode address using OpenStreetMap Nominatim, with OpenAI fallback"""
+    if not address:
+        return None
+        
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    
+    # 1. Try Nominatim with full address
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
+            url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(address)}&format=json"
+            res = await client.get(url, headers=headers, timeout=4.0)
+            if res.status_code == 200:
+                data = res.json()
+                if len(data) > 0:
+                    return float(data[0]['lat']), float(data[0]['lon'])
+    except Exception as e:
+        logger.warning(f"Nominatim geocode failed for full address: {e}")
+        
+    # 2. Try Nominatim with simplified address
+    parts = address.split()
+    if len(parts) > 3:
+        simple_addr = " ".join(parts[:3])
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
+                url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(simple_addr)}&format=json"
+                res = await client.get(url, headers=headers, timeout=4.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    if len(data) > 0:
+                        return float(data[0]['lat']), float(data[0]['lon'])
+        except Exception as e:
+            logger.warning(f"Nominatim geocode failed for simplified address: {e}")
+
+    # 3. Fallback to OpenAI gpt-4o-mini geocoding
+    if settings.OPENAI_API_KEY:
+        try:
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {
+                        "role": "system", 
+                        "content": (
+                            "You are a precise geographic geocoding assistant for South Korea. "
+                            "For the given address, find its coordinates (latitude and longitude). "
+                            "Do not return default center coordinates unless absolutely necessary. "
+                            "Output strictly a JSON object with keys 'latitude' and 'longitude' as floats."
+                        )
+                    },
+                    {"role": "user", "content": f"Address: {address}"}
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.0
+            }
+            async with httpx.AsyncClient() as client:
+                res = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
+                    json=payload,
+                    timeout=5.0
+                )
+                if res.status_code == 200:
+                    result = res.json()
+                    content = json.loads(result["choices"][0]["message"]["content"])
+                    lat = float(content.get("latitude", 0.0))
+                    lng = float(content.get("longitude", 0.0))
+                    if lat != 0.0 and lng != 0.0:
+                        return lat, lng
+        except Exception as e:
+            logger.error(f"OpenAI fallback geocoding failed: {e}")
+            
+    return None
 
 async def fetch_national_heritage_openapi(query: str, area_code: str = "전체") -> List[Dict[str, Any]]:
     """Query cultural heritages combining SearchKindOpenapiList, SearchKindOpenapiDt, and Heritage GIS APIs"""
@@ -383,9 +486,13 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
                             latitude = lat_val
                             longitude = lng_val
                             
-                        if latitude == 0.0 or longitude == 0.0:
-                            latitude = 36.48
-                            longitude = 127.28
+                        if latitude == 0.0 or longitude == 0.0 or (latitude == 36.48 and longitude == 127.28):
+                            geocoded = await geocode_address(addr)
+                            if geocoded:
+                                latitude, longitude = geocoded
+                            else:
+                                latitude = 36.48
+                                longitude = 127.28
                             
                         results.append({
                             "id": f"cha_{kdcd_val}_{asno_val}_{ctcd_val}",
@@ -396,10 +503,12 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
                             "latitude": latitude,
                             "longitude": longitude,
                             "description": desc[:300] + "..." if len(desc) > 300 else desc,
-                            "image_url": img if img and img.startswith("http") else "https://via.placeholder.com/150"
+                            "image_url": img if img and img.startswith("http") else "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
                         })
         except Exception as e:
-            logger.error(f"Combined Heritage APIs call failed for {search_word}: {e}")
+            import traceback
+            tb_str = traceback.format_exc()
+            logger.error(f"Combined Heritage APIs call failed for {search_word}: {e}\n{tb_str}")
             
     return results
 
@@ -528,21 +637,34 @@ async def get_initial_db_data(role: Optional[str] = "user"):
                 timeout=5.0
             )
             if res_official.status_code == 200:
-                result["official"] = res_official.json()
+                raw_official = res_official.json()
+                for row in raw_official:
+                    if "category" not in row:
+                        row["category"] = row.get("era_normalized") or "문화유산"
+                    if "image_url" not in row:
+                        row["image_url"] = row.get("photo_url") or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
+                result["official"] = raw_official
             else:
                 logger.error(f"Failed to fetch official heritages: {res_official.text}")
 
             # 2. Fetch citizen recommendations
             citizen_url = f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?select=*"
             if role == "supervisor":
-                citizen_url += "&order=created_at.desc"
+                citizen_url += "&order=submitted_at.desc"
             res_citizen = await client.get(
                 citizen_url,
                 headers=headers,
                 timeout=5.0
             )
             if res_citizen.status_code == 200:
-                result["citizen"] = res_citizen.json()
+                raw_citizen = res_citizen.json()
+                for row in raw_citizen:
+                    if "created_at" not in row:
+                        row["created_at"] = row.get("submitted_at")
+                    # Normalize '신청중' to '대기' for frontend vetting controls
+                    if row.get("status") == "신청중":
+                        row["status"] = "대기"
+                result["citizen"] = raw_citizen
             else:
                 logger.error(f"Failed to fetch citizen recommendations: {res_citizen.text}")
 
@@ -605,6 +727,16 @@ async def submit_citizen_recommendation(item: Dict[str, Any]):
     headers["Content-Type"] = "application/json"
     headers["Prefer"] = "return=representation"
     
+    # Geocode citizen address before insertion if coords are missing or default
+    address = item.get("address") or ""
+    lat = item.get("latitude")
+    lng = item.get("longitude")
+    if address and (not lat or not lng or (lat == 36.48 and lng == 127.28) or (lat == 0.0 or lng == 0.0)):
+        geocoded = await geocode_address(address)
+        if geocoded:
+            item["latitude"] = geocoded[0]
+            item["longitude"] = geocoded[1]
+            
     try:
         async with httpx.AsyncClient() as client:
             res = await client.post(
@@ -654,7 +786,7 @@ async def upload_image_to_supabase(req: ImageUploadRequest):
         return {"status": "error", "message": str(e)}
 
 @app.patch("/api/v1/db/citizen-recommendation/{rec_id}/status")
-async def update_recommendation_status(rec_id: int, req: RecommendationStatusRequest):
+async def update_recommendation_status(rec_id: str, req: RecommendationStatusRequest):
     """Vetting status PATCH endpoint for recommendations"""
     if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
         return {"status": "error", "message": "Supabase credentials are not set on the server."}
@@ -702,7 +834,7 @@ async def get_database_stats():
                 
             # Citizen pending
             res_pending = await client.get(
-                f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?status=eq.대기&select=id",
+                f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?or=(status.eq.대기,status.eq.신청중)&select=id",
                 headers=headers,
                 timeout=5.0
             )
@@ -732,13 +864,44 @@ async def insert_official_heritage(item: Dict[str, Any]):
     headers["Content-Type"] = "application/json"
     headers["Prefer"] = "return=representation"
     
+    # Extract 'dong' to satisfy NOT NULL constraint in database
+    address = item.get("address") or ""
+    dong = item.get("dong")
+    if not dong:
+        match_dong = re.search(r'(\S+[동읍면])', address)
+        dong = match_dong.group(1) if match_dong else "세종시"
+
+    # Map input keys to heritages table schema
+    cleaned_item = {
+        "h_id": item.get("h_id"),
+        "name": item.get("name"),
+        "address": address,
+        "dong": dong,
+        "latitude": item.get("latitude"),
+        "longitude": item.get("longitude"),
+        "description": item.get("description"),
+        "photo_url": item.get("image_url") or item.get("photo_url"),
+        "source": item.get("source", "registered"),
+        "status": item.get("status", "approved"),
+        "era_normalized": item.get("era_normalized") or item.get("category") or "문화유산",
+    }
+    
+    # Overwrite coordinates using geocoding if they are missing or default
+    lat = cleaned_item.get("latitude")
+    lng = cleaned_item.get("longitude")
+    if not lat or not lng or (lat == 36.48 and lng == 127.28) or (lat == 0.0 or lng == 0.0):
+        geocoded = await geocode_address(address)
+        if geocoded:
+            cleaned_item["latitude"] = geocoded[0]
+            cleaned_item["longitude"] = geocoded[1]
+    
     try:
         async with httpx.AsyncClient() as client:
             table = await get_heritage_table_name(client, headers)
             res = await client.post(
                 f"{settings.SUPABASE_URL}/rest/v1/{table}",
                 headers=headers,
-                json=item,
+                json=cleaned_item,
                 timeout=5.0
             )
             if res.status_code in [200, 201]:
@@ -782,13 +945,13 @@ async def tour_search(req: TourSearchRequest):
                             "latitude": float(item.get("latitude") or 36.50),
                             "longitude": float(item.get("longitude") or 127.26),
                             "description": item.get("description") or "관광공사 연동 관광지 추천 명소입니다.",
-                            "image_url": item.get("image_url") or "https://via.placeholder.com/150"
+                            "image_url": item.get("image_url") or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
                         })
         except Exception as e:
             logger.error(f"Failed to query citizen recommendations: {e}")
             
     # 2. Korea Tourism Organization (한국관광공사_국문 관광정보 서비스_GW) integration
-    service_key = "a574450c4e9b74f08312c1f80520d00e608341fca348bf1cb6bd02ff3584cf14"
+    service_key = settings.TOUR_API_KEY
     if len(matched) < 5 and service_key:
         try:
             # 코스 생성 및 주변 관광지 정보 조회를 위한 외부 API로는 오직 '한국관광공사_국문 관광정보 서비스_GW' (KorService2/searchKeyword2)만 사용
@@ -822,7 +985,7 @@ async def tour_search(req: TourSearchRequest):
                         addr = item.get("addr1") or f"{area} 관광지"
                         mapx = item.get("mapx")
                         mapy = item.get("mapy")
-                        img = item.get("firstimage") or item.get("firstimage2") or "https://via.placeholder.com/150"
+                        img = item.get("firstimage") or item.get("firstimage2") or "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"
                         
                         if not any(m["name"] == title for m in matched):
                             matched.append({
@@ -847,7 +1010,7 @@ async def tour_search(req: TourSearchRequest):
             {"name": "세종호수공원", "address": "세종특별자치시 다솜로 216", "latitude": 36.5023, "longitude": 127.2861, "category": "공원/호수", "description": "국내 최대의 인공호수공원으로 산책로와 문화행사가 어우러진 휴식공간입니다.", "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H2_H2.jpg"},
             {"name": "국립세종수목원", "address": "세종특별자치시 수목원로 136", "latitude": 36.4950, "longitude": 127.2910, "category": "식물원/수목원", "description": "도심형 수목원으로 거대한 사계절 온실과 전통 정원이 매우 인상적입니다.", "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H3_H3.jpg"},
             {"name": "금강보행교 (이응다리)", "address": "세종특별자치시 세종동 29-111", "latitude": 36.4862, "longitude": 127.2965, "category": "교량/랜드마크", "description": "금강을 가로지르는 국내 최초의 원형 보행교로 야경이 무척 아름답습니다.", "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H4_H4.jpg"},
-            {"name": "고복자연공원", "address": "세종특별자치시 연서면 고복리", "latitude": 36.5685, "longitude": 127.2345, "category": "자연/저수지", "description": "벚꽃 길과 데크길 산책로가 조성된 한적하고 평화로운 자연 공원 저수지입니다.", "image_url": "https://via.placeholder.com/150"}
+            {"name": "고복자연공원", "address": "세종특별자치시 연서면 고복리", "latitude": 36.5685, "longitude": 127.2345, "category": "자연/저수지", "description": "벚꽃 길과 데크길 산책로가 조성된 한적하고 평화로운 자연 공원 저수지입니다.", "image_url": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='100%' height='100%' fill='%23111520'/><path d='M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z' stroke='%2300f5d4' stroke-width='3' fill='none'/></svg>"}
         ]
         for spot in sejong_spots:
             if not any(m["name"] == spot["name"] for m in matched):
