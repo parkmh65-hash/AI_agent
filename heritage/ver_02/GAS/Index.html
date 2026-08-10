@@ -441,22 +441,7 @@
                   </div>
                 </div>
 
-                <!-- Recommended Heritage List cards -->
-                <div id="step-1-results-wrapper" style="display: none; margin-bottom: 16px;">
-                  <div id="rag-header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h4 style="margin: 0; font-size: 0.95rem; color: #fff;">🤖 AI 추천 문화유산 리스트</h4>
-                    <button onclick="addAllToCourse()" style="background: none; border: none; color: #00f5d4; font-size: 0.75rem; font-weight: 800; cursor: pointer;">
-                      + 전체 코스에 담기
-                    </button>
-                  </div>
-                  <div id="rag-cards-list" style="margin-bottom: 16px;">
-                    <!-- RAG Cards load dynamically here -->
-                  </div>
-                  
-                  <button onclick="goToWizardStep(2)" class="btn-primary" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #00f5d4, #38bdf8); color: #000; font-weight: bold; border: none;">
-                    🗺️ 2단계: 코스 경로 생성하기 ➔
-                  </button>
-                </div>
+
               </div>
 
               <!-- WIZARD STEP 2: Course Mapping & Tourist Spots -->
@@ -1337,12 +1322,24 @@
             throw new Error("\uac80\uc0c9 \uacb0\uacfc \uc218\ub85d\ub41c \ubb38\ud654\uc720\uc0b0\uc774 \uc5c6\uc2b5\ub2c8\ub2e4.");
           }
           
-          // Draw recommendations (Markers Only, no path lines)
-          renderRAGCards();
-          updateMap(ragCards, false);
+          // Automatically add all recommended heritages to the course list
+          const seenNames = new Set(courseList.map(c => c.name));
+          let addedCount = 0;
+          ragCards.forEach(item => {
+            if (!seenNames.has(item.name)) {
+              courseList.push(item);
+              addedCount++;
+            }
+          });
+
+          renderCourseList();
+          updateMap(courseList, true);
+
+          showToast('✅ 1단계 완료: 추천 문화유산을 코스에 담고 2단계 동선 화면으로 이동합니다.');
           
-          document.getElementById('step-1-results-wrapper').style.display = 'block';
-          showToast('\u2705 1\ub2e8\uacc4 \uc644\ub8cc: \ubb38\ud654\uc720\uc0b0 \ucd94\ucc9c\uc9c0\uac00 \uc9c0\ub3c4\uc5d0 \ud45c\uc2dc\ub418\uc5c8\uc2b5\ub2c8\ub2e4.');
+          setTimeout(() => {
+            switchTab('step2');
+          }, 1000);
           
         } catch (e) {
           showToast(`\u274c 1\ub2e8\uacc4 \uc5d0\ub7ec: ${e.message}`);
