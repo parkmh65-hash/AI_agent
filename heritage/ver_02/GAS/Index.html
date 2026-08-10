@@ -551,40 +551,6 @@
               </div>
             </section>
 
-            <!-- Tab 2: Course View -->
-            <section id="section-course" style="display: none;">
-              <h2 style="font-size: 1.25rem; color: #fff; margin: 0 0 4px 0;">🗺️ 나만의 맞춤 코스 설계</h2>
-              <p style="font-size: 0.8rem; color: var(--text-sub); margin: 0 0 16px 0;">선택하신 목적지 순서를 조정하고, 예상 소요 시간을 예측하여 여행을 계획하세요.</p>
-
-              <!-- Planner layout -->
-              <div class="glass-card" style="padding: 16px; margin-bottom: 20px;">
-                <div id="course-list-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                  <strong style="font-size: 0.88rem; color: #fff;">목적지 목록 (0개)</strong>
-                </div>
-
-                <div id="course-items-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto; margin-bottom: 14px;">
-                  <!-- Dynamic selected heritages here -->
-                </div>
-
-                <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
-                  <label style="font-size: 0.72rem; color: var(--text-sub); display: block; margin-bottom: 4px;">🚗 교통 수단 선택</label>
-                  <select id="transport-select" style="width: 100%; padding: 8px 10px; background: #111520; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; font-size: 0.82rem; outline: none; margin-bottom: 12px;">
-                    <option value="승용차">🚗 승용차 (자가용)</option>
-                    <option value="대중교통">🚌 대중교통 / 버스</option>
-                    <option value="도보">🚶 도보 / 자전거</option>
-                  </select>
-
-                  <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,245,212,0.06); padding: 10px 14px; border-radius: 8px;">
-                    <span style="font-size: 0.78rem; color: var(--text-sub);">⏱️ 예상 총 소요시간:</span>
-                    <strong id="total-duration-text" style="font-size: 1.05rem; color: #00f5d4;">약 0분</strong>
-                  </div>
-
-                  <button onclick="switchTab('step3')" class="btn-primary" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #fbbf24, #d97706); color: #000; font-weight: bold; border: none; margin-top: 12px;">
-                    📖 3단계: AI 동화 가이드북 편찬하기 ➔
-                  </button>
-                </div>
-              </div>
-            </section>
 
             <!-- Tab 3: Report/Submission View -->
             <section id="section-report" style="display: none;">
@@ -662,10 +628,6 @@
             <div id="nav-step1" class="bottom-nav-item active">
               <span style="font-size: 1.15rem;">🏛️</span>
               <span>1단계: 추천</span>
-            </div>
-            <div id="nav-course" class="bottom-nav-item">
-              <span style="font-size: 1.15rem;">🗺️</span>
-              <span>코스 설계</span>
             </div>
             <div id="nav-step2" class="bottom-nav-item">
               <span style="font-size: 1.15rem;">⚡</span>
@@ -1058,31 +1020,30 @@
         }
       }
 
-      // 7. Load Initial Application Data
       async function loadInitialData() {
         try {
-          showToast('\u23f3 \ucd08\uae30 \ub370\uc774\ud130\ub97c \ubd88\ub7ec\uc624\ub294 \uc911...');
+          showLoading('⏳ 초기 데이터를 불러오는 중...');
           const data = await callGasMethod('getInitialWebAppData');
           
           officialHeritages = (data.official || []).map(item => ({
             id: item.id || `h_${item.h_id || Math.random()}`,
             name: item.name,
-            address: item.address || '\uc138\uc885\uc2dc',
-            category: item.category || '\uae30\ud0c0',
+            address: item.address || '세종시',
+            category: item.category || '기타',
             latitude: parseFloat(item.latitude || item.lat) || 36.48,
             longitude: parseFloat(item.longitude || item.lng) || 127.28,
-            description: item.description || '\uc138\uc885\uc2dc\uc758 \ub300\ud45c \uc5ed\uc0ac \ubb38\ud654\uc720\uc0b0\uc785\ub2c8\ub2e4.',
+            description: item.description || '세종시의 대표 역사 문화유산입니다.',
             image_url: item.image_url || 'https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80'
           }));
 
           citizenHeritages = (data.citizen || []).map(item => ({
             id: item.id || `c_${Math.random()}`,
             name: item.name,
-            address: item.address || '\uc138\uc885\uc2dc',
-            category: '\uc2dc\ubbfc \ucd94\ucc9c',
+            address: item.address || '세종시',
+            category: '시민 추천',
             latitude: parseFloat(item.latitude || item.lat) || 36.48,
             longitude: parseFloat(item.longitude || item.lng) || 127.28,
-            description: item.description || '\uc2dc\ubbfc \uc81c\ubcf4 \ud0d0\ubc29 \ucf54\uc2a4',
+            description: item.description || '시민 제보 탐방 코스',
             image_url: item.image_url || 'https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80'
           }));
 
@@ -1090,9 +1051,11 @@
             ragCards = officialHeritages.slice(0, 3);
             renderRAGCards();
           }
-          showToast('\u2705 \ub85c\ub4dc \uc644\ub8cc');
+          showToast('✅ 로드 완료');
         } catch (err) {
-          showToast('\u274c \ucd08\uae30 \ub85c\ub529 \uc624\ub958\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4.');
+          showToast('❌ 초기 로딩 오류가 발생했습니다.');
+        } finally {
+          hideLoading();
         }
       }
 
@@ -1102,19 +1065,12 @@
         document.getElementById('nav-step1').addEventListener('click', () => switchTab('step1'));
         document.getElementById('nav-step2').addEventListener('click', () => switchTab('step2'));
         document.getElementById('nav-step3').addEventListener('click', () => switchTab('step3'));
-        document.getElementById('nav-course').addEventListener('click', () => switchTab('course'));
         document.getElementById('nav-report').addEventListener('click', () => switchTab('report'));
 
         // RAG Search Submit button
         document.getElementById('rag-search-btn').addEventListener('click', handleRAGSearch);
         document.getElementById('rag-query-input').addEventListener('keydown', (e) => {
           if (e.key === 'Enter') handleRAGSearch();
-        });
-
-        // Course Transport selection change
-        document.getElementById('transport-select').addEventListener('change', (e) => {
-          transport = e.target.value;
-          calculateCourseDuration();
         });
 
         // Course Entire empty button
@@ -1151,12 +1107,10 @@
         document.getElementById('nav-step1').classList.toggle('active', isHome && activeWizardStep === 1);
         document.getElementById('nav-step2').classList.toggle('active', isHome && activeWizardStep === 2);
         document.getElementById('nav-step3').classList.toggle('active', isHome && activeWizardStep === 3);
-        document.getElementById('nav-course').classList.toggle('active', tab === 'course');
         document.getElementById('nav-report').classList.toggle('active', tab === 'report');
 
         // Update section container displays
         document.getElementById('section-home').style.display = isHome ? 'block' : 'none';
-        document.getElementById('section-course').style.display = tab === 'course' ? 'block' : 'none';
         document.getElementById('section-report').style.display = tab === 'report' ? 'block' : 'none';
 
         // Show or hide the shared Leaflet map container dynamically
@@ -1180,8 +1134,6 @@
                 } else {
                   updateMap(courseList, true);
                 }
-              } else if (tab === 'course') {
-                updateMap(courseList, true);
               }
             }, 100);
           }
@@ -1284,7 +1236,6 @@
 
         // Ensure home tab section is visible and other tab sections are hidden
         document.getElementById('section-home').style.display = 'block';
-        document.getElementById('section-course').style.display = 'none';
         document.getElementById('section-report').style.display = 'none';
 
         // Hide all step sections
@@ -1307,7 +1258,6 @@
         document.getElementById('nav-step1').classList.toggle('active', step === 1);
         document.getElementById('nav-step2').classList.toggle('active', step === 2);
         document.getElementById('nav-step3').classList.toggle('active', step === 3);
-        document.getElementById('nav-course').classList.toggle('active', false);
         document.getElementById('nav-report').classList.toggle('active', false);
 
         // Show or hide map container based on wizard step
@@ -1347,16 +1297,16 @@
         searchBtn.textContent = '\ucd94\ucc9c \uc911..';
 
         try {
-          showToast('\u23f3 1\ub2e8\uacc4: \ubb38\ud654\uc720\uc0b0 5\uc120 \ud0d0\uc0c9 \uc911...');
+          showLoading('🔮 문화유산 5선을 추천받는 중입니다...');
           const resHeritages = await fetch(`${CLOUD_RUN_URL}/api/v1/agentic-rag`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ query: combinedQuery, area_code: region })
           });
           
-          if (!resHeritages.ok) throw new Error("1\ub2e8\uacc4 \ubb38\ud654\uc720\uc0b0 RAG \ucd94\ucc9c \uc624\ub958");
+          if (!resHeritages.ok) throw new Error("1단계 문화유산 RAG 추천 오류");
           const dataHeritages = await resHeritages.json();
-          if (!dataHeritages) throw new Error("\uc11c\ubc84\ub85c\ubd80\ud130 \uc720\ud6a8\ud558\uc9c0 \uc54a\uc740 \uc751\ub2f5\uc744 \ubc1b\uc558\uc2b5\ub2c8\ub2e4.");
+          if (!dataHeritages) throw new Error("서버로부터 유효하지 않은 응답을 받았습니다.");
           
           ragCards = dataHeritages.output_heritages || [];
           if (ragCards.length === 0) {
@@ -1374,16 +1324,17 @@
           });
 
           renderCourseList();
-          updateMap(courseList, true);
+          updateMap(ragCards, false);
 
           showToast('✅ 추천 완료: 추천 문화유산 5선이 코스에 자동으로 추가되었습니다. 하단의 [2단계: 동선] 메뉴를 클릭하여 확인해 보세요!');
           
         } catch (e) {
-          showToast(`\u274c 1\ub2e8\uacc4 \uc5d0\ub7ec: ${e.message}`);
+          showToast(`❌ 1단계 에러: ${e.message}`);
           console.error(e);
         } finally {
           searchBtn.disabled = false;
           searchBtn.textContent = '추천';
+          hideLoading();
         }
       }
 
@@ -1404,7 +1355,7 @@
         const query = input ? input.value.trim() : '';
 
         try {
-          showToast('\u23f3 2\ub2e8\uacc4: \uc8fc\ubcc0 \uad00\uad11\uc9c0 \uac80\uc0c9 \ubc0f \ucd5c\uc801 \ub3d9\uc120 \uacb0\ud569 \uc911...');
+          showLoading('🗺️ 최적의 이동 동선 및 주변 관광 명소를 탐색 중입니다...');
           
           let tours = [];
           try {
@@ -1446,12 +1397,17 @@
           updateMap(courseList, true);
           
           document.getElementById('step-2-course-wrapper').style.display = 'flex';
-          showToast('\u2705 2\ub2e8\uacc4 \uc644\ub8cc: \ubb38\ud654\uc720\uc0b0 \ubc0f \uc8fc\ubcc0 \uad00\uad11\uc9c0\uac00 \ub9e4\ud551\ub418\uc5c8\uc2b5\ub2c8\ub2e4.');
+          showToast('✅ 2단계 완료: 문화유산 및 주변 관광지가 매핑되었습니다.');
+          
+          setTimeout(() => {
+            switchTab('step3');
+          }, 1000);
         } catch(err) {
-          showToast(`\u274c 2\ub2e8\uacc4 \uc5d0\ub7ec: ${err.message}`);
+          showToast(`❌ 2단계 에러: ${err.message}`);
         } finally {
           buildBtn.disabled = false;
-          buildBtn.textContent = '\u26a1 \uc8fc\ubcc0 \uad00\uad11\uc9c0 \uc5f0\ub3d9 \ubc0f AntPath \uacbd\ub85c \uadf8\ub9ac\uae30';
+          buildBtn.textContent = '⚡ 주변 관광지 연동 및 AntPath 경로 그리기';
+          hideLoading();
         }
       };
 
@@ -1596,6 +1552,7 @@
         btn.textContent = '\uc5d0\uc774\uc804\ud2b8 \ud611\uc5c5 \uc2a4\ud1a0\ub9ac\ubd81 \uc0dd\uc131 \uc911...';
         
         try {
+          showLoading('🎙️ AI 동화 스토리북 및 오디오 가이드를 편찬 중입니다...');
           const names = courseList.map(c => c.name);
           const res = await fetch(`${CLOUD_RUN_URL}/api/v1/guidebook`, {
             method: "POST",
@@ -1606,16 +1563,17 @@
           guidebookResult = await res.json();
           
           renderGuidebookResult();
-          showToast('\u2705 AI \uba40\ud2f0\uc5d0\uc774\uc804\ud2b8 \uac00\uc774\ub4dc\ubd81\uc774 \uc0dd\uc131\ub418\uc5c8\uc2b5\ub2c8\ub2e4!');
+          showToast('✅ AI 멀티에이전트 가이드북이 생성되었습니다!');
           
           setTimeout(() => {
             document.getElementById('guidebook-section-output')?.scrollIntoView({ behavior: 'smooth' });
           }, 300);
         } catch (e) {
-          showToast('\u274c \uac00\uc774\ub4dc\ubd81 \uc0dd\uc131 \ub3c4\uc911 \uc624\ub958\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4.');
+          showToast('❌ 가이드북 생성 도중 오류가 발생했습니다.');
         } finally {
           btn.disabled = false;
-          btn.textContent = '\u2728 AI \uc2a4\ud1a0\ub9ac \uac00\uc774\ub4dc\ubd81 \ub9cc\ub4e4\uae30';
+          btn.textContent = '✨ AI 스토리 가이드북 만들기';
+          hideLoading();
         }
       };
 
@@ -1783,10 +1741,10 @@
         const lng = parseFloat(document.getElementById('report-lng-input').value) || 127.28;
 
         if (!name || !address) {
-          showToast('\ud544\uc218 \ud544\ub4dc(\uc81c\ubcf4\uba85, \uc8fc\uc18c)\ub97c \ucc44\uc6cc\uc8fc\uc138\uc694.');
+          showToast('필수 필드(제보명, 주소)를 채워주세요.');
           return;
         }
-        showToast('\u1f4c1 \uc2dc\ubbfc \uc81c\ubcf4 \ub4f1\ub85d \uc911...');
+        showLoading('🌱 시민 제보 정보를 업로드하는 중입니다...');
         
         let imageUrl = '';
         if (reportPhotoBase64) {
@@ -1809,7 +1767,7 @@
           longitude: lng,
           image_url: imageUrl,
           user_id: 'user@sejong.go.kr',
-          status: '\ub300\uae30',
+          status: '대기',
           recommend_count: 1,
           heart: 1
         };
@@ -1817,7 +1775,7 @@
         try {
           const res = await callGasMethod('submitCitizenRecommendationGAS', payload);
           if (res.status === 'success') {
-            showToast('\u1f331 \uc2dc\ubbfc \uc81c\ubcf4\uac00 \uc131\uacf5\uc801\uc73c\ub85c \ub4f1\ub85d\ub418\uc5c8\uc2b5\ub2c8\ub2e4.');
+            showToast('🌱 시민 제보가 성공적으로 등록되었습니다.');
             
             // Reset form inputs
             document.getElementById('report-name-input').value = '';
@@ -1830,10 +1788,12 @@
             loadInitialData();
             switchTab('home');
           } else {
-            showToast('\u274c \uc81c\ubcf4 \ub4f1\ub85d \uc911 \uc5d0\ub7ec\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4.');
+            showToast('❌ 제보 등록 중 에러가 발생했습니다.');
           }
         } catch (err) {
-          showToast('\u274c \uc81c\ubcf4 \uc81c\ucd9c \uc2e4\ud328.');
+          showToast('❌ 제보 제출 실패.');
+        } finally {
+          hideLoading();
         }
       }
 

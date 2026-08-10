@@ -240,18 +240,34 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                     )
                     if res.status_code == 200:
                         raw_list = res.json()
+                        matched_names = [item.get("name") for item in raw_list if item.get("name")]
+                        full_rows = {}
+                        if matched_names:
+                            try:
+                                names_str = ",".join(f'"{n}"' for n in matched_names)
+                                full_url = f"{settings.SUPABASE_URL}/rest/v1/heritages?name=in.({urllib.parse.quote(names_str)})&select=*"
+                                res_full = await client.get(full_url, headers=headers, timeout=5.0)
+                                if res_full.status_code == 200:
+                                    full_rows = {row["name"]: row for row in res_full.json() if "name" in row}
+                            except Exception as db_err:
+                                logger.error(f"Failed to fetch full row details for RPC matches: {db_err}")
+                        
                         for item in raw_list:
-                            if not any(m["name"] == item.get("name") for m in matched):
+                            name = item.get("name")
+                            full_row = full_rows.get(name) or {}
+                            merged_item = {**full_row, **item}
+                            
+                            if not any(m["name"] == name for m in matched):
                                 matched.append({
-                                    "id": item.get("id") or item.get("h_id") or f"h_{item.get('id')}",
-                                    "name": item.get("name"),
-                                    "address": item.get("address") or "세종특별자치시",
-                                    "category": item.get("category") or item.get("era_normalized") or "문화유산",
-                                    "era_normalized": item.get("era_normalized") or "조선시대",
-                                    "latitude": float(item.get("latitude") or 36.48),
-                                    "longitude": float(item.get("longitude") or 127.28),
-                                    "description": item.get("description") or "",
-                                    "image_url": item.get("photo_url") or item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                                    "id": merged_item.get("id") or merged_item.get("h_id") or f"h_{merged_item.get('id')}",
+                                    "name": name,
+                                    "address": merged_item.get("address") or "세종특별자치시",
+                                    "category": merged_item.get("category") or merged_item.get("era_normalized") or "문화유산",
+                                    "era_normalized": merged_item.get("era_normalized") or "조선시대",
+                                    "latitude": float(merged_item.get("latitude") or 36.48),
+                                    "longitude": float(merged_item.get("longitude") or 127.28),
+                                    "description": merged_item.get("description") or "",
+                                    "image_url": merged_item.get("photo_url") or merged_item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                                 })
                                 if len(matched) >= 5:
                                     break
