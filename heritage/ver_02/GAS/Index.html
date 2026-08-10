@@ -78,6 +78,19 @@
         box-sizing: border-box;
       }
 
+      @media (max-width: 520px) {
+        .mobile-frame-wrapper {
+          padding: 0;
+        }
+        .mobile-device-chassis {
+          max-width: 100%;
+          max-height: 100vh;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+        }
+      }
+
       .mobile-app-content {
         flex: 1;
         overflow: hidden;
@@ -1781,28 +1794,21 @@
       }
 
       // 20. Glassmorphic Detail Modal Controllers
-      window.showDetailModal = function(itemJsonStr) {
-        let item;
-        try {
-          item = JSON.parse(decodeURIComponent(itemJsonStr));
-        } catch (e) {
-          console.error("Failed to parse item json:", e);
-          return;
-        }
-        
+      window.showDetailModalDirect = function(item) {
+        if (!item) return;
         document.getElementById('detail-image').src = item.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="100%" height="100%" fill="%23111520"/><path d="M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z" stroke="%2300f5d4" stroke-width="3" fill="none"/></svg>';
         document.getElementById('detail-image').alt = item.name;
         document.getElementById('detail-name').textContent = item.name;
-        document.getElementById('detail-address').textContent = '\u1f4cd ' + (item.address || '\uc138\uc885\uc2dc');
+        document.getElementById('detail-address').textContent = '📍 ' + (item.address || '세종시');
         
         const catBadge = document.getElementById('detail-category');
-        catBadge.textContent = item.category || '\ubb38\ud654\uc720\uc0b0';
+        catBadge.textContent = item.category || '문화유산';
         
-        if (item.category === '\uc2dc\ubbfc \ucd94\ucc9c') {
+        if (item.category === '시민 추천') {
           catBadge.className = 'badge badge-pending';
           catBadge.style.background = '';
           catBadge.style.color = '';
-        } else if (item.category === '\uad00\uad11\uc9c0') {
+        } else if (item.category === '관광지') {
           catBadge.className = 'badge badge-approved';
           catBadge.style.background = '';
           catBadge.style.color = '';
@@ -1812,30 +1818,48 @@
           catBadge.style.color = '#00f5d4';
         }
         
-        document.getElementById('detail-description').textContent = item.description || '\uc774 \ubb38\ud654\uc720\uc0b0\uc5d0 \ub300\ud55c \uc0c1\uc138 \uc124\uba85 \uc815\ubcf4\uac00 \uae30\ub85d\ub418\uc5b4 \uc788\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.';
+        document.getElementById('detail-description').textContent = item.description || '이 문화유산에 대한 상세 설명 정보가 기록되어 있지 않습니다.';
         
         const addBtn = document.getElementById('detail-add-btn');
         const exists = courseList.some(c => c.name === item.name);
         if (exists) {
-          addBtn.textContent = '\u2705 \uc774\ubbf8 \ub2f4\uaca8 \uc788\uc2b5\ub2c8\ub2e4';
+          addBtn.textContent = '✅ 이미 담겨 있습니다';
           addBtn.disabled = true;
           addBtn.style.background = 'rgba(255,255,255,0.06)';
           addBtn.style.color = '#64748b';
         } else {
-          addBtn.textContent = '\u1f5fa\ufe0f \ucf54\uc2a4\uc5d0 \ub2f4\uae30';
+          addBtn.textContent = '+ 내 여행 코스에 담기';
           addBtn.disabled = false;
-          addBtn.style.background = 'linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))';
-          addBtn.style.color = '#fff';
+          addBtn.style.background = '';
+          addBtn.style.color = '';
           addBtn.onclick = function() {
             courseList.push(item);
             renderCourseList();
-            updateMap(courseList, true);
-            showToast(`\u2705 [${item.name}]\uc744(\ub97c) \ucf54\uc2a4\uc5d0 \ub2f4\uc558\uc2b5\ub2c8\ub2e4.`);
+            updateMap(courseList);
+            showToast('코스에 추가했습니다.');
             closeDetailModal();
           };
         }
         
         document.getElementById('detail-modal').style.display = 'flex';
+      };
+
+      window.showDetailModalByIndex = function(idx) {
+        if (window.mapItemCache && window.mapItemCache[idx]) {
+          window.showDetailModalDirect(window.mapItemCache[idx]);
+        }
+      };
+
+      window.showRAGCardDetail = function(idx) {
+        if (ragCards && ragCards[idx]) {
+          window.showDetailModalDirect(ragCards[idx]);
+        }
+      };
+
+      window.showCourseCardDetail = function(idx) {
+        if (courseList && courseList[idx]) {
+          window.showDetailModalDirect(courseList[idx]);
+        }
       };
 
       window.closeDetailModal = function() {
