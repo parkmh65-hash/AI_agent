@@ -390,12 +390,6 @@
 
           <!-- Common Leaflet Map Container (Fixed at top of content area, hidden in Report tab) -->
           <div id="map-container" style="height: 280px; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1;">
-            <!-- Floating overlay controls for Map Style -->
-            <div style="position: absolute; top: 12px; right: 12px; z-index: 1000; display: flex; gap: 8px;">
-              <button id="map-theme-btn" style="background: rgba(9, 13, 22, 0.85); border: 1px solid rgba(0, 245, 212, 0.4); color: #00f5d4; font-size: 0.72rem; font-weight: bold; padding: 6px 10px; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.55); backdrop-filter: blur(4px); transition: all 0.2s;">
-                🕶️ 흑백 지도
-              </button>
-            </div>
           </div>
 
           <!-- Scrollable Main Content Viewport -->
@@ -907,10 +901,10 @@
             scrollWheelZoom: true
           }).setView([36.50, 127.26], 12);
  
-          // Premium Color Theme Map Layer by CARTO Basemaps
-          activeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 20,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          // Standard Color Map Layer by OpenStreetMap (provides default Korean labels in Korea)
+          activeTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           }).addTo(mapInstance);
 
         // National Heritage GIS WMS Overlay Layer
@@ -929,29 +923,6 @@
           }, 500);
         } catch (e) {
           console.error("Map init failed:", e);
-        }
-      }
-
-      // 5b. Map Styling and Orientation Controls
-      function toggleMapTheme() {
-        if (!mapInstance) return;
-        const btn = document.getElementById('map-theme-btn');
-        if (mapTheme === 'dark') {
-          mapTheme = 'color';
-          btn.textContent = '\u1f576\ufe0f \ud751\ubc31 \uc9c0\ub3c4';
-          if (activeTileLayer) mapInstance.removeLayer(activeTileLayer);
-          activeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 20,
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-          }).addTo(mapInstance);
-        } else {
-          mapTheme = 'dark';
-          btn.textContent = '\u1f3a8 \uceec\ub7ec \uc9c0\ub3c4';
-          if (activeTileLayer) mapInstance.removeLayer(activeTileLayer);
-          activeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 20,
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-          }).addTo(mapInstance);
         }
       }
  
@@ -1143,9 +1114,6 @@
 
         // Submission form handler
         document.getElementById('report-form').addEventListener('submit', handleReportSubmit);
-
-        // Map overlay controls click listeners
-        document.getElementById('map-theme-btn').addEventListener('click', toggleMapTheme);
       }
 
       // 9. Tab View switcher
