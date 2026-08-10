@@ -138,7 +138,7 @@
         background: #090d16;
         border-top: 1px solid rgba(255, 255, 255, 0.06);
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: repeat(5, 1fr);
         align-items: center;
         text-align: center;
         user-select: none;
@@ -150,7 +150,7 @@
         flex-direction: column;
         gap: 3px;
         color: #64748b;
-        font-size: 0.65rem;
+        font-size: 0.58rem;
         font-weight: 700;
         transition: color 0.2s ease;
       }
@@ -661,9 +661,17 @@
 
           <!-- Bottom Navigation Bar -->
           <nav class="bottom-nav">
-            <div id="nav-home" class="bottom-nav-item active">
+            <div id="nav-step1" class="bottom-nav-item active">
               <span style="font-size: 1.15rem;">🏛️</span>
-              <span>홈 / 추천</span>
+              <span>1단계: 추천</span>
+            </div>
+            <div id="nav-step2" class="bottom-nav-item">
+              <span style="font-size: 1.15rem;">⚡</span>
+              <span>2단계: 동선</span>
+            </div>
+            <div id="nav-step3" class="bottom-nav-item">
+              <span style="font-size: 1.15rem;">🎙️</span>
+              <span>3단계: 가이드</span>
             </div>
             <div id="nav-course" class="bottom-nav-item">
               <span style="font-size: 1.15rem;">🗺️</span>
@@ -1099,7 +1107,9 @@
       // 8. Event Listeners Config
       function setupEventListeners() {
         // Navigation items click events
-        document.getElementById('nav-home').addEventListener('click', () => switchTab('home'));
+        document.getElementById('nav-step1').addEventListener('click', () => switchTab('step1'));
+        document.getElementById('nav-step2').addEventListener('click', () => switchTab('step2'));
+        document.getElementById('nav-step3').addEventListener('click', () => switchTab('step3'));
         document.getElementById('nav-course').addEventListener('click', () => switchTab('course'));
         document.getElementById('nav-report').addEventListener('click', () => switchTab('report'));
 
@@ -1140,14 +1150,23 @@
 
       // 9. Tab View switcher
       function switchTab(tab) {
+        let targetStep = null;
+        if (tab === 'step1') { targetStep = 1; tab = 'home'; }
+        else if (tab === 'step2') { targetStep = 2; tab = 'home'; }
+        else if (tab === 'step3') { targetStep = 3; tab = 'home'; }
+
         currentTab = tab;
+        const isHome = tab === 'home';
+
         // Update navigation items active state
-        document.getElementById('nav-home').classList.toggle('active', tab === 'home');
+        document.getElementById('nav-step1').classList.toggle('active', isHome && activeWizardStep === 1);
+        document.getElementById('nav-step2').classList.toggle('active', isHome && activeWizardStep === 2);
+        document.getElementById('nav-step3').classList.toggle('active', isHome && activeWizardStep === 3);
         document.getElementById('nav-course').classList.toggle('active', tab === 'course');
         document.getElementById('nav-report').classList.toggle('active', tab === 'report');
 
         // Update section container displays
-        document.getElementById('section-home').style.display = tab === 'home' ? 'block' : 'none';
+        document.getElementById('section-home').style.display = isHome ? 'block' : 'none';
         document.getElementById('section-course').style.display = tab === 'course' ? 'block' : 'none';
         document.getElementById('section-report').style.display = tab === 'report' ? 'block' : 'none';
 
@@ -1157,21 +1176,25 @@
           mapContainer.style.display = tab === 'report' ? 'none' : 'block';
         }
 
-        // Map size realignment and redraw
-        if (mapInstance) {
-          setTimeout(() => {
-            mapInstance.invalidateSize();
-            // Dynamic map focus source
-            if (tab === 'home') {
-              if (activeWizardStep === 1) {
-                updateMap(ragCards, false);
-              } else {
+        // Apply wizard step change if requested
+        if (targetStep !== null) {
+          goToWizardStep(targetStep);
+        } else {
+          // Map size realignment and redraw
+          if (mapInstance) {
+            setTimeout(() => {
+              mapInstance.invalidateSize();
+              if (tab === 'home') {
+                if (activeWizardStep === 1) {
+                  updateMap(ragCards, false);
+                } else {
+                  updateMap(courseList, true);
+                }
+              } else if (tab === 'course') {
                 updateMap(courseList, true);
               }
-            } else if (tab === 'course') {
-              updateMap(courseList, true);
-            }
-          }, 100);
+            }, 100);
+          }
         }
       }
 
@@ -1283,6 +1306,13 @@
         
         document.getElementById('step-ind-1').classList.toggle('completed', step > 1);
         document.getElementById('step-ind-2').classList.toggle('completed', step > 2);
+
+        // Sync bottom navigation items active states
+        document.getElementById('nav-step1').classList.toggle('active', step === 1);
+        document.getElementById('nav-step2').classList.toggle('active', step === 2);
+        document.getElementById('nav-step3').classList.toggle('active', step === 3);
+        document.getElementById('nav-course').classList.toggle('active', false);
+        document.getElementById('nav-report').classList.toggle('active', false);
 
         // Map focus synchronization depending on step
         if (mapInstance) {
