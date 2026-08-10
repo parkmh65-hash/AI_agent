@@ -1386,8 +1386,6 @@
 
       window.updateWizardTransport = function(val) {
         transport = val;
-        const tabSelect = document.getElementById('transport-select');
-        if (tabSelect) tabSelect.value = val;
         calculateCourseDuration();
       };
 
@@ -1490,7 +1488,13 @@
             if (response.ok) {
               const routeData = await response.json();
               if (routeData.routes && routeData.routes.length > 0) {
-                const routeSeconds = routeData.routes[0].duration;
+                let routeSeconds = routeData.routes[0].duration;
+                
+                // Adjust routing travel time according to selected transport mode
+                if (transport === '대중교통') {
+                  routeSeconds = routeSeconds * 2.5; // Public transit delay multiplier
+                }
+                
                 // Total duration = Travel time + (30 minutes stay time * number of spots)
                 const staySeconds = courseList.length * 30 * 60;
                 const totalMinsPrecise = Math.round((routeSeconds + staySeconds) / 60);
