@@ -357,8 +357,7 @@ async def get_or_create_heritage_image(name: str, current_img: Optional[str] = N
             "model": "dall-e-2",
             "prompt": f"A realistic, beautiful photograph of the cultural heritage site or historic landmark '{name}' in South Korea, daylight, professional travel photography, clear details.",
             "n": 1,
-            "size": "512x512",
-            "response_format": "url"
+            "size": "512x512"
         }
         async with httpx.AsyncClient() as client:
             res_dalle = await client.post(

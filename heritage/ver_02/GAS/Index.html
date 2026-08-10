@@ -563,6 +563,10 @@
                     <span style="font-size: 0.78rem; color: var(--text-sub);">⏱️ 예상 총 소요시간:</span>
                     <strong id="total-duration-text" style="font-size: 1.05rem; color: #00f5d4;">약 0분</strong>
                   </div>
+
+                  <button onclick="switchTab('step3')" class="btn-primary" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #fbbf24, #d97706); color: #000; font-weight: bold; border: none; margin-top: 12px;">
+                    📖 3단계: AI 동화 가이드북 편찬하기 ➔
+                  </button>
                 </div>
               </div>
             </section>
@@ -644,13 +648,13 @@
               <span style="font-size: 1.15rem;">🏛️</span>
               <span>1단계: 추천</span>
             </div>
-            <div id="nav-step2" class="bottom-nav-item">
-              <span style="font-size: 1.15rem;">⚡</span>
-              <span>2단계: 동선</span>
-            </div>
             <div id="nav-course" class="bottom-nav-item">
               <span style="font-size: 1.15rem;">🗺️</span>
               <span>코스 설계</span>
+            </div>
+            <div id="nav-step2" class="bottom-nav-item">
+              <span style="font-size: 1.15rem;">⚡</span>
+              <span>2단계: 동선</span>
             </div>
             <div id="nav-step3" class="bottom-nav-item">
               <span style="font-size: 1.15rem;">🎙️</span>
@@ -1013,13 +1017,13 @@
               dashArray: '5, 10'
             }).addTo(mapInstance);
           }
-          mapInstance.fitBounds(mapPolyline.getBounds(), { padding: [30, 30] });
+          mapInstance.fitBounds(mapPolyline.getBounds(), { padding: [30, 30], maxZoom: 12 });
         } else if (latlngs.length > 1) {
           // If path rendering is disabled, just adjust map bounds to fit all active markers nicely
           const tempBounds = L.latLngBounds(latlngs);
-          mapInstance.fitBounds(tempBounds, { padding: [35, 35] });
+          mapInstance.fitBounds(tempBounds, { padding: [35, 35], maxZoom: 12 });
         } else if (latlngs.length === 1) {
-          mapInstance.setView(latlngs[0], 13);
+          mapInstance.setView(latlngs[0], 12);
         }
       }
 
@@ -1037,7 +1041,7 @@
             latitude: parseFloat(item.latitude || item.lat) || 36.48,
             longitude: parseFloat(item.longitude || item.lng) || 127.28,
             description: item.description || '\uc138\uc885\uc2dc\uc758 \ub300\ud45c \uc5ed\uc0ac \ubb38\ud654\uc720\uc0b0\uc785\ub2c8\ub2e4.',
-            image_url: item.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="100%" height="100%" fill="%23111520"/><path d="M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z" stroke="%2300f5d4" stroke-width="3" fill="none"/></svg>'
+            image_url: item.image_url || 'https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80'
           }));
 
           citizenHeritages = (data.citizen || []).map(item => ({
@@ -1048,7 +1052,7 @@
             latitude: parseFloat(item.latitude || item.lat) || 36.48,
             longitude: parseFloat(item.longitude || item.lng) || 127.28,
             description: item.description || '\uc2dc\ubbfc \uc81c\ubcf4 \ud0d0\ubc29 \ucf54\uc2a4',
-            image_url: item.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="100%" height="100%" fill="%23111520"/><path d="M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z" stroke="%2300f5d4" stroke-width="3" fill="none"/></svg>'
+            image_url: item.image_url || 'https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80'
           }));
 
           if (officialHeritages.length > 0) {
@@ -1245,6 +1249,12 @@
         }
 
         activeWizardStep = step;
+        currentTab = 'home';
+
+        // Ensure home tab section is visible and other tab sections are hidden
+        document.getElementById('section-home').style.display = 'block';
+        document.getElementById('section-course').style.display = 'none';
+        document.getElementById('section-report').style.display = 'none';
 
         // Hide all step sections
         document.getElementById('wizard-step-1').style.display = 'none';
@@ -1335,11 +1345,7 @@
           renderCourseList();
           updateMap(courseList, true);
 
-          showToast('✅ 1단계 완료: 추천 문화유산을 코스에 담고 2단계 동선 화면으로 이동합니다.');
-          
-          setTimeout(() => {
-            switchTab('step2');
-          }, 1000);
+          showToast('✅ 추천 완료: 추천 문화유산 5선이 코스에 자동으로 추가되었습니다. 하단의 [2단계: 동선] 메뉴를 클릭하여 확인해 보세요!');
           
         } catch (e) {
           showToast(`\u274c 1\ub2e8\uacc4 \uc5d0\ub7ec: ${e.message}`);
@@ -1803,7 +1809,7 @@
       // 20. Glassmorphic Detail Modal Controllers
       window.showDetailModalDirect = function(item) {
         if (!item) return;
-        document.getElementById('detail-image').src = item.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="100%" height="100%" fill="%23111520"/><path d="M75 35 L35 70 L115 70 Z M45 70 L45 115 L105 115 L105 70 Z" stroke="%2300f5d4" stroke-width="3" fill="none"/></svg>';
+        document.getElementById('detail-image').src = item.image_url || 'https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80';
         document.getElementById('detail-image').alt = item.name;
         document.getElementById('detail-name').textContent = item.name;
         document.getElementById('detail-address').textContent = '📍 ' + (item.address || '세종시');
