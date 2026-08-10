@@ -57,22 +57,25 @@
         height: 100vh;
         background: #080c14;
         margin: 0;
-        padding: 0;
+        padding: 12px;
         box-sizing: border-box;
+        overflow: hidden;
       }
 
       .mobile-device-chassis {
         width: 100%;
-        max-width: 500px;
+        max-width: 460px;
         height: 100%;
+        max-height: calc(100vh - 24px);
         background: #090d16;
-        box-shadow: 0 0 40px rgba(0, 0, 0, 0.85);
+        border: 8px solid #1e293b;
+        border-radius: 36px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
         overflow: hidden;
         display: flex;
         flex-direction: column;
         position: relative;
-        border-left: 1px solid rgba(255, 255, 255, 0.05);
-        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        box-sizing: border-box;
       }
 
       .mobile-app-content {
