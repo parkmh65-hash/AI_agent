@@ -868,6 +868,8 @@ async def get_initial_db_data(role: Optional[str] = "user"):
             if res_official.status_code == 200:
                 raw_official = res_official.json()
                 for row in raw_official:
+                    row.pop("embedding", None)
+                    row.pop("vector_embedding", None)
                     if "category" not in row:
                         row["category"] = row.get("era_normalized") or "문화유산"
                     if "image_url" not in row:
@@ -888,6 +890,8 @@ async def get_initial_db_data(role: Optional[str] = "user"):
             if res_citizen.status_code == 200:
                 raw_citizen = res_citizen.json()
                 for row in raw_citizen:
+                    row.pop("embedding", None)
+                    row.pop("vector_embedding", None)
                     if "created_at" not in row:
                         row["created_at"] = row.get("submitted_at")
                     # Normalize '신청중' to '대기' for frontend vetting controls
@@ -905,7 +909,14 @@ async def get_initial_db_data(role: Optional[str] = "user"):
                     timeout=5.0
                 )
                 if res_courses.status_code == 200:
-                    result["courses"] = res_courses.json()
+                    raw_courses = res_courses.json()
+                    for row in raw_courses:
+                        row.pop("embedding", None)
+                        row.pop("vector_embedding", None)
+                        row.pop("course_vector", None)
+                        row.pop("courses_vector", None)
+                        row.pop("route_vector", None)
+                    result["courses"] = raw_courses
                 else:
                     logger.error(f"Failed to fetch courses: {res_courses.text}")
     except Exception as e:
