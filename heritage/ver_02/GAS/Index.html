@@ -1142,7 +1142,8 @@
         // Show or hide the shared Leaflet map container dynamically
         const mapContainer = document.getElementById('map-container');
         if (mapContainer) {
-          mapContainer.style.display = tab === 'report' ? 'none' : 'block';
+          const hideMap = tab === 'report' || (isHome && activeWizardStep === 3) || (targetStep === 3);
+          mapContainer.style.display = hideMap ? 'none' : 'block';
         }
 
         // Apply wizard step change if requested
@@ -1282,6 +1283,12 @@
         document.getElementById('nav-step3').classList.toggle('active', step === 3);
         document.getElementById('nav-course').classList.toggle('active', false);
         document.getElementById('nav-report').classList.toggle('active', false);
+
+        // Show or hide map container based on wizard step
+        const mapContainer = document.getElementById('map-container');
+        if (mapContainer) {
+          mapContainer.style.display = (step === 3) ? 'none' : 'block';
+        }
 
         // Map focus synchronization depending on step
         if (mapInstance) {
