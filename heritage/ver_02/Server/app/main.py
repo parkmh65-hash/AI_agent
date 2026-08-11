@@ -326,10 +326,133 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
         await save_selected_heritages_to_db(matched)
     except Exception as e:
         logger.error(f"Failed to save selected heritages to database: {e}")
-            
+    # 4. Fetch tourist spots candidates from both Korea Tourism Organization API and DB
+    tour_candidates = []
+    area = area_code or "세종시"
+    
+    # 4-1. Search DB citizen_recommendations table
+    if settings.SUPABASE_URL and settings.SUPABASE_KEY:
+        try:
+            headers = {
+                "apikey": settings.SUPABASE_KEY,
+                "Authorization": f"Bearer {settings.SUPABASE_KEY}"
+            }
+            url = f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?address=ilike.*{area}*&limit=15"
+            async with httpx.AsyncClient() as client:
+                res = await client.get(url, headers=headers, timeout=5.0)
+                if res.status_code == 200:
+                    raw = res.json()
+                    for item in raw:
+                        tour_candidates.append({
+                            "id": f"t_{item.get('id')}",
+                            "name": item.get("name"),
+                            "address": item.get("address") or "세종특별자치시",
+                            "category": "관광지",
+                            "latitude": float(item.get("latitude") or 36.50),
+                            "longitude": float(item.get("longitude") or 127.26),
+                            "description": item.get("description") or "관광공사 연동 관광지 추천 명소입니다.",
+                            "image_url": item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                        })
+        except Exception as e:
+            logger.error(f"Failed to query citizen recommendations for candidates: {e}")
+
+    # 4-2. Korea Tourism Organization API
+    service_key = settings.TOUR_API_KEY
+    if service_key:
+        try:
+            url = "https://apis.data.go.kr/B551011/KorService2/searchKeyword2"
+            params = {
+                "serviceKey": service_key,
+                "numOfRows": 15,
+                "pageNo": 1,
+                "MobileOS": "ETC",
+                "MobileApp": "SejongHeritagePlatform",
+                "_type": "json",
+                "keyword": area,
+                "contentTypeId": 12
+            }
+            async with httpx.AsyncClient() as client:
+                res = await client.get(url, params=params, timeout=5.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    items_container = data.get("response", {}).get("body", {}).get("items", {})
+                    items = []
+                    if isinstance(items_container, dict):
+                        items = items_container.get("item", [])
+                    if isinstance(items, dict):
+                        items = [items]
+                        
+                    for item in items:
+                        title = item.get("title")
+                        if not title:
+                            continue
+                        addr = item.get("addr1") or f"{area} 관광지"
+                        mapx = item.get("mapx")
+                        mapy = item.get("mapy")
+                        img = item.get("firstimage") or item.get("firstImage") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                        
+                        if not any(m["name"].strip() == title.strip() for m in tour_candidates):
+                            tour_candidates.append({
+                                "id": f"kto_{item.get('contentid')}",
+                                "name": title,
+                                "address": addr,
+                                "category": "관광지",
+                                "latitude": float(mapy) if mapy else 36.50,
+                                "longitude": float(mapx) if mapx else 127.26,
+                                "description": f"{title}은(는) 한국관광공사 공인 추천 관광지입니다.",
+                                "image_url": img
+                            })
+        except Exception as e:
+            logger.error(f"KTO TourAPI candidate query failed: {e}")
+
+    # 5. Select exactly 5 tourist spots via LLM near the selected 5 heritages
+    selected_spots = []
+    try:
+        selected_spots = await select_top_tourist_spots_via_llm(matched, tour_candidates)
+    except Exception as e:
+        logger.error(f"Failed LLM tourist spots selection: {e}")
+        selected_spots = tour_candidates[:5]
+
+    # 6. Resolve image URLs for the final selected 5 tourist spots
+    try:
+        tasks = [resolve_heritage_image(item) for item in selected_spots]
+        resolved_images = await asyncio.gather(*tasks)
+        for idx, img in enumerate(resolved_images):
+            selected_spots[idx]["image_url"] = img
+    except Exception as e:
+        logger.error(f"Failed to secure selected tourist spots images: {e}")
+
+    # 7. Store selected 5 tourist spots to database
+    try:
+        await save_selected_tour_spots_to_db(selected_spots)
+    except Exception as e:
+        logger.error(f"Failed to save selected spots to database: {e}")
+
+    # 8. TSP Routing Course generation (Shortest-path logic matching 10 items)
+    combined_spots = matched + selected_spots
+    optimal_course = {}
+    try:
+        optimal_course = await generate_shortest_path_course_via_llm(combined_spots, transport="승용차")
+    except Exception as e:
+        logger.error(f"Failed to calculate shortest TSP route: {e}")
+        optimal_course = {
+            "course_name": "세종 스마트 역사문화 탐방 코스",
+            "description": "AI 임베딩 기반 추천 코스입니다.",
+            "transport": "승용차",
+            "total_duration": 150,
+            "items": combined_spots
+        }
+
+    # 9. Store course to database public.courses
+    try:
+        await save_generated_course_to_db(optimal_course)
+    except Exception as e:
+        logger.error(f"Failed to save generated course to database: {e}")
+
+    # Return sorted TSP items as RAG cards output
     return {
-        "output_heritages": matched,
-        "final_output": f"AI 분석 결과: 시맨틱 라우팅 결과 '유산 검색'으로 식별되어 원격 데이터베이스 실데이터 실시간 조회를 기반으로 추천 결과를 구성했습니다."
+        "output_heritages": optimal_course.get("items") or combined_spots,
+        "final_output": f"AI 분석 코스명: {optimal_course.get('course_name')}\n총 소요시간: {optimal_course.get('total_duration')}분\n이동수단: {optimal_course.get('transport')}\n\n코스 상세 스토리라인:\n{optimal_course.get('description')}"
     }
 
 async def update_db_heritage_image(name: str, image_url: str):
@@ -562,6 +685,353 @@ async def save_selected_heritages_to_db(items: List[Dict[str, Any]]):
                         
     except Exception as e:
         logger.error(f"Error saving selected heritages to database: {e}")
+
+async def select_top_tourist_spots_via_llm(heritages: List[Dict[str, Any]], candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Analyze the selected 5 heritages and tourist spots candidates to select 5 tourist spots closest or most relevant to the heritages"""
+    if not candidates:
+        return []
+    if len(candidates) <= 5:
+        return candidates
+        
+    if not settings.OPENAI_API_KEY:
+        logger.warn("OpenAI API key missing for spots selection. Returning first 5 candidates.")
+        return candidates[:5]
+        
+    try:
+        # Simplify structures to optimize prompt token usage
+        heritages_brief = [{
+            "name": h.get("name"),
+            "address": h.get("address"),
+            "latitude": h.get("latitude"),
+            "longitude": h.get("longitude")
+        } for h in heritages]
+        
+        candidates_brief = [{
+            "id": c.get("id"),
+            "name": c.get("name"),
+            "address": c.get("address"),
+            "latitude": c.get("latitude"),
+            "longitude": c.get("longitude"),
+            "description": c.get("description", "")[:120]
+        } for c in candidates]
+        
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "당신은 스마트 관광 플랫폼의 여행 명소 추천 비서입니다. "
+                        "선택된 5개의 대표 문화유산 정보(좌표 포함)와 매칭되는 관광지 후보 리스트를 참고하여, "
+                        "문화유산 명소들과 지리적으로 가깝고(동선 낭비가 적고) 탐방 주제에 가장 유기적으로 부합하는 주변 관광지 5개를 선별해 주세요. "
+                        "반드시 후보 리스트의 'id' 값들 중에서 5개를 선별해야 하며, "
+                        "출력은 오직 'selected_ids' 키에 5개의 id 문자열 배열을 담은 JSON 객체 형식이어야 합니다."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps({
+                        "selected_heritages": heritages_brief,
+                        "candidates": candidates_brief
+                    }, ensure_ascii=False)
+                }
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.2
+        }
+        
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
+                json=payload,
+                timeout=12.0
+            )
+            if res.status_code == 200:
+                result_json = json.loads(res.json()["choices"][0]["message"]["content"])
+                selected_ids = result_json.get("selected_ids", [])
+                
+                selected_spots = []
+                for s_id in selected_ids:
+                    match_item = next((c for c in candidates if c.get("id") == s_id), None)
+                    if match_item:
+                        selected_spots.append(match_item)
+                        
+                if len(selected_spots) < 5:
+                    for c in candidates:
+                        if c not in selected_spots:
+                            selected_spots.append(c)
+                        if len(selected_spots) == 5:
+                            break
+                            
+                return selected_spots[:5]
+    except Exception as e:
+        logger.error(f"Failed to filter tourist spots via LLM: {e}")
+        
+    return candidates[:5]
+
+async def save_selected_tour_spots_to_db(spots: List[Dict[str, Any]]):
+    """Upsert the final selected 5 tourist spots to database (Supabase citizen_recommendations table) with geocode validation"""
+    if not spots or not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return
+        
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            for item in spots:
+                name = item.get("name")
+                if not name:
+                    continue
+                    
+                address = item.get("address") or "세종특별자치시"
+                photo_url = item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                
+                # Check coordinates (latitude & longitude verification)
+                lat_val = float(item.get("latitude") or 0.0)
+                lng_val = float(item.get("longitude") or 0.0)
+                
+                if (lat_val == 0.0 or lng_val == 0.0 or
+                    lat_val < 33.0 or lat_val > 40.0 or
+                    lng_val < 124.0 or lng_val > 132.0 or
+                    (abs(lat_val - 36.50) < 0.01 and abs(lng_val - 127.26) < 0.01)):
+                    
+                    logger.info(f"Invalid or default coordinates detected for spot '{name}' ({lat_val}, {lng_val}). Verifying via address '{address}'...")
+                    geocoded = await geocode_address(address)
+                    if geocoded:
+                        lat_val, lng_val = geocoded
+                        logger.info(f"Successfully geocoded coordinates for spot '{name}': ({lat_val}, {lng_val})")
+                    else:
+                        lat_val = lat_val or 36.50
+                        lng_val = lng_val or 127.26
+                
+                # Check if tour spot already exists by name
+                check_url = f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?name=eq.{urllib.parse.quote(name)}&select=id"
+                res_check = await client.get(check_url, headers=headers, timeout=4.0)
+                
+                spot_id = None
+                if res_check.status_code == 200:
+                    records = res_check.json()
+                    if len(records) > 0:
+                        spot_id = records[0]["id"]
+                        
+                payload = {
+                    "name": name,
+                    "address": address,
+                    "description": item.get("description") or "AI 선별 추천 연동 명소 관광지입니다.",
+                    "latitude": lat_val,
+                    "longitude": lng_val,
+                    "image_url": photo_url,
+                    "user_id": "system@sejong.go.kr",
+                    "status": "승인"
+                }
+                
+                if spot_id:
+                    patch_url = f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?id=eq.{spot_id}"
+                    await client.patch(patch_url, headers=headers, json=payload, timeout=4.0)
+                    logger.info(f"Successfully updated selected tourist spot in database: '{name}'")
+                else:
+                    insert_url = f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations"
+                    res_ins = await client.post(insert_url, headers=headers, json=payload, timeout=4.0)
+                    if res_ins.status_code in [200, 201]:
+                        logger.info(f"Successfully inserted selected tourist spot into database: '{name}'")
+                    else:
+                        logger.warn(f"Failed to insert selected tourist spot '{name}': {res_ins.text}")
+                        
+    except Exception as e:
+        logger.error(f"Error saving selected tourist spots to database: {e}")
+
+async def generate_shortest_path_course_via_llm(spots: List[Dict[str, Any]], transport: str = "승용차") -> Dict[str, Any]:
+    """Sort the 10 spots (5 heritages + 5 tour spots) to create the shortest-path logical travel itinerary utilizing LLM tsp analysis"""
+    if not spots:
+        return {}
+        
+    reference_courses = []
+    # Query up to 10 existing courses from database to serve as prompt references
+    if settings.SUPABASE_URL and settings.SUPABASE_KEY:
+        try:
+            headers = {
+                "apikey": settings.SUPABASE_KEY,
+                "Authorization": f"Bearer {settings.SUPABASE_KEY}"
+            }
+            async with httpx.AsyncClient() as client:
+                res = await client.get(f"{settings.SUPABASE_URL}/rest/v1/courses?limit=10", headers=headers, timeout=4.0)
+                if res.status_code == 200:
+                    reference_courses = res.json()
+        except Exception as e:
+            logger.warn(f"Failed to fetch reference courses from DB: {e}")
+
+    if not settings.OPENAI_API_KEY:
+        logger.warn("OpenAI key missing. Returning default sorted list of items.")
+        return {
+            "course_name": "세종 스마트 역사문화 탐방 코스",
+            "description": "AI 임베딩 기반으로 연계 구성한 추천 탐방 경로입니다.",
+            "transport": transport,
+            "total_duration": 120,
+            "items": spots
+        }
+
+    try:
+        spots_input = [{
+            "id": s.get("id"),
+            "name": s.get("name"),
+            "address": s.get("address"),
+            "latitude": s.get("latitude"),
+            "longitude": s.get("longitude"),
+            "description": s.get("description", "")[:120]
+        } for s in spots]
+
+        prompt_context = {
+            "spots": spots_input,
+            "transport": transport,
+            "reference_courses_structures": [{
+                "course_name": c.get("course_name"),
+                "description": c.get("description", "")[:100],
+                "transport": c.get("transport"),
+                "total_duration": c.get("total_duration")
+            } for c in reference_courses]
+        }
+
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "당신은 전문 여행 동선 플래너입니다. "
+                        "전달받은 10개의 명소 장소 목록의 지리적 위/경도 좌표를 분석하여, "
+                        "가장 효율적이고 이동 동선 낭비가 적은 최단 경로 순서(TSP 라우팅)로 장소들을 정렬해 주세요. "
+                        "또한 기존 코스 데이터 구조의 형식을 참고하여 새로운 코스를 작성하세요. "
+                        "출력 포맷은 반드시 아래 JSON 키 구조를 정확하게 만족해야 합니다:\n"
+                        "{\n"
+                        "  \"course_name\": \"추천 코스 이름(한글)\",\n"
+                        "  \"description\": \"코스 전체 스토리라인 및 루트 요약 설명(한글)\",\n"
+                        "  \"total_duration\": 총 예상 소요시간 정수값(분 단위, 단순 이동 시간 및 장소별 평균 30분 체류 감안),\n"
+                        "  \"sorted_ids\": [정렬된 순서의 장소 id 문자열 배열]\n"
+                        "}"
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(prompt_context, ensure_ascii=False)
+                }
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.3
+        }
+
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
+                json=payload,
+                timeout=20.0
+            )
+            if res.status_code == 200:
+                result_json = json.loads(res.json()["choices"][0]["message"]["content"])
+                sorted_ids = result_json.get("sorted_ids", [])
+                
+                # Reorder the spots according to sorted_ids
+                sorted_spots = []
+                for s_id in sorted_ids:
+                    match_item = next((s for s in spots if s.get("id") == s_id), None)
+                    if match_item:
+                        sorted_spots.append(match_item)
+                        
+                # Add any missing spots
+                for s in spots:
+                    if s not in sorted_spots:
+                        sorted_spots.append(s)
+                        
+                return {
+                    "course_name": result_json.get("course_name") or "세종 스마트 역사문화 탐방 코스",
+                    "description": result_json.get("description") or "AI가 구성한 최적의 테마 코스입니다.",
+                    "transport": transport,
+                    "total_duration": int(result_json.get("total_duration") or 120),
+                    "items": sorted_spots
+                }
+    except Exception as e:
+        logger.error(f"Failed to generate optimal shortest course via LLM: {e}")
+
+    return {
+        "course_name": "세종 스마트 역사문화 탐방 코스",
+        "description": "AI 연계 구성한 추천 탐방 경로입니다.",
+        "transport": transport,
+        "total_duration": 120,
+        "items": spots
+    }
+
+async def save_generated_course_to_db(course_data: Dict[str, Any]):
+    """Upsert the final generated AI course into Supabase 'courses' and 'courses_vector' database tables without generating embeddings"""
+    if not course_data or not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return
+        
+    course_name = course_data.get("course_name")
+    if not course_name:
+        return
+        
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "course_name": course_name,
+        "description": course_data.get("description") or "",
+        "transport": course_data.get("transport") or "승용차",
+        "total_duration": int(course_data.get("total_duration") or 0),
+        "items": course_data.get("items") or []
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            # 1. Upsert into public.courses table
+            # Check if course already exists by name
+            check_url = f"{settings.SUPABASE_URL}/rest/v1/courses?course_name=eq.{urllib.parse.quote(course_name)}&select=id"
+            res_check = await client.get(check_url, headers=headers, timeout=4.0)
+            
+            course_id = None
+            if res_check.status_code == 200:
+                records = res_check.json()
+                if len(records) > 0:
+                    course_id = records[0]["id"]
+                    
+            if course_id:
+                patch_url = f"{settings.SUPABASE_URL}/rest/v1/courses?id=eq.{course_id}"
+                await client.patch(patch_url, headers=headers, json=payload, timeout=4.0)
+                logger.info(f"Successfully updated course '{course_name}' in public.courses database.")
+            else:
+                insert_url = f"{settings.SUPABASE_URL}/rest/v1/courses"
+                await client.post(insert_url, headers=headers, json=payload, timeout=4.0)
+                logger.info(f"Successfully inserted new course '{course_name}' into public.courses database.")
+                
+            # 2. Upsert into public.courses_vector table (without embedding field to respect no-vectorize user rule)
+            check_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector?course_name=eq.{urllib.parse.quote(course_name)}&select=id"
+            res_vec_check = await client.get(check_vec_url, headers=headers, timeout=4.0)
+            
+            vec_id = None
+            if res_vec_check.status_code == 200:
+                vec_records = res_vec_check.json()
+                if len(vec_records) > 0:
+                    vec_id = vec_records[0]["id"]
+                    
+            # Payload for courses_vector doesn't include "embedding" key to bypass vectorize processing
+            if vec_id:
+                patch_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector?id=eq.{vec_id}"
+                await client.patch(patch_vec_url, headers=headers, json=payload, timeout=4.0)
+                logger.info(f"Successfully updated course '{course_name}' in public.courses_vector database.")
+            else:
+                insert_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector"
+                await client.post(insert_vec_url, headers=headers, json=payload, timeout=4.0)
+                logger.info(f"Successfully inserted new course '{course_name}' into public.courses_vector database.")
+                
+    except Exception as e:
+        logger.error(f"Error saving generated course to database: {e}")
 
 async def geocode_address(address: str) -> Optional[tuple[float, float]]:
     """Geocode address using OpenStreetMap Nominatim, with OpenAI fallback"""
