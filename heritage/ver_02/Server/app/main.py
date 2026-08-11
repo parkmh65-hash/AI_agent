@@ -178,14 +178,14 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                     "description": f"기 생성 융합 코스: {rc.get('description')}",
                     "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                 })
-            # Secure, vectorize and store images for course recommendations as well
+            # Secure images for course recommendations as well
             try:
-                tasks = [upsert_and_vectorize_heritage(item) for item in matched_heritages[:3]]
+                tasks = [resolve_heritage_image(item) for item in matched_heritages[:3]]
                 resolved_images = await asyncio.gather(*tasks)
                 for idx, img in enumerate(resolved_images):
                     matched_heritages[idx]["image_url"] = img
             except Exception as e:
-                logger.error(f"Failed to secure/vectorize images for matched courses: {e}")
+                logger.error(f"Failed to secure images for matched courses: {e}")
                 
             return {
                 "output_heritages": matched_heritages[:3],
@@ -306,14 +306,14 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
 
     matched = matched[:5]
     
-    # Secure, vectorize and store all matched heritages in database
+    # Secure images for all matched heritages
     try:
-        tasks = [upsert_and_vectorize_heritage(item) for item in matched]
+        tasks = [resolve_heritage_image(item) for item in matched]
         resolved_images = await asyncio.gather(*tasks)
         for idx, img in enumerate(resolved_images):
             matched[idx]["image_url"] = img
     except Exception as e:
-        logger.error(f"Failed to secure/vectorize matched heritages: {e}")
+        logger.error(f"Failed to secure matched heritages images: {e}")
             
     return {
         "output_heritages": matched,
@@ -373,129 +373,16 @@ async def get_or_create_heritage_image(name: str, current_img: Optional[str] = N
 
     return current_img or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
 
-async def get_openai_embedding_768(text: str) -> Optional[List[float]]:
-    """Generate 768-dimensional OpenAI embedding for a given text"""
-    if not settings.OPENAI_API_KEY:
-        return None
-    try:
-        payload = {
-            "input": [text],
-            "model": "text-embedding-3-small",
-            "dimensions": 768
-        }
-        async with httpx.AsyncClient() as client:
-            res = await client.post(
-                "https://api.openai.com/v1/embeddings",
-                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
-                json=payload,
-                timeout=10.0
-            )
-            if res.status_code == 200:
-                return res.json()["data"][0]["embedding"]
-    except Exception as e:
-        logger.error(f"Failed to generate 768-dim embedding: {e}")
-    return None
-
-async def upsert_and_vectorize_heritage(item: Dict[str, Any]) -> str:
-    """Ensure heritage details are stored, vectorized, and linked to storage photos in Supabase"""
+async def resolve_heritage_image(item: Dict[str, Any]) -> str:
+    """Ensure a valid image URL exists by either reusing current or generating via DALL-E directly (without storing to Supabase / Vectorizing)"""
     name = item.get("name")
     if not name:
-        return item.get("image_url") or ""
-        
-    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
-        return await get_or_create_heritage_image(name, item.get("image_url"))
-
-    headers = {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-        "Content-Type": "application/json"
-    }
-
+        return item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
     try:
-        async with httpx.AsyncClient() as client:
-            table = await get_heritage_table_name(client, headers)
-            
-            # 1. Check if the heritage already exists
-            check_url = f"{settings.SUPABASE_URL}/rest/v1/{table}?name=eq.{urllib.parse.quote(name)}&select=id,photo_url,embedding"
-            res_check = await client.get(check_url, headers=headers, timeout=5.0)
-            
-            existing_record = None
-            if res_check.status_code == 200:
-                records = res_check.json()
-                if len(records) > 0:
-                    existing_record = records[0]
-
-            # 2. Get or generate the image URL
-            current_photo = existing_record.get("photo_url") if existing_record else item.get("image_url")
-            photo_url = await get_or_create_heritage_image(name, current_photo)
-            
-            # 3. If it already exists, update missing fields
-            if existing_record:
-                h_id = existing_record["id"]
-                updates = {}
-                
-                if existing_record.get("photo_url") != photo_url:
-                    updates["photo_url"] = photo_url
-                    
-                if not existing_record.get("embedding"):
-                    desc = item.get("description") or ""
-                    text_to_embed = f"문화유산명: {name}\n소재지: {item.get('address') or ''}\n설명: {desc}"
-                    vector = await get_openai_embedding_768(text_to_embed)
-                    if vector:
-                        updates["embedding"] = vector
-                        
-                if updates:
-                    patch_url = f"{settings.SUPABASE_URL}/rest/v1/{table}?id=eq.{h_id}"
-                    await client.patch(patch_url, headers=headers, json=updates, timeout=5.0)
-                    logger.info(f"Updated existing heritage '{name}' with missing fields: {list(updates.keys())}")
-                    
-                return photo_url
-                
-            # 4. If completely new, insert it
-            else:
-                desc = item.get("description") or ""
-                text_to_embed = f"문화유산명: {name}\n소재지: {item.get('address') or ''}\n설명: {desc}"
-                
-                # Generate 768-dimensional embedding
-                vector = await get_openai_embedding_768(text_to_embed)
-                
-                # Extract 'dong' to satisfy NOT NULL constraints
-                address = item.get("address") or "세종특별자치시"
-                match_dong = re.search(r'(\S+[동읍면])', address)
-                dong = match_dong.group(1) if match_dong else "세종시"
-                
-                new_item = {
-                    "name": name,
-                    "address": address,
-                    "dong": dong,
-                    "latitude": item.get("latitude") or 36.48,
-                    "longitude": item.get("longitude") or 127.28,
-                    "description": desc,
-                    "photo_url": photo_url,
-                    "source": "api_crawler",
-                    "status": "approved",
-                    "era_normalized": item.get("era_normalized") or item.get("category") or "문화유산"
-                }
-                
-                if vector:
-                    new_item["embedding"] = vector
-                    
-                insert_url = f"{settings.SUPABASE_URL}/rest/v1/{table}"
-                headers_ins = headers.copy()
-                headers_ins["Prefer"] = "return=representation"
-                
-                res_ins = await client.post(insert_url, headers=headers_ins, json=new_item, timeout=5.0)
-                if res_ins.status_code in [200, 201]:
-                    logger.info(f"Successfully vectorized and inserted new heritage into database: '{name}'")
-                else:
-                    logger.warn(f"Failed to insert new heritage '{name}': {res_ins.text}")
-                    
-                return photo_url
-
+        return await get_or_create_heritage_image(name, item.get("image_url"))
     except Exception as e:
-        logger.error(f"Error in upsert_and_vectorize_heritage for '{name}': {e}")
-        
-    return item.get("image_url") or ""
+        logger.error(f"Error in resolve_heritage_image for '{name}': {e}")
+        return item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
 
 async def geocode_address(address: str) -> Optional[tuple[float, float]]:
     """Geocode address using OpenStreetMap Nominatim, with OpenAI fallback"""
@@ -1218,12 +1105,12 @@ async def heritage_search(query: str, area_code: Optional[str] = "전체"):
     """Search heritages directly using official National Heritage Open API"""
     results = await fetch_national_heritage_openapi(query, area_code)
     try:
-        tasks = [upsert_and_vectorize_heritage(item) for item in results]
+        tasks = [resolve_heritage_image(item) for item in results]
         resolved_images = await asyncio.gather(*tasks)
         for idx, img in enumerate(resolved_images):
             results[idx]["image_url"] = img
     except Exception as e:
-        logger.error(f"Failed to secure/vectorize heritage search results: {e}")
+        logger.error(f"Failed to secure heritage search results: {e}")
     return {"heritages": results}
 
 class TourSearchRequest(BaseModel):
@@ -1338,10 +1225,10 @@ async def tour_search(req: TourSearchRequest):
                     
     spots = matched[:5]
     try:
-        tasks = [upsert_and_vectorize_heritage(item) for item in spots]
+        tasks = [resolve_heritage_image(item) for item in spots]
         resolved_images = await asyncio.gather(*tasks)
         for idx, img in enumerate(resolved_images):
             spots[idx]["image_url"] = img
     except Exception as e:
-        logger.error(f"Failed to secure/vectorize tourist spots: {e}")
+        logger.error(f"Failed to secure tourist spots images: {e}")
     return {"tourist_spots": spots}
