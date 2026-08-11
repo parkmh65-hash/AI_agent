@@ -785,6 +785,10 @@ class UserProfileRequest(BaseModel):
     nickname: str
     auth_provider: Optional[str] = "google"
 
+class UserAuthRequest(BaseModel):
+    email: str
+    password: str
+
 class ImageUploadRequest(BaseModel):
     base64Data: str
     filename: str
@@ -937,6 +941,113 @@ async def upsert_user_profile(req: UserProfileRequest):
                 return {"status": "success", "data": res.text}
             else:
                 return {"status": "error", "message": res.text}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/v1/auth/signup")
+async def auth_signup(req: UserAuthRequest):
+    """Sign up user via Supabase Auth and insert profile record"""
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return {"status": "error", "message": "Supabase credentials are not set on the server."}
+        
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "email": req.email,
+        "password": req.password
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            # 1. Call Supabase Auth signup
+            signup_url = f"{settings.SUPABASE_URL}/auth/v1/signup"
+            res = await client.post(signup_url, headers=headers, json=payload, timeout=10.0)
+            
+            if res.status_code in [200, 201]:
+                # 2. Insert into users_profile table
+                import datetime
+                nickname = req.email.split("@")[0]
+                profile_payload = {
+                    "email": req.email,
+                    "nickname": nickname,
+                    "auth_provider": "email",
+                    "last_login": datetime.datetime.utcnow().isoformat() + "Z"
+                }
+                profile_headers = get_supabase_headers()
+                profile_headers["Content-Type"] = "application/json"
+                profile_headers["Prefer"] = "resolution=merge-duplicates"
+                
+                await client.post(
+                    f"{settings.SUPABASE_URL}/rest/v1/users_profile",
+                    headers=profile_headers,
+                    json=profile_payload,
+                    timeout=5.0
+                )
+                
+                return {"status": "success", "message": "Successfully signed up and profile created."}
+            else:
+                try:
+                    err_msg = res.json().get("msg", res.text)
+                except Exception:
+                    err_msg = res.text
+                return {"status": "error", "message": err_msg}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/v1/auth/login")
+async def auth_login(req: UserAuthRequest):
+    """Log in user via Supabase Auth and update last_login timestamp"""
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return {"status": "error", "message": "Supabase credentials are not set on the server."}
+        
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "email": req.email,
+        "password": req.password
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            # 1. Call Supabase Auth token signin
+            login_url = f"{settings.SUPABASE_URL}/auth/v1/token?grant_type=password"
+            res = await client.post(login_url, headers=headers, json=payload, timeout=10.0)
+            
+            if res.status_code == 200:
+                # 2. Update users_profile last_login timestamp
+                import datetime
+                nickname = req.email.split("@")[0]
+                profile_payload = {
+                    "email": req.email,
+                    "nickname": nickname,
+                    "auth_provider": "email",
+                    "last_login": datetime.datetime.utcnow().isoformat() + "Z"
+                }
+                profile_headers = get_supabase_headers()
+                profile_headers["Content-Type"] = "application/json"
+                profile_headers["Prefer"] = "resolution=merge-duplicates"
+                
+                await client.post(
+                    f"{settings.SUPABASE_URL}/rest/v1/users_profile",
+                    headers=profile_headers,
+                    json=profile_payload,
+                    timeout=5.0
+                )
+                
+                return {"status": "success", "email": req.email, "nickname": nickname}
+            else:
+                try:
+                    res_json = res.json()
+                    msg = res_json.get("error_description") or res_json.get("error") or res.text
+                except Exception:
+                    msg = res.text
+                return {"status": "error", "message": msg}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
