@@ -304,9 +304,14 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
         except Exception:
             pass
 
-    matched = matched[:5]
+    # 1. AI selection of exactly 5 heritages based on query context from the candidates pool
+    try:
+        matched = await select_top_heritages_via_llm(query, matched)
+    except Exception as e:
+        logger.error(f"Failed to perform LLM heritage selection: {e}")
+        matched = matched[:5]
     
-    # Secure images for all matched heritages
+    # 2. Resolve image URLs for the final selected 5 heritages
     try:
         tasks = [resolve_heritage_image(item) for item in matched]
         resolved_images = await asyncio.gather(*tasks)
@@ -314,6 +319,12 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
             matched[idx]["image_url"] = img
     except Exception as e:
         logger.error(f"Failed to secure matched heritages images: {e}")
+
+    # 3. Store the selected 5 heritages to database
+    try:
+        await save_selected_heritages_to_db(matched)
+    except Exception as e:
+        logger.error(f"Failed to save selected heritages to database: {e}")
             
     return {
         "output_heritages": matched,
@@ -383,6 +394,152 @@ async def resolve_heritage_image(item: Dict[str, Any]) -> str:
     except Exception as e:
         logger.error(f"Error in resolve_heritage_image for '{name}': {e}")
         return item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+
+async def select_top_heritages_via_llm(query: str, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Analyze query and candidate list using LLM to choose exactly 5 heritages that best fit the query intent"""
+    if not candidates:
+        return []
+    if len(candidates) <= 5:
+        return candidates
+        
+    if not settings.OPENAI_API_KEY:
+        logger.warn("OpenAI API key missing for selection. Returning first 5 candidates.")
+        return candidates[:5]
+        
+    try:
+        # Simplify candidate representation for LLM prompt context to save tokens
+        candidates_brief = []
+        for c in candidates:
+            candidates_brief.append({
+                "id": c.get("id"),
+                "name": c.get("name"),
+                "address": c.get("address"),
+                "description": c.get("description", "")[:150]
+            })
+            
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "당신은 스마트 관광 플랫폼의 AI 추천 비서입니다. "
+                        "사용자의 자연어 질문과 매칭되는 문화유산 후보 리스트를 분석하여, "
+                        "질문 의도와 추천 맥락에 가장 잘 부합하는 문화유산 5개를 선별해 주세요. "
+                        "반드시 후보 리스트의 'id' 값들 중에서 5개를 선별해야 하며, "
+                        "출력은 오직 'selected_ids' 키에 5개의 id 문자열 배열을 담은 JSON 객체 형식이어야 합니다."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps({
+                        "user_query": query,
+                        "candidates": candidates_brief
+                    }, ensure_ascii=False)
+                }
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.2
+        }
+        
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
+                json=payload,
+                timeout=12.0
+            )
+            if res.status_code == 200:
+                result_json = json.loads(res.json()["choices"][0]["message"]["content"])
+                selected_ids = result_json.get("selected_ids", [])
+                
+                # Filter candidates matching the selected IDs
+                selected_items = []
+                for s_id in selected_ids:
+                    match_item = next((c for c in candidates if c.get("id") == s_id), None)
+                    if match_item:
+                        selected_items.append(match_item)
+                        
+                # Fallback if selection returned invalid or insufficient items
+                if len(selected_items) < 5:
+                    for c in candidates:
+                        if c not in selected_items:
+                            selected_items.append(c)
+                        if len(selected_items) == 5:
+                            break
+                            
+                return selected_items[:5]
+    except Exception as e:
+        logger.error(f"Failed to filter heritages via LLM: {e}")
+        
+    return candidates[:5]
+
+async def save_selected_heritages_to_db(items: List[Dict[str, Any]]):
+    """Upsert the final selected 5 heritages to database (Supabase heritages table) without generating pgvector embeddings"""
+    if not items or not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return
+        
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            table = await get_heritage_table_name(client, headers)
+            
+            for item in items:
+                name = item.get("name")
+                if not name:
+                    continue
+                    
+                # 1. Resolve address and dong eup myeon
+                address = item.get("address") or "세종특별자치시"
+                match_dong = re.search(r'(\S+[동읍면])', address)
+                dong = match_dong.group(1) if match_dong else "세종시"
+                
+                photo_url = item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                
+                # Check if heritage already exists by name
+                check_url = f"{settings.SUPABASE_URL}/rest/v1/{table}?name=eq.{urllib.parse.quote(name)}&select=id"
+                res_check = await client.get(check_url, headers=headers, timeout=4.0)
+                
+                h_id = None
+                if res_check.status_code == 200:
+                    records = res_check.json()
+                    if len(records) > 0:
+                        h_id = records[0]["id"]
+                        
+                payload = {
+                    "name": name,
+                    "address": address,
+                    "dong": dong,
+                    "latitude": item.get("latitude") or 36.48,
+                    "longitude": item.get("longitude") or 127.28,
+                    "description": item.get("description") or "",
+                    "photo_url": photo_url,
+                    "source": "api_crawler",
+                    "status": "approved",
+                    "era_normalized": item.get("era_normalized") or item.get("category") or "문화유산"
+                }
+                
+                if h_id:
+                    # Update (PATCH) existing record
+                    patch_url = f"{settings.SUPABASE_URL}/rest/v1/{table}?id=eq.{h_id}"
+                    await client.patch(patch_url, headers=headers, json=payload, timeout=4.0)
+                    logger.info(f"Successfully updated selected heritage in database: '{name}'")
+                else:
+                    # Insert (POST) new record
+                    insert_url = f"{settings.SUPABASE_URL}/rest/v1/{table}"
+                    res_ins = await client.post(insert_url, headers=headers, json=payload, timeout=4.0)
+                    if res_ins.status_code in [200, 201]:
+                        logger.info(f"Successfully inserted selected heritage into database: '{name}'")
+                    else:
+                        logger.warn(f"Failed to insert selected heritage '{name}': {res_ins.text}")
+                        
+    except Exception as e:
+        logger.error(f"Error saving selected heritages to database: {e}")
 
 async def geocode_address(address: str) -> Optional[tuple[float, float]]:
     """Geocode address using OpenStreetMap Nominatim, with OpenAI fallback"""
@@ -510,7 +667,7 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
             if res_list.status_code == 200:
                 root = ET.fromstring(res_list.text)
                 items = root.findall(".//item")
-                for item in items[:5]:
+                for item in items[:15]:
                     kdcd_val = item.findtext("ccbaKdcd")
                     asno_val = item.findtext("ccbaAsno")
                     ctcd_val = item.findtext("ccbaCtcd")
