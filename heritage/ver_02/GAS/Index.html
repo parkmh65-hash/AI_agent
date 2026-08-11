@@ -749,7 +749,17 @@
                 citizen: []
               });
             } else if (methodName === 'getCurrentGoogleUserGAS') {
-              resolve({ status: 'fallback', email: 'guest@sejong.go.kr', nickname: '\uac8c\uc2a4\ud2b8' });
+              resolve({ status: 'fallback', email: 'guest@sejong.go.kr', nickname: '게스트' });
+            } else if (methodName === 'getCurrentKakaoUserGAS') {
+              resolve({ status: 'success', email: 'kakao_user@kakao.com', nickname: '카카오프렌즈' });
+            } else if (methodName === 'getCurrentNaverUserGAS') {
+              resolve({ status: 'success', email: 'naver_user@naver.com', nickname: '네이버그린' });
+            } else if (methodName === 'signUpUserWithPasswordGAS') {
+              resolve({ status: 'success', message: 'Signed up successfully (fallback)' });
+            } else if (methodName === 'loginUserWithPasswordGAS') {
+              const email = args[0] || 'email_user@sejong.go.kr';
+              const nickname = email.split('@')[0];
+              resolve({ status: 'success', email: email, nickname: nickname });
             } else if (methodName === 'checkGasDbConfigurationStatus') {
               resolve({ configured: true, working: true, url: 'https://pdpmtgnagwzcsftavtap.supabase.co', error: '' });
             } else {
