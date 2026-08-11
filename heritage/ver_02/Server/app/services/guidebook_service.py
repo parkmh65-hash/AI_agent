@@ -60,7 +60,6 @@ class StoryboardCard(BaseModel):
 class GuidebookOutput(BaseModel):
     storyboard_cards: List[StoryboardCard] = Field(description="코스 카드 스토리보드 리스트")
     guidebook_ko_article: str = Field(description="통합 한국어 가이드 동화 및 안내문")
-    guidebook_en_article: str = Field(description="English Travel Guidebook translation")
     final_output: str = Field(description="성우 낭독용 정제된 오디오 스크립트 (마크다운 특수문자가 배제된 텍스트)")
 
 # 2. State definition for StateGraph
@@ -70,7 +69,6 @@ class AgentState(Dict[str, Any]):
     enriched_knowledge: str
     analysis_result: Optional[Dict[str, Any]]
     story_result: Optional[str]
-    translation_result: Optional[str]
     final_output: Optional[GuidebookOutput]
 
 # 3. External Web Knowledge Enrichment APIs
@@ -385,17 +383,6 @@ async def storywriter_node(state: AgentState) -> Dict[str, Any]:
     })
     return {"story_result": res.content}
 
-# Node 3: Translator Agent
-async def translator_node(state: AgentState) -> Dict[str, Any]:
-    llm = get_llm()
-    prompt = ChatPromptTemplate.from_template(
-        "당신은 전문 번역 에이전트입니다. 다음 한국어 원고 내용을 외국인 관광객들이 쉽게 읽을 수 있도록 자연스러운 영문 가이드북으로 번역 및 편집해 주세요.\n"
-        "한국어 원고:\n{story}"
-    )
-    chain = prompt | llm
-    res = await chain.ainvoke({"story": state["story_result"]})
-    return {"translation_result": res.content}
-
 # Node 4: Critic & Formatting Agent
 async def critic_node(state: AgentState) -> Dict[str, Any]:
     llm = get_llm()
@@ -404,7 +391,7 @@ async def critic_node(state: AgentState) -> Dict[str, Any]:
     prompt = ChatPromptTemplate.from_template(
         "당신은 수석 감수관 및 포맷터 에이전트입니다. 이전 에이전트들이 작성한 자료들을 검수하고, 다음의 JSON 포맷 형식으로 데이터를 구조화해 주세요.\n"
         "반드시 JSON 객체만을 출력해야 합니다. 마크다운 태그(```json)로 감싸서 반환하지 마십시오.\n\n"
-        "기획 자료: {analysis}\n한국어 스토리텔링: {story}\n영문 번역문: {translation}\n장소 리스트: {heritages}\n\n"
+        "기획 자료: {analysis}\n한국어 스토리텔링: {story}\n장소 리스트: {heritages}\n\n"
         "포맷팅 및 감수 지침:\n"
         "1. 각 장소마다 1개의 StoryboardCard를 생성하십시오. 이미지 URL은 임시 플레이스홀더 주소를 생성해 주십시오.\n"
         "2. StoryboardCard의 각 항목(scene_title, guide_tip 등) 및 guidebook_ko_article(한국어 아티클), final_output(성우 스피치 텍스트)은 모두 **엄마가 자녀에게 다정하고 친근하게 이야기해주는 말투(엄마 목소리)**가 완벽히 적용되었는지 검수하고 보정하십시오.\n"
@@ -416,7 +403,6 @@ async def critic_node(state: AgentState) -> Dict[str, Any]:
     res = await chain.ainvoke({
         "analysis": state["analysis_result"]["summary"],
         "story": state["story_result"],
-        "translation": state["translation_result"],
         "heritages": ", ".join(state["heritages"]),
         "format_instructions": parser.get_format_instructions()
     })
@@ -429,13 +415,11 @@ def build_guidebook_graph():
     
     workflow.add_node("analyzer", analyzer_node)
     workflow.add_node("storywriter", storywriter_node)
-    workflow.add_node("translator", translator_node)
     workflow.add_node("critic", critic_node)
     
     workflow.set_entry_point("analyzer")
     workflow.add_edge("analyzer", "storywriter")
-    workflow.add_edge("storywriter", "translator")
-    workflow.add_edge("translator", "critic")
+    workflow.add_edge("storywriter", "critic")
     workflow.add_edge("critic", END)
     
     return workflow.compile()
@@ -445,52 +429,6 @@ class GuidebookService:
     def __init__(self):
         self.graph = build_guidebook_graph()
         
-    async def save_course_vector_to_supabase(self, course_name: str, description: str, heritages: List[str], transport: str, duration: int) -> bool:
-        """Vectorize generated course content and save to Supabase pgvector-enabled table"""
-        if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
-            return False
-        
-        try:
-            # 1. Generate text embedding vector using OpenAI Embeddings
-            api_key = settings.OPENAI_API_KEY or "dummy_key"
-            embeddings_model = OpenAIEmbeddings(openai_api_key=api_key)
-            
-            # Text block to represent this course semantically
-            course_text = f"코스명: {course_name}\n소개: {description}\n경로: {' -> '.join(heritages)}\n교통수단: {transport}\n총 소요시간: {duration}분"
-            
-            # Async vector generation
-            vector = await embeddings_model.aembed_query(course_text)
-            
-            # 2. Insert into Supabase 'courses_vector' table via REST API
-            headers = {
-                "apikey": settings.SUPABASE_KEY,
-                "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-                "Content-Type": "application/json",
-                "Prefer": "return=representation"
-            }
-            
-            payload = {
-                "course_name": course_name,
-                "description": description,
-                "items": json.dumps(heritages, ensure_ascii=False),
-                "transport": transport,
-                "total_duration": duration,
-                "embedding": vector # pgvector column mapping
-            }
-            
-            async with httpx.AsyncClient() as client:
-                res = await client.post(
-                    f"{settings.SUPABASE_URL}/rest/v1/courses_vector",
-                    headers=headers,
-                    json=payload,
-                    timeout=5.0
-                )
-                if res.status_code in [200, 201]:
-                    return True
-        except Exception as e:
-            print(f"Failed to vectorize and save course to DB: {e}")
-        return False
-
     async def create_guidebook(self, heritages: List[str], transport: str = "승용차") -> Dict[str, Any]:
         # Gather dynamic external knowledge
         knowledge = await gather_enriched_knowledge(heritages)
@@ -501,7 +439,6 @@ class GuidebookService:
             "enriched_knowledge": knowledge,
             "analysis_result": None,
             "story_result": None,
-            "translation_result": None,
             "final_output": None
         }
         
@@ -513,21 +450,4 @@ class GuidebookService:
         if not final_data:
             raise ValueError("Graph execution failed to generate final output.")
             
-        # Asynchronously run vectorization and DB insertion in the background
-        try:
-            course_name = f"{'과 '.join(heritages[:2])} 연계 탐방 코스"
-            description = final_data.get("guidebook_ko_article", "")[:150]
-            import asyncio
-            asyncio.create_task(
-                self.save_course_vector_to_supabase(
-                    course_name=course_name,
-                    description=description,
-                    heritages=heritages,
-                    transport=transport,
-                    duration=len(heritages) * 30
-                )
-            )
-        except Exception as err:
-            print(f"Async vectorization launch failed: {err}")
-
         return final_data

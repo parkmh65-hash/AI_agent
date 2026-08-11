@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 # LangChain / OpenAI imports for Semantic Router & Embeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 
 from app.config import settings
 from app.services.guidebook_service import GuidebookService
@@ -1268,47 +1268,6 @@ async def generate_travel_guidebook(req: GuidebookRequest):
     try:
         logger.info(f"Generating guidebook for: {req.heritages} using {req.transport}")
         guidebook = await guidebook_service.create_guidebook(req.heritages, req.transport)
-        
-        # Async RAG Caching / Vectorization to courses_vector database
-        if settings.SUPABASE_URL and settings.SUPABASE_KEY and settings.OPENAI_API_KEY:
-            try:
-                story_content = guidebook.get("final_output", {}).get("story_result", "") or ""
-                course_name = " -> ".join(req.heritages)
-                embedding_text = f"코스명: {course_name}\n이동수단: {req.transport}\n가이드북 본문: {story_content}"
-                
-                embeddings_model = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
-                course_vector = await embeddings_model.aembed_query(embedding_text)
-                
-                headers = {
-                    "apikey": settings.SUPABASE_KEY,
-                    "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-                    "Content-Type": "application/json",
-                    "Prefer": "return=minimal"
-                }
-                
-                cards = guidebook.get("final_output", {}).get("cards", [])
-                total_duration = guidebook.get("final_output", {}).get("total_duration", 0)
-                
-                payload = {
-                    "course_name": course_name,
-                    "description": story_content[:500] + "..." if len(story_content) > 500 else story_content,
-                    "transport": req.transport,
-                    "total_duration": total_duration,
-                    "items": cards,
-                    "embedding": course_vector
-                }
-                
-                async with httpx.AsyncClient() as client:
-                    await client.post(
-                        f"{settings.SUPABASE_URL}/rest/v1/courses_vector",
-                        headers=headers,
-                        json=payload,
-                        timeout=5.0
-                    )
-                    logger.info("Successfully vectorized and cached generated course in public.courses_vector.")
-            except Exception as cache_err:
-                logger.warn(f"Failed to cache generated course into pgvector database: {cache_err}")
-                
         return guidebook
     except Exception as e:
         logger.error(f"Guidebook generation error: {e}", exc_info=True)
