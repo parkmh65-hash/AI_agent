@@ -109,182 +109,26 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
-    # 1. Semantic Router (LLM Based Routing)
-    target_route = "heritage" # default route
-    try:
-        api_key = settings.OPENAI_API_KEY or "dummy_key"
-        llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=api_key, temperature=0.0)
-        parser = JsonOutputParser(pydantic_object=QueryRoute)
-        
-        prompt = ChatPromptTemplate.from_template(
-            "당신은 스마트 관광 플랫폼의 AI 시맨틱 라우터입니다. 사용자의 질문을 분석하여 아래 두 경로 중 하나로 분류해 주세요.\n"
-            "1. 'heritage': 특정 문화유산 자체에 대한 지식, 역사, 정보, 유래 등을 묻는 질문 (예: '비암사의 건립 연도는?', '은행나무 역사 알려줘')\n"
-            "2. 'course': 여러 장소를 묶은 코스, 여행 경로, 탐방 경로, 갈만한 코스 추천 등을 묻는 질문 (예: '2시간짜리 데이트 코스 짜줘', '아이와 갈만한 코스 추천')\n\n"
-            "{format_instructions}\n"
-            "질문: {query}"
-        )
-        
-        chain = prompt | llm | parser
-        route_decision = await chain.ainvoke({
-            "query": query,
-            "format_instructions": parser.get_format_instructions()
-        })
-        target_route = route_decision.get("target", "heritage")
-        logger.info(f"Router routed query to: {target_route} (rationale: {route_decision.get('rationale')})")
-    except Exception as e:
-        logger.warn(f"LLM routing failed, fallback to default 'heritage' route. Error: {e}")
-
-    # 2. Execute Routing Paths
-    if target_route == "course" and settings.SUPABASE_URL and settings.SUPABASE_KEY:
-        # Route B: Search saved vectorized courses from DB
-        recommended_courses = []
-        try:
-            # Generate embedding query vector
-            embeddings_model = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
-            query_vector = await embeddings_model.aembed_query(query)
-            
-            headers = {
-                "apikey": settings.SUPABASE_KEY,
-                "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-                "Content-Type": "application/json"
-            }
-            
-            rpc_payload = {
-                "query_embedding": query_vector,
-                "match_threshold": 0.3,
-                "match_count": 3
-            }
-            
-            async with httpx.AsyncClient() as client:
-                res = await client.post(
-                    f"{settings.SUPABASE_URL}/rest/v1/rpc/match_courses",
-                    headers=headers,
-                    json=rpc_payload,
-                    timeout=5.0
-                )
-                if res.status_code == 200:
-                    recommended_courses = res.json()
-        except Exception as e:
-            logger.warn(f"Failed to retrieve vector courses from Supabase: {e}")
-            
-        if recommended_courses:
-            matched_heritages = []
-            for rc in recommended_courses:
-                matched_heritages.append({
-                    "id": f"vc_{rc.get('id')}",
-                    "name": rc.get("course_name"),
-                    "address": f"교통수단: {rc.get('transport')} (총 {rc.get('total_duration')}분)",
-                    "category": "추천 저장코스",
-                    "description": f"기 생성 융합 코스: {rc.get('description')}",
-                    "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
-                })
-            # Secure images for course recommendations as well
-            try:
-                tasks = [resolve_heritage_image(item) for item in matched_heritages[:3]]
-                resolved_images = await asyncio.gather(*tasks)
-                for idx, img in enumerate(resolved_images):
-                    matched_heritages[idx]["image_url"] = img
-            except Exception as e:
-                logger.error(f"Failed to secure images for matched courses: {e}")
-                
-            return {
-                "output_heritages": matched_heritages[:3],
-                "final_output": f"AI 분석 결과: 시맨틱 라우팅 결과 '코스 추천'으로 식별되어 과거에 보관된 명소 연계 코스 중 가장 적합한 추천 코스를 발굴했습니다."
-            }
-
-
-    # Default Route / Route A: Heritage Search (National Heritage Spatial Information Open API)
+    # 1. RAG Candidates Pool Generation (Merge OpenAPI search and DB heritages)
     matched = []
     try:
         matched = await fetch_national_heritage_openapi(query, area_code)
     except Exception as e:
         logger.error(f"Failed to query official National Heritage API: {e}")
-        
-    if len(matched) < 5 and settings.SUPABASE_URL and settings.SUPABASE_KEY and settings.OPENAI_API_KEY:
-        try:
-            # 1. Generate query embedding of 768 dimensions (for heritages table)
-            embed_payload = {
-                "input": [query],
-                "model": "text-embedding-3-small",
-                "dimensions": 768
-            }
-            query_vector = None
-            async with httpx.AsyncClient() as client:
-                res_embed = await client.post(
-                    "https://api.openai.com/v1/embeddings",
-                    headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
-                    json=embed_payload,
-                    timeout=5.0
-                )
-                if res_embed.status_code == 200:
-                    query_vector = res_embed.json()["data"][0]["embedding"]
-                    
-            if query_vector:
-                # 2. Call match_heritages RPC function in Supabase
-                headers = {
-                    "apikey": settings.SUPABASE_KEY,
-                    "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-                    "Content-Type": "application/json"
-                }
-                rpc_payload = {
-                    "query_embedding": query_vector,
-                    "match_threshold": 0.2,
-                    "match_count": 5
-                }
-                async with httpx.AsyncClient() as client:
-                    res = await client.post(
-                        f"{settings.SUPABASE_URL}/rest/v1/rpc/match_heritages",
-                        headers=headers,
-                        json=rpc_payload,
-                        timeout=5.0
-                    )
-                    if res.status_code == 200:
-                        raw_list = res.json()
-                        matched_names = [item.get("name") for item in raw_list if item.get("name")]
-                        full_rows = {}
-                        if matched_names:
-                            try:
-                                names_str = ",".join(f'"{n}"' for n in matched_names)
-                                full_url = f"{settings.SUPABASE_URL}/rest/v1/heritages?name=in.({urllib.parse.quote(names_str)})&select=*"
-                                res_full = await client.get(full_url, headers=headers, timeout=5.0)
-                                if res_full.status_code == 200:
-                                    full_rows = {row["name"]: row for row in res_full.json() if "name" in row}
-                            except Exception as db_err:
-                                logger.error(f"Failed to fetch full row details for RPC matches: {db_err}")
-                        
-                        for item in raw_list:
-                            name = item.get("name")
-                            full_row = full_rows.get(name) or {}
-                            merged_item = {**full_row, **item}
-                            
-                            if not any(m["name"] == name for m in matched):
-                                matched.append({
-                                    "id": merged_item.get("id") or merged_item.get("h_id") or f"h_{merged_item.get('id')}",
-                                    "name": name,
-                                    "address": merged_item.get("address") or "세종특별자치시",
-                                    "category": merged_item.get("category") or merged_item.get("era_normalized") or "문화유산",
-                                    "era_normalized": merged_item.get("era_normalized") or "조선시대",
-                                    "latitude": float(merged_item.get("latitude") or 36.48),
-                                    "longitude": float(merged_item.get("longitude") or 127.28),
-                                    "description": merged_item.get("description") or "",
-                                    "image_url": merged_item.get("photo_url") or merged_item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
-                                })
-                                if len(matched) >= 5:
-                                    break
-        except Exception as e:
-            logger.error(f"Failed to query semantic vector search database for heritages: {e}")
 
-    # 3. Fetch up to 15 existing heritages from database to enrich the candidates pool
+    # Fetch up to 15 existing heritages from database to enrich the candidates pool
     if settings.SUPABASE_URL and settings.SUPABASE_KEY:
         try:
-            headers = {
-                "apikey": settings.SUPABASE_KEY,
-                "Authorization": f"Bearer {settings.SUPABASE_KEY}"
-            }
+            headers = get_supabase_headers()
             async with httpx.AsyncClient() as client:
                 table = await get_heritage_table_name(client, headers)
-                # Fetch up to 15 records from database to merge with OpenAPI candidates
-                url = f"{settings.SUPABASE_URL}/rest/v1/{table}?limit=15"
+                
+                # Filter by region if specified and not "전체"
+                if area_code and area_code != "전체":
+                    url = f"{settings.SUPABASE_URL}/rest/v1/{table}?address=ilike.*{urllib.parse.quote(area_code)}*&limit=15"
+                else:
+                    url = f"{settings.SUPABASE_URL}/rest/v1/{table}?limit=15"
+                    
                 res = await client.get(url, headers=headers, timeout=5.0)
                 if res.status_code == 200:
                     raw_list = res.json()
@@ -305,14 +149,14 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
         except Exception as e:
             logger.warn(f"Failed to fetch heritages from Supabase for candidate enrichment: {e}")
 
-    # 1. AI selection of exactly 5 heritages based on query context from the candidates pool
+    # 2. AI selection of exactly 5 heritages based on query context from the candidates pool
     try:
         matched = await select_top_heritages_via_llm(query, matched)
     except Exception as e:
         logger.error(f"Failed to perform LLM heritage selection: {e}")
         matched = matched[:5]
     
-    # 2. Resolve image URLs for the final selected 5 heritages
+    # 3. Resolve image URLs for the final selected 5 heritages
     try:
         tasks = [resolve_heritage_image(item) for item in matched]
         resolved_images = await asyncio.gather(*tasks)
@@ -321,7 +165,7 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
     except Exception as e:
         logger.error(f"Failed to secure matched heritages images: {e}")
 
-    # 3. Store the selected 5 heritages to database
+    # 4. Store the selected 5 heritages to database
     try:
         await save_selected_heritages_to_db(matched)
     except Exception as e:
