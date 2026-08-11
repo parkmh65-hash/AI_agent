@@ -600,12 +600,12 @@
                 </div>
 
                 <div>
-                  <label style="font-size: 0.75rem; color: #fff; display: block; margin-bottom: 4px;">현장 사진 첨부</label>
+                  <label style="font-size: 0.75rem; color: #fff; display: block; margin-bottom: 4px;">현장 사진 외부 URL 첨부</label>
                   <input 
-                    id="report-file-input"
-                    type="file" 
-                    accept="image/*"
-                    style="font-size: 0.75rem; color: var(--text-sub);"
+                    id="report-url-input"
+                    type="text" 
+                    placeholder="외부 이미지 URL 입력 (예: http://...)"
+                    style="width: 100%; box-sizing: border-box; padding: 8px 10px; background: #111520; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; font-size: 0.8rem; outline: none; margin-bottom: 8px;"
                   />
                   <img id="report-photo-preview" alt="Preview" style="display: none; width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-top: 10px;" />
                 </div>
@@ -1064,8 +1064,17 @@
         // GPS location fetch trigger
         document.getElementById('gps-fetch-btn').addEventListener('click', handleGPSFetch);
 
-        // File selection event handler
-        document.getElementById('report-file-input').addEventListener('change', handleFileSelected);
+        // URL input change event handler for preview
+        document.getElementById('report-url-input').addEventListener('input', (e) => {
+          const url = e.target.value.trim();
+          const preview = document.getElementById('report-photo-preview');
+          if (url && url.startsWith('http')) {
+            preview.src = url;
+            preview.style.display = 'block';
+          } else {
+            preview.style.display = 'none';
+          }
+        });
 
         // Submission form handler
         document.getElementById('report-form').addEventListener('submit', handleReportSubmit);
@@ -1690,21 +1699,6 @@
         }
       }
 
-      // 18. Image conversion base64 file reader
-      function handleFileSelected(e) {
-        const file = e.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            reportPhotoBase64 = event.target.result;
-            
-            const preview = document.getElementById('report-photo-preview');
-            preview.src = event.target.result;
-            preview.style.display = 'block';
-          };
-          reader.readAsDataURL(file);
-        }
-      }
 
       // 19. Submit Recommendation form controller
       async function handleReportSubmit(e) {
@@ -1726,8 +1720,7 @@
           submitBtn.innerHTML = '제보 등록 제출 중 <span class="hourglass-spinner" style="font-size: 0.95rem; margin-left: 6px;">⏳</span>';
         }
         
-        let imageUrl = '';
-        // Note: Supabase Storage upload is bypassed. imageUrl will remain empty.
+        const imageUrl = document.getElementById('report-url-input').value.trim();
 
         const payload = {
           name,
@@ -1751,9 +1744,9 @@
             document.getElementById('report-name-input').value = '';
             document.getElementById('report-address-input').value = '';
             document.getElementById('report-reason-input').value = '';
-            document.getElementById('report-file-input').value = '';
+            document.getElementById('report-url-input').value = '';
             document.getElementById('report-photo-preview').style.display = 'none';
-            reportPhotoBase64 = '';
+            if (typeof reportPhotoBase64 !== 'undefined') reportPhotoBase64 = '';
             
             loadInitialData();
             switchTab('home');

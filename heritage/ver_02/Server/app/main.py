@@ -339,11 +339,38 @@ async def update_db_heritage_image(name: str, image_url: str):
         logger.warn(f"Failed to update database photo_url for '{name}': {e}")
 
 async def get_or_create_heritage_image(name: str, current_img: Optional[str] = None) -> str:
-    """Ensure a valid HTTP photo exists for the spot; returns current image or static Unsplash fallback"""
+    """Ensure a valid HTTP photo exists for the spot; generates via DALL-E if missing, returning the external DALL-E URL directly without storing to Supabase Storage"""
     if current_img and current_img.startswith("http") and "placeholder" not in current_img and "svg" not in current_img:
         if "supabase.co/storage" in current_img:
             return "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
         return current_img
+        
+    if not settings.OPENAI_API_KEY:
+        return current_img or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+
+    try:
+        logger.info(f"Generating DALL-E image for heritage: '{name}'")
+        dalle_payload = {
+            "model": "dall-e-2",
+            "prompt": f"A realistic, beautiful photograph of the cultural heritage site or historic landmark '{name}' in South Korea, daylight, professional travel photography, clear details.",
+            "n": 1,
+            "size": "512x512"
+        }
+        async with httpx.AsyncClient() as client:
+            res_dalle = await client.post(
+                "https://api.openai.com/v1/images/generations",
+                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
+                json=dalle_payload,
+                timeout=20.0
+            )
+            if res_dalle.status_code == 200:
+                dalle_url = res_dalle.json()["data"][0]["url"]
+                logger.info(f"Using external DALL-E image URL directly for '{name}': {dalle_url}")
+                await update_db_heritage_image(name, dalle_url)
+                return dalle_url
+    except Exception as e:
+        logger.error(f"Failed to generate DALL-E image for '{name}': {e}")
+
     return current_img or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
 
 async def get_openai_embedding_768(text: str) -> Optional[List[float]]:
