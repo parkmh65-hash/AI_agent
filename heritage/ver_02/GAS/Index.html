@@ -1399,6 +1399,11 @@
         searchBtn.disabled = true;
         searchBtn.innerHTML = '추천 중 <span class="hourglass-spinner" style="font-size: 0.9rem; margin-left: 6px;">⏳</span>';
 
+        // Clear previous/default Sejong heritages card list and map markers immediately before fetch response
+        ragCards = [];
+        renderRAGCards();
+        updateMap([], false);
+
         try {
           const resHeritages = await fetch(`${CLOUD_RUN_URL}/api/v1/agentic-rag`, {
             method: "POST",
