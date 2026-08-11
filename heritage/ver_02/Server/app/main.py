@@ -274,7 +274,8 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
         except Exception as e:
             logger.error(f"Failed to query semantic vector search database for heritages: {e}")
 
-    if len(matched) < 5 and settings.SUPABASE_URL and settings.SUPABASE_KEY:
+    # 3. Fetch up to 15 existing heritages from database to enrich the candidates pool
+    if settings.SUPABASE_URL and settings.SUPABASE_KEY:
         try:
             headers = {
                 "apikey": settings.SUPABASE_KEY,
@@ -282,12 +283,14 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
             }
             async with httpx.AsyncClient() as client:
                 table = await get_heritage_table_name(client, headers)
-                url = f"{settings.SUPABASE_URL}/rest/v1/{table}?limit=5"
+                # Fetch up to 15 records from database to merge with OpenAPI candidates
+                url = f"{settings.SUPABASE_URL}/rest/v1/{table}?limit=15"
                 res = await client.get(url, headers=headers, timeout=5.0)
                 if res.status_code == 200:
                     raw_list = res.json()
                     for item in raw_list:
-                        if not any(m["name"] == item.get("name") for m in matched):
+                        # Deduplicate by name to prevent duplicate LLM candidates
+                        if not any(m["name"].strip() == item.get("name").strip() for m in matched):
                             matched.append({
                                 "id": item.get("id") or item.get("h_id") or f"h_{item.get('id')}",
                                 "name": item.get("name"),
@@ -299,10 +302,8 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                                 "description": item.get("description") or "",
                                 "image_url": item.get("photo_url") or item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                             })
-                            if len(matched) == 5:
-                                break
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warn(f"Failed to fetch heritages from Supabase for candidate enrichment: {e}")
 
     # 1. AI selection of exactly 5 heritages based on query context from the candidates pool
     try:
@@ -511,12 +512,33 @@ async def save_selected_heritages_to_db(items: List[Dict[str, Any]]):
                     if len(records) > 0:
                         h_id = records[0]["id"]
                         
+                # Check coordinates (latitude & longitude verification)
+                lat_val = float(item.get("latitude") or 0.0)
+                lng_val = float(item.get("longitude") or 0.0)
+                
+                # Verify if coordinates are zero, invalid, or South Korea boundaries fallback defaults (e.g. 36.48, 127.28 Sejong default)
+                # If they are suspicious, fetch precise geo coordinates from the address using openstreetmap / openai fallback
+                if (lat_val == 0.0 or lng_val == 0.0 or
+                    lat_val < 33.0 or lat_val > 40.0 or
+                    lng_val < 124.0 or lng_val > 132.0 or
+                    (abs(lat_val - 36.48) < 0.01 and abs(lng_val - 127.28) < 0.01)):
+                    
+                    logger.info(f"Invalid or default coordinates detected for '{name}' ({lat_val}, {lng_val}). Verifying/Geocoding via address '{address}'...")
+                    geocoded = await geocode_address(address)
+                    if geocoded:
+                        lat_val, lng_val = geocoded
+                        logger.info(f"Successfully geocoded coordinates for '{name}': ({lat_val}, {lng_val})")
+                    else:
+                        # Keep fallback defaults if geocoding also fails
+                        lat_val = lat_val or 36.48
+                        lng_val = lng_val or 127.28
+                        
                 payload = {
                     "name": name,
                     "address": address,
                     "dong": dong,
-                    "latitude": item.get("latitude") or 36.48,
-                    "longitude": item.get("longitude") or 127.28,
+                    "latitude": lat_val,
+                    "longitude": lng_val,
                     "description": item.get("description") or "",
                     "photo_url": photo_url,
                     "source": "api_crawler",
