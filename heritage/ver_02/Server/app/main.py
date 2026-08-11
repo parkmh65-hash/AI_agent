@@ -99,6 +99,208 @@ def health_check():
         "llm_configured": bool(settings.OPENAI_API_KEY or settings.GEMINI_API_KEY)
     }
 
+DEFAULT_SEJONG_HERITAGES = [
+    {
+        "id": "h_1",
+        "name": "세종 비암사 극락보전",
+        "address": "세종특별자치시 전의면 비암사길 137",
+        "category": "보물",
+        "era_normalized": "조선시대",
+        "latitude": 36.6083,
+        "longitude": 127.2131,
+        "description": "삼국시대 백제 유민들이 건립한 역사 깊은 전통 사찰의 본전으로 목조 아미타여래좌상이 봉안되어 있습니다.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_2",
+        "name": "세종 봉산동 향나무",
+        "address": "세종특별자치시 조치원읍 봉산길 16",
+        "category": "천연기념물",
+        "era_normalized": "조선시대",
+        "latitude": 36.6111,
+        "longitude": 127.2917,
+        "description": "조선시대 강화최씨 문중의 제단 옆에 심겨져 400여 년의 수령을 간직한 아름다운 우산 모양의 향나무.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_3",
+        "name": "세종 연기리 은행나무",
+        "address": "세종특별자치시 연기면 연기길 33-14",
+        "category": "기념물",
+        "era_normalized": "조선시대",
+        "latitude": 36.5312,
+        "longitude": 127.2721,
+        "description": "조선시대 연기현 관아 터 근처에 심겨진 보호수로, 오랜 세월 마을의 수호신이자 안식처가 되어 온 큰 거목.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_4",
+        "name": "독락정",
+        "address": "세종특별자치시 나성동 101-1",
+        "category": "문화재자료",
+        "era_normalized": "조선시대",
+        "latitude": 36.4851,
+        "longitude": 127.2625,
+        "description": "고려 말 충신인 임난수 장군의 절의를 기려 조선 세종 때 지어진 유서 깊은 전통 목조 정자.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_5",
+        "name": "학림사 신중도",
+        "address": "세종특별자치시 연서면 도신고개길 341",
+        "category": "문화재자료",
+        "era_normalized": "조선시대",
+        "latitude": 36.5623,
+        "longitude": 127.2341,
+        "description": "학림사 대웅전에 보존된 불화로 조선 후기 신중 신앙의 흐름과 뛰어난 불교 채색 화풍을 보여줍니다.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_6",
+        "name": "세종리 은행나무",
+        "address": "세종특별자치시 세종동 88-4",
+        "category": "기념물",
+        "era_normalized": "고려시대",
+        "latitude": 36.4952,
+        "longitude": 127.2871,
+        "description": "고려 말 무신 임난수 장군이 은거하며 심은 거대한 한 쌍의 은행나무로 세종시 출범의 역사적 상징물.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_7",
+        "name": "연서 영평사 아미타삼존도",
+        "address": "세종특별자치시 장군면 영평사길 124",
+        "category": "유형문화재",
+        "era_normalized": "조선시대",
+        "latitude": 36.4908,
+        "longitude": 127.2023,
+        "description": "영평사에 소장된 불교 미술품으로, 아미타불을 중심으로 좌우 협시보살을 묘사한 정교한 조선 후기 탱화.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_8",
+        "name": "비암사 삼층석탑",
+        "address": "세종특별자치시 전의면 비암사길 137",
+        "category": "유형문화재",
+        "era_normalized": "고려시대",
+        "latitude": 36.6083,
+        "longitude": 127.2131,
+        "description": "비암사 대웅전 앞에 기단 위에 정갈하게 우뚝 솟은 고려 시대 양식의 화강암 삼층석탑.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_9",
+        "name": "홍판서댁",
+        "address": "세종특별자치시 부강면 부강유하길 37",
+        "category": "민속문화재",
+        "era_normalized": "조선시대",
+        "latitude": 36.5050,
+        "longitude": 127.3683,
+        "description": "조선 고종 때 병조판서를 지낸 임헌회 선생의 고택으로 마당을 중심으로 배치된 고풍스러운 한옥 주택.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_10",
+        "name": "초려이유태유적지",
+        "address": "세종특별자치시 어진동 도움1로 116",
+        "category": "기념물",
+        "era_normalized": "조선시대",
+        "latitude": 36.5015,
+        "longitude": 127.2589,
+        "description": "조선 17세기 대표적 산림 학자 초려 이유태 선생의 학문적 정신을 계승하고 묘소를 모신 전통 문화 역사 공원.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_11",
+        "name": "덕성서원",
+        "address": "세종특별자치시 연기면 원수산로 38-1",
+        "category": "향토유적",
+        "era_normalized": "조선시대",
+        "latitude": 36.5180,
+        "longitude": 127.2750,
+        "description": "원수산 자락에 자리하여 기호학파의 대표적 선현들을 배향하며 성리학 연구와 교육을 담당했던 전통 서원.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_12",
+        "name": "이성 산성",
+        "address": "세종특별자치시 전동면 송곡리 산12",
+        "category": "기념물",
+        "era_normalized": "삼국시대",
+        "latitude": 36.6210,
+        "longitude": 127.2550,
+        "description": "백제와 고구려 등 삼국이 치열하게 영토 투쟁을 벌였던 세종시 북쪽 원수산 인근의 석축 테뫼식 성곽 유적.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_13",
+        "name": "숭덕사",
+        "address": "세종특별자치시 세종동 88-4",
+        "category": "향토유적",
+        "era_normalized": "조선시대",
+        "latitude": 36.4952,
+        "longitude": 127.2871,
+        "description": "고려 말기 은거하며 끝까지 충절을 지킨 임난수 장군을 배향하여 기리는 사당으로 세종리 역사공원에 위치합니다.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_14",
+        "name": "합호서원",
+        "address": "세종특별자치시 연동면 청연로 531-15",
+        "category": "향토유적",
+        "era_normalized": "조선시대",
+        "latitude": 36.5410,
+        "longitude": 127.3290,
+        "description": "연동면 금강 유역에 세워져 지방 사림들의 성리학 토론회 및 청소년 유학 교육의 중심지가 된 아름다운 서원.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        "id": "h_15",
+        "name": "비암사 범종",
+        "address": "세종특별자치시 전의면 비암사길 137",
+        "category": "문화재자료",
+        "era_normalized": "조선시대",
+        "latitude": 36.6083,
+        "longitude": 127.2131,
+        "description": "조선 후기 비암사 종각에 주조되어 걸린 전통 종으로 표면의 보살 비천상 문양이 섬세하게 조각되어 있습니다.",
+        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    }
+]
+
+async def seed_default_heritages_to_supabase_if_empty(table_name: str, headers: Dict[str, str]):
+    """Self-healing helper to seed initial 15 heritages to database if completely empty"""
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.get(f"{settings.SUPABASE_URL}/rest/v1/{table_name}?select=id&limit=1", headers=headers, timeout=5.0)
+            if res.status_code == 200 and len(res.json()) == 0:
+                logger.info(f"Supabase Table '{table_name}' is completely empty! Triggering automatic self-healing database seeding...")
+                payload = []
+                for item in DEFAULT_SEJONG_HERITAGES:
+                    payload.append({
+                        "name": item["name"],
+                        "address": item["address"],
+                        "category": item["category"],
+                        "era_normalized": item["era_normalized"],
+                        "latitude": item["latitude"],
+                        "longitude": item["longitude"],
+                        "description": item["description"],
+                        "photo_url": item["image_url"]
+                    })
+                res_seed = await client.post(
+                    f"{settings.SUPABASE_URL}/rest/v1/{table_name}",
+                    headers=headers,
+                    json=payload,
+                    timeout=8.0
+                )
+                if res_seed.status_code in [200, 201]:
+                    logger.info(f"Database self-healing seeding successfully inserted {len(payload)} heritages into Supabase!")
+                else:
+                    logger.error(f"Failed database self-healing seeding: {res_seed.status_code} - {res_seed.text}")
+    except Exception as e:
+        logger.error(f"Error during self-healing database seeding: {e}")
+
 async def extract_search_keyword_via_llm(query: str) -> str:
     """Extract a single heritage noun keyword (e.g. '비암사', '사찰', '탑') suitable for national heritage open API search"""
     if not query or not settings.OPENAI_API_KEY:
@@ -198,6 +400,11 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                     logger.warn(f"Supabase heritages query failed with status: {res.status_code}, response: {res.text}")
         except Exception as e:
             logger.warn(f"Failed to fetch heritages from Supabase for candidate enrichment: {e}")
+
+    # Ensure candidates pool is not empty; fallback to DEFAULT_SEJONG_HERITAGES if completely empty
+    if not matched:
+        logger.info("Candidates pool is completely empty! Using DEFAULT_SEJONG_HERITAGES as fallback pool.")
+        matched = [dict(item) for item in DEFAULT_SEJONG_HERITAGES]
 
     # 2. AI selection of exactly 5 heritages based on query context from the candidates pool
     try:
@@ -1131,6 +1338,12 @@ async def get_initial_db_data(role: Optional[str] = "user"):
             )
             if res_official.status_code == 200:
                 raw_official = res_official.json()
+                if not raw_official:
+                    logger.info("Supabase heritages table is empty. Using DEFAULT_SEJONG_HERITAGES as fallback and triggering self-healing seed.")
+                    raw_official = [dict(item) for item in DEFAULT_SEJONG_HERITAGES]
+                    # Trigger async database seeding
+                    asyncio.create_task(seed_default_heritages_to_supabase_if_empty(table, headers))
+                    
                 for row in raw_official:
                     row.pop("embedding", None)
                     row.pop("vector_embedding", None)
