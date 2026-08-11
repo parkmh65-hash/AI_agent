@@ -1404,7 +1404,7 @@
         try {
           const resHeritages = await fetch(`${CLOUD_RUN_URL}/api/v1/agentic-rag`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json; charset=utf-8" },
             body: JSON.stringify({ query: combinedQuery, area_code: region })
           });
           
@@ -1460,7 +1460,7 @@
           try {
             const resTours = await fetch(`${CLOUD_RUN_URL}/api/v1/tour-search`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json; charset=utf-8" },
               body: JSON.stringify({ query: query, area_code: region, heritages: ragCards })
             });
             

@@ -1671,3 +1671,42 @@ async def tour_search(req: TourSearchRequest):
         "final_output": f"AI 분석 코스명: {optimal_course.get('course_name')}\n총 소요시간: {optimal_course.get('total_duration')}분\n이동수단: {optimal_course.get('transport')}\n\n코스 상세 스토리라인:\n{optimal_course.get('description')}"
     }
 
+@app.get("/api/v1/debug-db")
+async def debug_database_contents():
+    """Verify raw database rows and tables details for troubleshooting"""
+    result = {}
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return {"error": "Supabase configs missing."}
+    
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            # 1. Check heritages table structure and row count
+            res = await client.get(f"{settings.SUPABASE_URL}/rest/v1/heritages?select=*", headers=headers, timeout=5.0)
+            result["heritages_status"] = res.status_code
+            if res.status_code == 200:
+                rows = res.json()
+                result["heritages_count"] = len(rows)
+                result["heritages_sample"] = rows[:3] if rows else []
+            else:
+                result["heritages_error"] = res.text
+                
+            # 2. Check heritage table
+            res_h = await client.get(f"{settings.SUPABASE_URL}/rest/v1/heritage?select=*", headers=headers, timeout=5.0)
+            result["heritage_status"] = res_h.status_code
+            if res_h.status_code == 200:
+                rows_h = res_h.json()
+                result["heritage_count"] = len(rows_h)
+                result["heritage_sample"] = rows_h[:3] if rows_h else []
+            else:
+                result["heritage_error"] = res_h.text
+        except Exception as e:
+            result["exception"] = str(e)
+            
+    return result
+
