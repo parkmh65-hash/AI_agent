@@ -1461,36 +1461,22 @@
             const resTours = await fetch(`${CLOUD_RUN_URL}/api/v1/tour-search`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ query: query, area_code: region })
+              body: JSON.stringify({ query: query, area_code: region, heritages: ragCards })
             });
             
             if (resTours.ok) {
               const dataTours = await resTours.json();
               tours = dataTours.tourist_spots || [];
+              // Use optimal TSP-sorted spots directly from backend
+              courseList = tours;
             } else {
               console.warn("Tour search API failed, falling back to static list.");
+              courseList = [...ragCards];
             }
           } catch (apiErr) {
             console.error("Failed to fetch tour-search:", apiErr);
+            courseList = [...ragCards];
           }
-          
-          // Merge ragCards (heritages) and tours without duplicates
-          const seenNames = new Set();
-          courseList = [];
-          
-          ragCards.forEach(item => {
-            if (!seenNames.has(item.name)) {
-              seenNames.add(item.name);
-              courseList.push(item);
-            }
-          });
-          
-          tours.forEach(item => {
-            if (!seenNames.has(item.name)) {
-              seenNames.add(item.name);
-              courseList.push(item);
-            }
-          });
           
           renderCourseList();
           updateMap(courseList, true);

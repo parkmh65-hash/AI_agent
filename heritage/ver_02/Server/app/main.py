@@ -170,133 +170,10 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
         await save_selected_heritages_to_db(matched)
     except Exception as e:
         logger.error(f"Failed to save selected heritages to database: {e}")
-    # 4. Fetch tourist spots candidates from both Korea Tourism Organization API and DB
-    tour_candidates = []
-    area = area_code or "세종시"
-    
-    # 4-1. Search DB citizen_recommendations table
-    if settings.SUPABASE_URL and settings.SUPABASE_KEY:
-        try:
-            headers = {
-                "apikey": settings.SUPABASE_KEY,
-                "Authorization": f"Bearer {settings.SUPABASE_KEY}"
-            }
-            url = f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?address=ilike.*{area}*&limit=15"
-            async with httpx.AsyncClient() as client:
-                res = await client.get(url, headers=headers, timeout=5.0)
-                if res.status_code == 200:
-                    raw = res.json()
-                    for item in raw:
-                        tour_candidates.append({
-                            "id": f"t_{item.get('id')}",
-                            "name": item.get("name"),
-                            "address": item.get("address") or "세종특별자치시",
-                            "category": "관광지",
-                            "latitude": float(item.get("latitude") or 36.50),
-                            "longitude": float(item.get("longitude") or 127.26),
-                            "description": item.get("description") or "관광공사 연동 관광지 추천 명소입니다.",
-                            "image_url": item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
-                        })
-        except Exception as e:
-            logger.error(f"Failed to query citizen recommendations for candidates: {e}")
-
-    # 4-2. Korea Tourism Organization API
-    service_key = settings.TOUR_API_KEY
-    if service_key:
-        try:
-            url = "https://apis.data.go.kr/B551011/KorService2/searchKeyword2"
-            params = {
-                "serviceKey": service_key,
-                "numOfRows": 15,
-                "pageNo": 1,
-                "MobileOS": "ETC",
-                "MobileApp": "SejongHeritagePlatform",
-                "_type": "json",
-                "keyword": area,
-                "contentTypeId": 12
-            }
-            async with httpx.AsyncClient() as client:
-                res = await client.get(url, params=params, timeout=5.0)
-                if res.status_code == 200:
-                    data = res.json()
-                    items_container = data.get("response", {}).get("body", {}).get("items", {})
-                    items = []
-                    if isinstance(items_container, dict):
-                        items = items_container.get("item", [])
-                    if isinstance(items, dict):
-                        items = [items]
-                        
-                    for item in items:
-                        title = item.get("title")
-                        if not title:
-                            continue
-                        addr = item.get("addr1") or f"{area} 관광지"
-                        mapx = item.get("mapx")
-                        mapy = item.get("mapy")
-                        img = item.get("firstimage") or item.get("firstImage") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
-                        
-                        if not any(m["name"].strip() == title.strip() for m in tour_candidates):
-                            tour_candidates.append({
-                                "id": f"kto_{item.get('contentid')}",
-                                "name": title,
-                                "address": addr,
-                                "category": "관광지",
-                                "latitude": float(mapy) if mapy else 36.50,
-                                "longitude": float(mapx) if mapx else 127.26,
-                                "description": f"{title}은(는) 한국관광공사 공인 추천 관광지입니다.",
-                                "image_url": img
-                            })
-        except Exception as e:
-            logger.error(f"KTO TourAPI candidate query failed: {e}")
-
-    # 5. Select exactly 5 tourist spots via LLM near the selected 5 heritages
-    selected_spots = []
-    try:
-        selected_spots = await select_top_tourist_spots_via_llm(matched, tour_candidates)
-    except Exception as e:
-        logger.error(f"Failed LLM tourist spots selection: {e}")
-        selected_spots = tour_candidates[:5]
-
-    # 6. Resolve image URLs for the final selected 5 tourist spots
-    try:
-        tasks = [resolve_heritage_image(item) for item in selected_spots]
-        resolved_images = await asyncio.gather(*tasks)
-        for idx, img in enumerate(resolved_images):
-            selected_spots[idx]["image_url"] = img
-    except Exception as e:
-        logger.error(f"Failed to secure selected tourist spots images: {e}")
-
-    # 7. Store selected 5 tourist spots to database
-    try:
-        await save_selected_tour_spots_to_db(selected_spots)
-    except Exception as e:
-        logger.error(f"Failed to save selected spots to database: {e}")
-
-    # 8. TSP Routing Course generation (Shortest-path logic matching 10 items)
-    combined_spots = matched + selected_spots
-    optimal_course = {}
-    try:
-        optimal_course = await generate_shortest_path_course_via_llm(combined_spots, transport="승용차")
-    except Exception as e:
-        logger.error(f"Failed to calculate shortest TSP route: {e}")
-        optimal_course = {
-            "course_name": "세종 스마트 역사문화 탐방 코스",
-            "description": "AI 임베딩 기반 추천 코스입니다.",
-            "transport": "승용차",
-            "total_duration": 150,
-            "items": combined_spots
-        }
-
-    # 9. Store course to database public.courses
-    try:
-        await save_generated_course_to_db(optimal_course)
-    except Exception as e:
-        logger.error(f"Failed to save generated course to database: {e}")
-
-    # Return sorted TSP items as RAG cards output
+    # Return final selected 5 heritages as RAG output for client UI
     return {
-        "output_heritages": optimal_course.get("items") or combined_spots,
-        "final_output": f"AI 분석 코스명: {optimal_course.get('course_name')}\n총 소요시간: {optimal_course.get('total_duration')}분\n이동수단: {optimal_course.get('transport')}\n\n코스 상세 스토리라인:\n{optimal_course.get('description')}"
+        "output_heritages": matched,
+        "final_output": "AI 분석 결과: 사용자의 요청 의도에 부합하는 최고의 문화유산 5선을 추천합니다."
     }
 
 async def update_db_heritage_image(name: str, image_url: str):
@@ -1568,24 +1445,41 @@ async def heritage_search(query: str, area_code: Optional[str] = "전체"):
 class TourSearchRequest(BaseModel):
     query: str
     area_code: Optional[str] = "전체"
+    heritages: Optional[List[Dict[str, Any]]] = None
 
 @app.post("/api/v1/tour-search")
 async def tour_search(req: TourSearchRequest):
-    """Retrieve exactly 5 General Tourist attractions matching the region query"""
-    matched = []
+    """Retrieve tourist spots near selected heritages and compute shortest TSP routing course"""
     area = req.area_code or "세종시"
     
-    # 1. Search in citizen_recommendations table
+    # 1. Obtain base heritages
+    matched_heritages = req.heritages or []
+    if not matched_heritages and settings.SUPABASE_URL and settings.SUPABASE_KEY:
+        # Fallback if heritages are not provided by client
+        try:
+            headers = get_supabase_headers()
+            async with httpx.AsyncClient() as client:
+                table = await get_heritage_table_name(client, headers)
+                res = await client.get(f"{settings.SUPABASE_URL}/rest/v1/{table}?limit=5", headers=headers)
+                if res.status_code == 200:
+                    matched_heritages = res.json()
+        except Exception as e:
+            logger.error(f"Fallback heritages query failed: {e}")
+            
+    # 2. Gather candidates for tourist spots
+    tour_candidates = []
+    
+    # 2-1. Search DB citizen_recommendations table
     if settings.SUPABASE_URL and settings.SUPABASE_KEY:
         try:
             headers = get_supabase_headers()
-            url = f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?address=ilike.*{area}*&limit=10"
+            url = f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?address=ilike.*{urllib.parse.quote(area)}*&limit=15"
             async with httpx.AsyncClient() as client:
                 res = await client.get(url, headers=headers, timeout=5.0)
                 if res.status_code == 200:
                     raw = res.json()
                     for item in raw:
-                        matched.append({
+                        tour_candidates.append({
                             "id": f"t_{item.get('id')}",
                             "name": item.get("name"),
                             "address": item.get("address") or "세종특별자치시",
@@ -1598,21 +1492,19 @@ async def tour_search(req: TourSearchRequest):
         except Exception as e:
             logger.error(f"Failed to query citizen recommendations: {e}")
             
-    # 2. Korea Tourism Organization (한국관광공사_국문 관광정보 서비스_GW) integration
+    # 2-2. Korea Tourism Organization API
     service_key = settings.TOUR_API_KEY
-    if len(matched) < 5 and service_key:
+    if service_key:
         try:
-            # 코스 생성 및 주변 관광지 정보 조회를 위한 외부 API로는 오직 '한국관광공사_국문 관광정보 서비스_GW' (KorService2/searchKeyword2)만 사용
             url = "https://apis.data.go.kr/B551011/KorService2/searchKeyword2"
-            query_str = f"{area} {req.query}"
             params = {
                 "serviceKey": service_key,
-                "numOfRows": 10,
+                "numOfRows": 15,
                 "pageNo": 1,
                 "MobileOS": "ETC",
                 "MobileApp": "SejongHeritagePlatform",
                 "_type": "json",
-                "keyword": query_str,
+                "keyword": area,
                 "contentTypeId": 12
             }
             async with httpx.AsyncClient() as client:
@@ -1620,10 +1512,9 @@ async def tour_search(req: TourSearchRequest):
                 if res.status_code == 200:
                     data = res.json()
                     items_container = data.get("response", {}).get("body", {}).get("items", {})
+                    items = []
                     if isinstance(items_container, dict):
                         items = items_container.get("item", [])
-                    else:
-                        items = []
                     if isinstance(items, dict):
                         items = [items]
                     for item in items:
@@ -1633,10 +1524,10 @@ async def tour_search(req: TourSearchRequest):
                         addr = item.get("addr1") or f"{area} 관광지"
                         mapx = item.get("mapx")
                         mapy = item.get("mapy")
-                        img = item.get("firstimage") or item.get("firstImage") or item.get("firstimage2") or item.get("firstImage2") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                        img = item.get("firstimage") or item.get("firstImage") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                         
-                        if not any(m["name"] == title for m in matched):
-                            matched.append({
+                        if not any(m["name"].strip() == title.strip() for m in tour_candidates):
+                            tour_candidates.append({
                                 "id": f"kto_{item.get('contentid')}",
                                 "name": title,
                                 "address": addr,
@@ -1646,41 +1537,76 @@ async def tour_search(req: TourSearchRequest):
                                 "description": f"{title}은(는) 한국관광공사 공인 추천 관광지입니다.",
                                 "image_url": img
                             })
-                            if len(matched) == 5:
-                                break
         except Exception as e:
             logger.error(f"KTO TourAPI call failed: {e}")
 
-    # 3. Static fallback list of Sejong tourist attractions
-    if len(matched) < 5:
+    # Fallback to static sejong spots if candidates are dry
+    if len(tour_candidates) < 5:
         sejong_spots = [
-            {"name": "세종 베어트리파크", "address": "세종특별자치시 전동면 신송로 217", "latitude": 36.6394, "longitude": 127.2427, "category": "수목원/관광지", "description": "아름다운 나무와 반달곰이 어우러진 친환경 테마 수목원입니다.", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"},
-            {"name": "세종호수공원", "address": "세종특별자치시 다솜로 216", "latitude": 36.5023, "longitude": 127.2861, "category": "공원/호수", "description": "국내 최대의 인공호수공원으로 산책로와 문화행사가 어우러진 휴식공간입니다.", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"},
-            {"name": "국립세종수목원", "address": "세종특별자치시 수목원로 136", "latitude": 36.4950, "longitude": 127.2910, "category": "식물원/수목원", "description": "도심형 수목원으로 거대한 사계절 온실과 전통 정원이 매우 인상적입니다.", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"},
-            {"name": "금강보행교 (이응다리)", "address": "세종특별자치시 세종동 29-111", "latitude": 36.4862, "longitude": 127.2965, "category": "교량/랜드마크", "description": "금강을 가로지르는 국내 최초의 원형 보행교로 야경이 무척 아름답습니다.", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"},
-            {"name": "고복자연공원", "address": "세종특별자치시 연서면 고복리", "latitude": 36.5685, "longitude": 127.2345, "category": "자연/저수지", "description": "벚꽃 길과 데크길 산책로가 조성된 한적하고 평화로운 자연 공원 저수지입니다.", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"}
+            {"name": "세종 베어트리파크", "address": "세종특별자치시 전동면 신송로 217", "latitude": 36.6394, "longitude": 127.2427, "category": "관광지", "description": "반달곰 테마 수목원", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"},
+            {"name": "세종호수공원", "address": "세종특별자치시 다솜로 216", "latitude": 36.5023, "longitude": 127.2861, "category": "관광지", "description": "인공호수공원", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"},
+            {"name": "국립세종수목원", "address": "세종특별자치시 수목원로 136", "latitude": 36.4950, "longitude": 127.2910, "category": "관광지", "description": "도심형 수목원", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"}
         ]
-        for spot in sejong_spots:
-            if not any(m["name"] == spot["name"] for m in matched):
-                matched.append({
-                    "id": f"fallback_{spot['name']}",
-                    "name": spot["name"],
-                    "address": spot["address"],
-                    "category": spot["category"],
-                    "latitude": spot["latitude"],
-                    "longitude": spot["longitude"],
-                    "description": spot["description"],
-                    "image_url": spot["image_url"]
+        for s in sejong_spots:
+            if not any(m["name"] == s["name"] for m in tour_candidates):
+                tour_candidates.append({
+                    "id": f"fallback_{s['name']}",
+                    "name": s["name"],
+                    "address": s["address"],
+                    "category": s["category"],
+                    "latitude": s["latitude"],
+                    "longitude": s["longitude"],
+                    "description": s["description"],
+                    "image_url": s["image_url"]
                 })
-                if len(matched) == 5:
-                    break
-                    
-    spots = matched[:5]
+
+    # 3. Select exactly 5 tourist spots via LLM near the selected 5 heritages
+    selected_spots = []
     try:
-        tasks = [resolve_heritage_image(item) for item in spots]
+        selected_spots = await select_top_tourist_spots_via_llm(matched_heritages, tour_candidates)
+    except Exception as e:
+        logger.error(f"Failed LLM tourist spots selection: {e}")
+        selected_spots = tour_candidates[:5]
+
+    # 4. Resolve image URLs for the final selected 5 tourist spots
+    try:
+        tasks = [resolve_heritage_image(item) for item in selected_spots]
         resolved_images = await asyncio.gather(*tasks)
         for idx, img in enumerate(resolved_images):
-            spots[idx]["image_url"] = img
+            selected_spots[idx]["image_url"] = img
     except Exception as e:
         logger.error(f"Failed to secure tourist spots images: {e}")
-    return {"tourist_spots": spots}
+
+    # 5. Store selected tourist spots to database
+    try:
+        await save_selected_tour_spots_to_db(selected_spots)
+    except Exception as e:
+        logger.error(f"Failed to save selected spots to database: {e}")
+
+    # 6. TSP Routing Course generation (Shortest-path logic matching 10 items)
+    combined_spots = matched_heritages + selected_spots
+    optimal_course = {}
+    try:
+        optimal_course = await generate_shortest_path_course_via_llm(combined_spots, transport="승용차")
+    except Exception as e:
+        logger.error(f"Failed to calculate shortest TSP route: {e}")
+        optimal_course = {
+            "course_name": "세종 스마트 역사문화 탐방 코스",
+            "description": "AI 연계 구성한 추천 탐방 경로입니다.",
+            "transport": "승용차",
+            "total_duration": 150,
+            "items": combined_spots
+        }
+
+    # 7. Store course to database public.courses
+    try:
+        await save_generated_course_to_db(optimal_course)
+    except Exception as e:
+        logger.error(f"Failed to save generated course to database: {e}")
+
+    # Return optimal course items
+    return {
+        "tourist_spots": optimal_course.get("items") or combined_spots,
+        "final_output": f"AI 분석 코스명: {optimal_course.get('course_name')}\n총 소요시간: {optimal_course.get('total_duration')}분\n이동수단: {optimal_course.get('transport')}\n\n코스 상세 스토리라인:\n{optimal_course.get('description')}"
+    }
+
