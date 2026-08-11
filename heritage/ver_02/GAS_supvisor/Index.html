@@ -722,6 +722,7 @@
             console.warn("localStorage write denied. Falling back to in-memory store.", e);
             this.fallbackStore[key] = String(value);
           }
+        },
         removeItem(key) {
           try {
             localStorage.removeItem(key);
