@@ -1727,17 +1727,7 @@
         }
         
         let imageUrl = '';
-        if (reportPhotoBase64) {
-          try {
-            const uploadFilename = `cit_${Date.now()}_${name.replace(/\s+/g, '')}.jpg`;
-            const uploadRes = await callGasMethod('uploadImageToSupabaseStorageGAS', reportPhotoBase64, uploadFilename);
-            if (uploadRes.status === 'success') {
-              imageUrl = uploadRes.publicUrl;
-            }
-          } catch (err) {
-            console.warn("Storage upload failed, fallback direct submit.");
-          }
-        }
+        // Note: Supabase Storage upload is bypassed. imageUrl will remain empty.
 
         const payload = {
           name,

@@ -119,33 +119,6 @@ function fetchSavedCoursesGAS() {
   return [];
 }
 
-/**
- * Upload Base64 image payload to Supabase storage bucket through backend proxy
- */
-function uploadImageToSupabaseStorageGAS(base64Data, filename) {
-  var backendUrl = getBackendUrl();
-  var payload = {
-    base64Data: base64Data,
-    filename: filename
-  };
-  
-  try {
-    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/db/image-upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-    
-    if (response.getResponseCode() === 200 || response.getResponseCode() === 201) {
-      return JSON.parse(response.getContentText());
-    } else {
-      return { status: "error", message: response.getContentText() };
-    }
-  } catch (e) {
-    return { status: "error", message: e.toString() };
-  }
-}
 
 /**
  * Check backend database configuration health status

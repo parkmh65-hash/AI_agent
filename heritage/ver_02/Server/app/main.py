@@ -176,7 +176,7 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                     "address": f"교통수단: {rc.get('transport')} (총 {rc.get('total_duration')}분)",
                     "category": "추천 저장코스",
                     "description": f"기 생성 융합 코스: {rc.get('description')}",
-                    "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H4_H4.jpg"
+                    "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                 })
             # Secure, vectorize and store images for course recommendations as well
             try:
@@ -339,70 +339,11 @@ async def update_db_heritage_image(name: str, image_url: str):
         logger.warn(f"Failed to update database photo_url for '{name}': {e}")
 
 async def get_or_create_heritage_image(name: str, current_img: Optional[str] = None) -> str:
-    """Ensure a valid HTTP photo exists for the spot; generate via DALL-E if missing and save to Supabase bucket"""
+    """Ensure a valid HTTP photo exists for the spot; returns current image or static Unsplash fallback"""
     if current_img and current_img.startswith("http") and "placeholder" not in current_img and "svg" not in current_img:
+        if "supabase.co/storage" in current_img:
+            return "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
         return current_img
-        
-    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY or not settings.OPENAI_API_KEY:
-        return current_img or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
-
-    safe_name = re.sub(r'[^\w\s]', '', name).strip()
-    filename = f"gen_{safe_name.replace(' ', '_')}.jpg"
-    public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/heritage-images/{filename}"
-
-    headers = {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}"
-    }
-
-    # 1. Check if the image file already exists in Supabase Storage
-    try:
-        async with httpx.AsyncClient() as client:
-            res_head = await client.head(public_url, timeout=3.0)
-            if res_head.status_code == 200:
-                logger.info(f"Using cached DALL-E image from Supabase storage for '{name}': {public_url}")
-                await update_db_heritage_image(name, public_url)
-                return public_url
-    except Exception as e:
-        pass
-
-    # 2. If it does not exist, call OpenAI DALL-E to generate it
-    try:
-        logger.info(f"Generating DALL-E image for heritage: '{name}'")
-        dalle_payload = {
-            "model": "dall-e-2",
-            "prompt": f"A realistic, beautiful photograph of the cultural heritage site or historic landmark '{name}' in South Korea, daylight, professional travel photography, clear details.",
-            "n": 1,
-            "size": "512x512"
-        }
-        async with httpx.AsyncClient() as client:
-            res_dalle = await client.post(
-                "https://api.openai.com/v1/images/generations",
-                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
-                json=dalle_payload,
-                timeout=20.0
-            )
-            if res_dalle.status_code == 200:
-                dalle_url = res_dalle.json()["data"][0]["url"]
-                
-                # 3. Download the generated image bytes
-                res_img = await client.get(dalle_url, timeout=10.0)
-                if res_img.status_code == 200:
-                    img_bytes = res_img.content
-                    
-                    # 4. Upload to Supabase Storage
-                    upload_url = f"{settings.SUPABASE_URL}/storage/v1/object/heritage-images/{filename}"
-                    upload_headers = headers.copy()
-                    upload_headers["Content-Type"] = "image/jpeg"
-                    
-                    res_upload = await client.post(upload_url, headers=upload_headers, content=img_bytes, timeout=10.0)
-                    if res_upload.status_code in [200, 201]:
-                        logger.info(f"Successfully uploaded generated DALL-E image to storage for '{name}': {public_url}")
-                        await update_db_heritage_image(name, public_url)
-                        return public_url
-    except Exception as e:
-        logger.error(f"Failed to generate or upload DALL-E image for '{name}': {e}")
-
     return current_img or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
 
 async def get_openai_embedding_768(text: str) -> Optional[List[float]]:
@@ -1007,38 +948,6 @@ async def submit_citizen_recommendation(item: Dict[str, Any]):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-@app.post("/api/v1/db/image-upload")
-async def upload_image_to_supabase(req: ImageUploadRequest):
-    """Decode base64 payload and upload to Supabase storage bucket"""
-    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
-        return {"status": "error", "message": "Supabase credentials are not set on the server."}
-        
-    try:
-        import base64
-        # Clean base64 header if present
-        base64_clean = req.base64Data.split(",")[1] if "," in req.base64Data else req.base64Data
-        raw_bytes = base64.b64decode(base64_clean)
-        
-        bucket_name = "heritage-images"
-        upload_url = f"{settings.SUPABASE_URL}/storage/v1/object/{bucket_name}/{req.filename}"
-        
-        headers = get_supabase_headers()
-        headers["Content-Type"] = "image/jpeg"
-        
-        async with httpx.AsyncClient() as client:
-            res = await client.post(
-                upload_url,
-                headers=headers,
-                content=raw_bytes,
-                timeout=10.0
-            )
-            if res.status_code in [200, 201]:
-                public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{req.filename}"
-                return {"status": "success", "publicUrl": public_url}
-            else:
-                return {"status": "error", "message": res.text}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
 
 @app.patch("/api/v1/db/citizen-recommendation/{rec_id}/status")
 async def update_recommendation_status(rec_id: str, req: RecommendationStatusRequest):
@@ -1268,10 +1177,10 @@ async def tour_search(req: TourSearchRequest):
     # 3. Static fallback list of Sejong tourist attractions
     if len(matched) < 5:
         sejong_spots = [
-            {"name": "세종 베어트리파크", "address": "세종특별자치시 전동면 신송로 217", "latitude": 36.6394, "longitude": 127.2427, "category": "수목원/관광지", "description": "아름다운 나무와 반달곰이 어우러진 친환경 테마 수목원입니다.", "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H1_H1.jpg"},
-            {"name": "세종호수공원", "address": "세종특별자치시 다솜로 216", "latitude": 36.5023, "longitude": 127.2861, "category": "공원/호수", "description": "국내 최대의 인공호수공원으로 산책로와 문화행사가 어우러진 휴식공간입니다.", "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H2_H2.jpg"},
-            {"name": "국립세종수목원", "address": "세종특별자치시 수목원로 136", "latitude": 36.4950, "longitude": 127.2910, "category": "식물원/수목원", "description": "도심형 수목원으로 거대한 사계절 온실과 전통 정원이 매우 인상적입니다.", "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H3_H3.jpg"},
-            {"name": "금강보행교 (이응다리)", "address": "세종특별자치시 세종동 29-111", "latitude": 36.4862, "longitude": 127.2965, "category": "교량/랜드마크", "description": "금강을 가로지르는 국내 최초의 원형 보행교로 야경이 무척 아름답습니다.", "image_url": "https://pdpmtgnagwzcsftavtap.supabase.co/storage/v1/object/public/heritage-images/H4_H4.jpg"},
+            {"name": "세종 베어트리파크", "address": "세종특별자치시 전동면 신송로 217", "latitude": 36.6394, "longitude": 127.2427, "category": "수목원/관광지", "description": "아름다운 나무와 반달곰이 어우러진 친환경 테마 수목원입니다.", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"},
+            {"name": "세종호수공원", "address": "세종특별자치시 다솜로 216", "latitude": 36.5023, "longitude": 127.2861, "category": "공원/호수", "description": "국내 최대의 인공호수공원으로 산책로와 문화행사가 어우러진 휴식공간입니다.", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"},
+            {"name": "국립세종수목원", "address": "세종특별자치시 수목원로 136", "latitude": 36.4950, "longitude": 127.2910, "category": "식물원/수목원", "description": "도심형 수목원으로 거대한 사계절 온실과 전통 정원이 매우 인상적입니다.", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"},
+            {"name": "금강보행교 (이응다리)", "address": "세종특별자치시 세종동 29-111", "latitude": 36.4862, "longitude": 127.2965, "category": "교량/랜드마크", "description": "금강을 가로지르는 국내 최초의 원형 보행교로 야경이 무척 아름답습니다.", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"},
             {"name": "고복자연공원", "address": "세종특별자치시 연서면 고복리", "latitude": 36.5685, "longitude": 127.2345, "category": "자연/저수지", "description": "벚꽃 길과 데크길 산책로가 조성된 한적하고 평화로운 자연 공원 저수지입니다.", "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"}
         ]
         for spot in sejong_spots:
