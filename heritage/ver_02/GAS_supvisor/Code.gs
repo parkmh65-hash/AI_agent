@@ -162,3 +162,73 @@ function checkGasDbConfigurationStatus() {
   }
   return { configured: false, working: false, url: "", error: "Server response error" };
 }
+
+/**
+ * Sign up user with email and password through backend proxy
+ */
+function signUpUserWithPasswordGAS(email, password) {
+  var backendUrl = getBackendUrl();
+  var payload = {
+    email: email,
+    password: password
+  };
+  
+  try {
+    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    
+    if (response.getResponseCode() === 200) {
+      return JSON.parse(response.getContentText());
+    } else {
+      return { status: "error", message: response.getContentText() };
+    }
+  } catch (e) {
+    return { status: "error", message: e.toString() };
+  }
+}
+
+/**
+ * Log in user with email and password through backend proxy
+ */
+function loginUserWithPasswordGAS(email, password) {
+  var backendUrl = getBackendUrl();
+  var payload = {
+    email: email,
+    password: password
+  };
+  
+  try {
+    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    
+    if (response.getResponseCode() === 200) {
+      return JSON.parse(response.getContentText());
+    } else {
+      return { status: "error", message: response.getContentText() };
+    }
+  } catch (e) {
+    return { status: "error", message: e.toString() };
+  }
+}
+
+/**
+ * Get current Kakao User Mock from Active Session
+ */
+function getCurrentKakaoUserGAS() {
+  return { status: 'success', email: 'kakao_user@kakao.com', nickname: '카카오프렌즈' };
+}
+
+/**
+ * Get current Naver User Mock from Active Session
+ */
+function getCurrentNaverUserGAS() {
+  return { status: 'success', email: 'naver_user@naver.com', nickname: '네이버그린' };
+}
