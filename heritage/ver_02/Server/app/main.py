@@ -148,6 +148,7 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
     search_keyword = await extract_search_keyword_via_llm(query)
     try:
         matched = await fetch_national_heritage_openapi(search_keyword, area_code)
+        logger.info(f"fetch_national_heritage_openapi count: {len(matched)} using search_keyword '{search_keyword}'")
     except Exception as e:
         logger.error(f"Failed to query official National Heritage API using keyword '{search_keyword}': {e}")
 
@@ -175,6 +176,8 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                 res = await client.get(url, headers=headers, timeout=5.0)
                 if res.status_code == 200:
                     raw_list = res.json()
+                    logger.info(f"Supabase heritages raw query count: {len(raw_list)} using url '{url}'")
+                    added_db_count = 0
                     for item in raw_list:
                         # Deduplicate by name to prevent duplicate LLM candidates
                         if not any(m["name"].strip() == item.get("name").strip() for m in matched):
@@ -189,12 +192,17 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                                 "description": item.get("description") or "",
                                 "image_url": item.get("photo_url") or item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                             })
+                            added_db_count += 1
+                    logger.info(f"Added from DB to candidates pool: {added_db_count} items. Total pool: {len(matched)}")
+                else:
+                    logger.warn(f"Supabase heritages query failed with status: {res.status_code}, response: {res.text}")
         except Exception as e:
             logger.warn(f"Failed to fetch heritages from Supabase for candidate enrichment: {e}")
 
     # 2. AI selection of exactly 5 heritages based on query context from the candidates pool
     try:
         matched = await select_top_heritages_via_llm(query, matched)
+        logger.info(f"AI filtered top selected heritages count: {len(matched)}")
     except Exception as e:
         logger.error(f"Failed to perform LLM heritage selection: {e}")
         matched = matched[:5]
@@ -285,9 +293,11 @@ async def resolve_heritage_image(item: Dict[str, Any]) -> str:
 
 async def select_top_heritages_via_llm(query: str, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Analyze query and candidate list using LLM to choose exactly 5 heritages that best fit the query intent"""
+    logger.info(f"select_top_heritages_via_llm input candidates count: {len(candidates)}")
     if not candidates:
         return []
     if len(candidates) <= 5:
+        logger.info(f"Candidates pool size <= 5. Returning all {len(candidates)} items directly.")
         return candidates
         
     if not settings.OPENAI_API_KEY:
@@ -340,23 +350,31 @@ async def select_top_heritages_via_llm(query: str, candidates: List[Dict[str, An
             if res.status_code == 200:
                 result_json = json.loads(res.json()["choices"][0]["message"]["content"])
                 selected_ids = result_json.get("selected_ids", [])
+                logger.info(f"LLM selection output selected_ids: {selected_ids}")
                 
                 # Filter candidates matching the selected IDs
                 selected_items = []
                 for s_id in selected_ids:
-                    match_item = next((c for c in candidates if c.get("id") == s_id), None)
+                    # Robust type conversion check for id matching (string / integer)
+                    match_item = next((c for c in candidates if str(c.get("id")) == str(s_id)), None)
                     if match_item:
                         selected_items.append(match_item)
                         
+                logger.info(f"Matched selected candidates count: {len(selected_items)}")
+                
                 # Fallback if selection returned invalid or insufficient items
                 if len(selected_items) < 5:
+                    logger.info("Matched selected items count < 5. Filling candidates from pool.")
                     for c in candidates:
                         if c not in selected_items:
                             selected_items.append(c)
                         if len(selected_items) == 5:
                             break
                             
+                logger.info(f"Final output selected heritages count: {len(selected_items[:5])}")
                 return selected_items[:5]
+            else:
+                logger.warn(f"OpenAI GPT completion failed with status: {res.status_code}, response: {res.text}")
     except Exception as e:
         logger.error(f"Failed to filter heritages via LLM: {e}")
         
