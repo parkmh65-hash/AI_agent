@@ -99,6 +99,38 @@ def health_check():
         "llm_configured": bool(settings.OPENAI_API_KEY or settings.GEMINI_API_KEY)
     }
 
+async def extract_search_keyword_via_llm(query: str) -> str:
+    """Extract a single heritage noun keyword (e.g. '비암사', '사찰', '탑') suitable for national heritage open API search"""
+    if not query or not settings.OPENAI_API_KEY:
+        return query
+    try:
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "사용자의 자연어 질문에서 문화유산 공공 OpenAPI 검색어(ccbaMnm1 파라미터)로 던질 단 한 개의 명사형 키워드(예: '비암사', '사찰', '탑', '은행나무', '성곽')만 추출하세요. 다른 설명이나 조사 없이 오직 명사 키워드 문자열만 반환하세요."
+                },
+                {"role": "user", "content": f"질문: {query}"}
+            ],
+            "temperature": 0.1
+        }
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
+                json=payload,
+                timeout=4.0
+            )
+            if res.status_code == 200:
+                keyword = res.json()["choices"][0]["message"]["content"].strip()
+                # Remove quotes if present
+                keyword = keyword.replace('"', '').replace("'", "")
+                return keyword
+    except Exception as e:
+        logger.warn(f"LLM API keyword extraction failed: {e}")
+    return query
+
 @app.post("/api/v1/agentic-rag")
 async def handle_agentic_rag_query(req: RagQueryRequest):
     """Provide RAG optimized recommended cards for Sejong official heritages"""
@@ -111,10 +143,13 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
 
     # 1. RAG Candidates Pool Generation (Merge OpenAPI search and DB heritages)
     matched = []
+    
+    # Pre-process search query to get clean keyword for open API
+    search_keyword = await extract_search_keyword_via_llm(query)
     try:
-        matched = await fetch_national_heritage_openapi(query, area_code)
+        matched = await fetch_national_heritage_openapi(search_keyword, area_code)
     except Exception as e:
-        logger.error(f"Failed to query official National Heritage API: {e}")
+        logger.error(f"Failed to query official National Heritage API using keyword '{search_keyword}': {e}")
 
     # Fetch up to 15 existing heritages from database to enrich the candidates pool
     if settings.SUPABASE_URL and settings.SUPABASE_KEY:
@@ -123,9 +158,17 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
             async with httpx.AsyncClient() as client:
                 table = await get_heritage_table_name(client, headers)
                 
-                # Filter by region if specified and not "전체"
+                # Normalize area code query parameter to prevent empty results for '세종시' -> '세종'
+                db_area = area_code
                 if area_code and area_code != "전체":
-                    url = f"{settings.SUPABASE_URL}/rest/v1/{table}?address=ilike.*{urllib.parse.quote(area_code)}*&limit=15"
+                    if area_code in ["세종시", "세종"]:
+                        db_area = "세종"
+                    elif len(area_code) > 2 and (area_code.endswith("시") or area_code.endswith("도")):
+                        db_area = area_code[:-1]
+                        
+                # Filter by region if specified and not "전체"
+                if db_area and db_area != "전체":
+                    url = f"{settings.SUPABASE_URL}/rest/v1/{table}?address=ilike.*{urllib.parse.quote(db_area)}*&limit=15"
                 else:
                     url = f"{settings.SUPABASE_URL}/rest/v1/{table}?limit=15"
                     
