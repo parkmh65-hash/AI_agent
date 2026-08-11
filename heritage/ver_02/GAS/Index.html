@@ -1143,10 +1143,7 @@
             image_url: item.image_url || 'https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80'
           }));
 
-          if (officialHeritages.length > 0) {
-            ragCards = officialHeritages.slice(0, 3);
-            renderRAGCards();
-          }
+
           showToast('✅ 로드 완료');
         } catch (err) {
           showToast('❌ 초기 로딩 오류가 발생했습니다.');
