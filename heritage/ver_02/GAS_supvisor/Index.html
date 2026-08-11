@@ -290,7 +290,7 @@
         </p>
 
         <!-- Google OAuth button -->
-        <button id="google-login-btn" class="google-btn">
+        <button id="google-login-btn" class="google-btn" style="margin-bottom: 8px;">
           <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -300,23 +300,54 @@
           Google 계정으로 로그인
         </button>
 
-        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 20px;">
+        <!-- Kakao OAuth button -->
+        <button id="kakao-login-btn" class="google-btn" style="background: #fee500; color: #191919; margin-bottom: 8px; box-shadow: 0 4px 12px rgba(254,229,0,0.15); border: none;">
+          <span style="font-size: 1.0rem; margin-right: 8px;">💬</span>
+          카카오 계정으로 로그인
+        </button>
+
+        <!-- Naver OAuth button -->
+        <button id="naver-login-btn" class="google-btn" style="background: #03c75a; color: #fff; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(3,199,90,0.15); border: none;">
+          <span style="font-size: 1.0rem; margin-right: 8px;">💚</span>
+          Naver 계정으로 로그인
+        </button>
+
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px;">
           <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.08);"></span>
           <span style="font-size: 0.72rem; color: var(--text-sub); text-transform: uppercase;">또는</span>
           <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.08);"></span>
         </div>
 
-        <!-- Custom email login/signup form -->
-        <input id="auth-email-input" class="auth-input" type="email" placeholder="관리자 이메일 입력" />
-        <input id="auth-password-input" class="auth-input" type="password" placeholder="비밀번호 입력" />
-        
-        <div style="display: flex; gap: 8px; margin-top: 8px;">
-          <button id="email-login-btn" class="action-btn" style="flex: 1; background: #3b82f6; color: #fff; font-weight: bold; padding: 10px; border-radius: 8px; cursor: pointer; border: none;">
-            로그인
+        <!-- Login Container -->
+        <div id="login-container">
+          <input id="auth-email-input" class="auth-input" type="email" placeholder="관리자 이메일 입력" style="margin-bottom: 8px;" />
+          <input id="auth-password-input" class="auth-input" type="password" placeholder="비밀번호 입력" style="margin-bottom: 12px;" />
+          
+          <button id="email-login-btn" class="action-btn" style="width: 100%; background: #3b82f6; color: #fff; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; border: none; margin-bottom: 12px;">
+            관리자 로그인
           </button>
-          <button id="email-signup-btn" class="action-btn" style="flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: #fff; padding: 10px; border-radius: 8px; cursor: pointer;">
-            등록신청
+          <p style="font-size: 0.75rem; color: var(--text-sub); margin: 0;">
+            아직 관리자 계정이 없으신가요? <a href="#" id="go-to-signup" style="color: #60a5fa; text-decoration: underline;">관리자 등록 신청</a>
+          </p>
+        </div>
+
+        <!-- Signup Container (Initially Hidden) -->
+        <div id="signup-container" style="display: none; text-align: left;">
+          <label style="font-size: 0.72rem; color: #fff; display: block; margin-bottom: 4px;">관리자 이메일 주소 (ID)</label>
+          <input id="signup-email-input" class="auth-input" type="email" placeholder="가입할 관리자 이메일 주소 입력" style="margin-bottom: 8px;" />
+          
+          <label style="font-size: 0.72rem; color: #fff; display: block; margin-bottom: 4px;">비밀번호</label>
+          <input id="signup-password-input" class="auth-input" type="password" placeholder="비밀번호 입력" style="margin-bottom: 8px;" />
+          
+          <label style="font-size: 0.72rem; color: #fff; display: block; margin-bottom: 4px;">비밀번호 확인</label>
+          <input id="signup-password-confirm-input" class="auth-input" type="password" placeholder="비밀번호 재입력" style="margin-bottom: 12px;" />
+          
+          <button id="email-signup-submit-btn" class="action-btn" style="width: 100%; background: #fbbf24; color: #000; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; border: none; margin-bottom: 12px;">
+            등록 신청 완료
           </button>
+          <p style="font-size: 0.75rem; color: var(--text-sub); margin: 0; text-align: center;">
+            이미 관리자 계정이 있으신가요? <a href="#" id="go-to-login" style="color: #60a5fa; text-decoration: underline;">로그인으로 돌아가기</a>
+          </p>
         </div>
       </div>
     </div>
@@ -691,7 +722,6 @@
             console.warn("localStorage write denied. Falling back to in-memory store.", e);
             this.fallbackStore[key] = String(value);
           }
-        },
         removeItem(key) {
           try {
             localStorage.removeItem(key);
@@ -788,7 +818,7 @@
       function setupAuthListeners() {
         // Google OAuth Sign In
         document.getElementById('google-login-btn').addEventListener('click', async () => {
-          showToast('\u23f3 Google OAuth \uc778\uc99d \ub300\ud589 \uc694\uccad \uc911...');
+          showToast('⏳ Google OAuth 인증 대행 요청 중...');
           try {
             const userRes = await callGasMethod('getCurrentGoogleUserGAS');
             if (userRes.status === 'success' || userRes.status === 'fallback') {
@@ -800,65 +830,134 @@
               if (dbRes.status === 'success') {
                 safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
                 document.getElementById('auth-overlay').style.display = 'none';
-                showToast(`\u1f44b \ud658\uc601\ud569\ub2c8\ub2e4, ${nickname} \uac10\ub3c5\uad00\ub2d8!`);
+                showToast(`👋 환영합니다, ${nickname} 감독관님! (Google 로그인 완료)`);
                 loadDashboardData();
               } else {
-                showToast('\u274c DB\uc5d0 \uad00\ub9ac\uc790 \ud504\ub85c\ud544\uc744 \ub4f1\ub85d\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.');
+                showToast('❌ DB에 관리자 프로필을 등록하지 못했습니다.');
               }
             } else {
-              showToast('\u274c \uad6c\uae00 \uacc4\uc815 \uc815\ubcf4\ub97c \uac00\uc838\uc624\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.');
+              showToast('❌ 구글 계정 정보를 가져오지 못했습니다.');
             }
           } catch(err) {
-            showToast('\u274c \uad6c\uae00 \uc5f0\ub3d9 \uc911 \uc624\ub958 \ubc1c\uc0dd.');
+            showToast('❌ 구글 연동 중 오류 발생.');
           }
         });
 
-        // Email Registration Application (Sign Up)
-        document.getElementById('email-signup-btn').addEventListener('click', async () => {
-          const email = document.getElementById('auth-email-input').value.trim();
-          const pw = document.getElementById('auth-password-input').value.trim();
-          if (!email || !pw) {
-            showToast('\uc774\uba54\uc77c\uacfc \ube44\ubc00\ubc88\ud638\ub97c \ubaa8\ub450 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
+        // Kakao OAuth Login
+        document.getElementById('kakao-login-btn').addEventListener('click', async () => {
+          showToast('⏳ 카카오 계정 로그인 진행 중...');
+          try {
+            const userRes = await callGasMethod('getCurrentKakaoUserGAS');
+            if (userRes.status === 'success') {
+              const email = userRes.email;
+              const nickname = userRes.nickname;
+              const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'kakao');
+              if (dbRes.status === 'success') {
+                safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
+                document.getElementById('auth-overlay').style.display = 'none';
+                showToast(`👋 환영합니다, ${nickname} 감독관님! (카카오 로그인 완료)`);
+                loadDashboardData();
+              } else {
+                showToast('❌ DB 프로필 등록 실패.');
+              }
+            }
+          } catch (err) {
+            showToast('❌ 카카오 연동 중 오류 발생.');
+          }
+        });
+
+        // Naver OAuth Login
+        document.getElementById('naver-login-btn').addEventListener('click', async () => {
+          showToast('⏳ Naver 계정 로그인 진행 중...');
+          try {
+            const userRes = await callGasMethod('getCurrentNaverUserGAS');
+            if (userRes.status === 'success') {
+              const email = userRes.email;
+              const nickname = userRes.nickname;
+              const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'naver');
+              if (dbRes.status === 'success') {
+                safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
+                document.getElementById('auth-overlay').style.display = 'none';
+                showToast(`👋 환영합니다, ${nickname} 감독관님! (네이버 로그인 완료)`);
+                loadDashboardData();
+              } else {
+                showToast('❌ DB 프로필 등록 실패.');
+              }
+            }
+          } catch (err) {
+            showToast('❌ 네이버 연동 중 오류 발생.');
+          }
+        });
+
+        // Switch to Signup container view
+        document.getElementById('go-to-signup').addEventListener('click', (e) => {
+          e.preventDefault();
+          document.getElementById('login-container').style.display = 'none';
+          document.getElementById('signup-container').style.display = 'block';
+        });
+
+        // Switch back to Login container view
+        document.getElementById('go-to-login').addEventListener('click', (e) => {
+          e.preventDefault();
+          document.getElementById('login-container').style.display = 'block';
+          document.getElementById('signup-container').style.display = 'none';
+        });
+
+        // Password Signup Complete Trigger
+        document.getElementById('email-signup-submit-btn').addEventListener('click', async () => {
+          const email = document.getElementById('signup-email-input').value.trim();
+          const pw = document.getElementById('signup-password-input').value.trim();
+          const pwConfirm = document.getElementById('signup-password-confirm-input').value.trim();
+          
+          if (!email || !pw || !pwConfirm) {
+            showToast('모든 가입 필드를 채워주세요.');
+            return;
+          }
+          if (pw !== pwConfirm) {
+            showToast('비밀번호가 일치하지 않습니다.');
             return;
           }
           
-          showToast('\u23f3 \uad00\ub9ac\uc790 \ud504\ub85c\ud544 \ub4f1\ub85d \uc694\uccad \uc911...');
+          showToast('⏳ 등록 신청서를 제출하는 중...');
           try {
-            const nickname = email.split('@')[0];
-            const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'email');
-            if (dbRes.status === 'success') {
-              showToast('\u2705 \uac00\uc785 \ucc98\ub9ac\ub418\uc5c8\uc2b5\ub2c8\ub2e4. \ub85c\uadf8\uc778\ud574 \uc8fc\uc2ed\uc2dc\uc624.');
+            const res = await callGasMethod('signUpUserWithPasswordGAS', email, pw);
+            if (res.status === 'success') {
+              showToast('✅ 등록 성공! 로그인해 주세요.');
+              document.getElementById('login-container').style.display = 'block';
+              document.getElementById('signup-container').style.display = 'none';
+              document.getElementById('auth-email-input').value = email;
+              document.getElementById('auth-password-input').value = '';
             } else {
-              showToast('\u274c \uac00\uc785 \uc2b9\uc778 \ucc98\ub9ac \uc911 \uc5d0\ub7ec.');
+              showToast(`❌ 등록 실패: ${res.message || '가입 정보를 확인해 주세요.'}`);
             }
           } catch (err) {
-            showToast('\u274c \uc774\uba54\uc77c \ud68c\uc6d0\uac00\uc785 \uc2e4\ud328.');
+            showToast('❌ 회원가입 연동 에러.');
           }
         });
 
-        // Email Log In
+        // Email Log In (with Password validation)
         document.getElementById('email-login-btn').addEventListener('click', async () => {
           const email = document.getElementById('auth-email-input').value.trim();
           const pw = document.getElementById('auth-password-input').value.trim();
           if (!email || !pw) {
-            showToast('\uc774\uba54\uc77c\uacfc \ube44\ubc00\ubc88\ud638\ub97c \ubaa8\ub450 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
+            showToast('이메일과 비밀번호를 모두 입력해 주세요.');
             return;
           }
 
-          showToast('\u23f3 \ub85c\uadf8\uc778 \ub300\uc870 \ubc0f \uc138\uc158 \uac31\uc2e0 \uc911...');
+          showToast('⏳ 로그인 정보 검증 중...');
           try {
-            const nickname = email.split('@')[0];
-            const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'email');
+            const dbRes = await callGasMethod('loginUserWithPasswordGAS', email, pw);
             if (dbRes.status === 'success') {
+              const nickname = dbRes.nickname;
               safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
               document.getElementById('auth-overlay').style.display = 'none';
-              showToast(`\u1f44b \ubc18\uac11\uc2b5\ub2c8\ub2e4, ${nickname} \uac10\ub3c5\uad00\ub2d8!`);
+              showToast(`👋 반갑습니다, ${nickname} 감독관님!`);
               loadDashboardData();
             } else {
-              showToast('\u274c \ub85c\uadf8\uc778 \uc815\ubcf4\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694.');
+              showToast(`❌ 로그인 실패: ${dbRes.message || '이메일 혹은 패스워드가 틀렸습니다.'}`);
             }
           } catch (err) {
-            showToast('\u274c \uc774\uba54\uc77c \ub85c\uadf8\uc778 \uc2e4\ud328.');
+            showToast('❌ 로그인 요청 중 에러 발생.');
           }
         });
       }
