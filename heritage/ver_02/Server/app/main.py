@@ -89,6 +89,117 @@ class QueryRoute(BaseModel):
 # Initialize Guidebook Service
 guidebook_service = GuidebookService()
 
+@app.on_event("startup")
+async def seed_database_if_empty():
+    """Seed default Sejong heritages into database if heritages table is empty on startup"""
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        logger.info("Supabase settings not configured. Seeding skipped.")
+        return
+        
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            table = await get_heritage_table_name(client, headers)
+            # 1. Query table size limit 1
+            res = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/{table}?select=id&limit=1",
+                headers=headers,
+                timeout=4.0
+            )
+            
+            if res.status_code == 200:
+                rows = res.json()
+                if len(rows) > 0:
+                    logger.info("Database already contains heritages. Seeding skipped.")
+                    return
+            
+            logger.info("Database heritages table is empty. Initiating seeding...")
+            
+            # Sejong 5 representative heritages
+            sejong_heritages = [
+                {
+                    "h_id": "cha_12_0023000000000_45",
+                    "name": "비암사",
+                    "address": "세종특별자치시 전의면 다방리 4",
+                    "dong_eup_myeon": "전의면",
+                    "category": "문화유산",
+                    "era_normalized": "조선시대",
+                    "latitude": 36.61119014,
+                    "longitude": 127.192054,
+                    "description": "세종특별자치시 전의면 다방리에 있는 사찰로, 삼국시대에 창건된 것으로 전해집니다. 극락보전과 삼층석탑 등의 소중한 문화재가 보존되어 있습니다.",
+                    "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                },
+                {
+                    "h_id": "cha_16_0000300000000_31",
+                    "name": "세종리 은행나무",
+                    "address": "세종특별자치시 세종동 88-4",
+                    "dong_eup_myeon": "세종동",
+                    "category": "자연유산",
+                    "era_normalized": "고려시대",
+                    "latitude": 36.483120,
+                    "longitude": 127.260520,
+                    "description": "고려 말기 최영 장군이 심었다고 전해지는 역사적인 은행나무로, 세종시의 대표적인 보호수이자 자연유산입니다.",
+                    "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                },
+                {
+                    "h_id": "cha_12_0010000000000_45",
+                    "name": "독락정",
+                    "address": "세종특별자치시 나성동 103-6",
+                    "dong_eup_myeon": "나성동",
+                    "category": "문화유산",
+                    "era_normalized": "조선시대",
+                    "latitude": 36.479532,
+                    "longitude": 127.251024,
+                    "description": "조선 시대 세종 때 건립된 정자로, 금강변의 아름다운 풍광을 조망할 수 있는 곳에 위치해 있습니다.",
+                    "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                },
+                {
+                    "h_id": "cha_12_0020000000000_45",
+                    "name": "김종서장군묘",
+                    "address": "세종특별자치시 장군면 대교리 산51",
+                    "dong_eup_myeon": "장군면",
+                    "category": "문화유산",
+                    "era_normalized": "조선시대",
+                    "latitude": 36.521025,
+                    "longitude": 127.214022,
+                    "description": "조선 초기의 명신이자 북방 개척의 영웅인 김종서 장군의 묘소입니다.",
+                    "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                },
+                {
+                    "h_id": "cha_16_0010000000000_45",
+                    "name": "봉산동 향나무",
+                    "address": "세종특별자치시 조치원읍 봉산리 128",
+                    "dong_eup_myeon": "조치원읍",
+                    "category": "자연유산",
+                    "era_normalized": "조선시대",
+                    "latitude": 36.602120,
+                    "longitude": 127.284050,
+                    "description": "수령이 수백 년에 달하는 향나무로, 그 독특한 수형과 역사적 가치를 지닌 천연유산입니다.",
+                    "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                }
+            ]
+            
+            # Post all items to Supabase using bulk insert
+            res_seed = await client.post(
+                f"{settings.SUPABASE_URL}/rest/v1/{table}",
+                headers=headers,
+                json=sejong_heritages,
+                timeout=10.0
+            )
+            
+            if res_seed.status_code in [200, 201]:
+                logger.info(f"Successfully seeded database with {len(sejong_heritages)} heritages.")
+            else:
+                logger.error(f"Failed to seed database: {res_seed.text}")
+                
+    except Exception as e:
+        logger.error(f"Error seeding database on startup: {e}")
+
 @app.get("/health")
 def health_check():
     """Verify server status and DB configurations"""
@@ -303,6 +414,71 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                                 break
         except Exception:
             pass
+
+    if len(matched) < 5:
+        # Hardcoded fallback with Sejong representative heritages if all other routes fail
+        hard_fallbacks = [
+            {
+                "id": "cha_12_0023000000000_45",
+                "name": "비암사",
+                "address": "세종특별자치시 전의면 다방리 4",
+                "category": "문화유산",
+                "latitude": 36.61119014,
+                "longitude": 127.192054,
+                "description": "세종특별자치시 전의면 다방리에 있는 사찰로, 삼국시대에 창건된 것으로 전해집니다. 극락보전과 삼층석탑 등의 소중한 문화재가 보존되어 있습니다."
+            },
+            {
+                "id": "cha_16_0000300000000_31",
+                "name": "세종리 은행나무",
+                "address": "세종특별자치시 세종동 88-4",
+                "category": "자연유산",
+                "latitude": 36.483120,
+                "longitude": 127.260520,
+                "description": "고려 말기 최영 장군이 심었다고 전해지는 역사적인 은행나무로, 세종시의 대표적인 보호수이자 자연유산입니다."
+            },
+            {
+                "id": "cha_12_0010000000000_45",
+                "name": "독락정",
+                "address": "세종특별자치시 나성동 103-6",
+                "category": "문화유산",
+                "latitude": 36.479532,
+                "longitude": 127.251024,
+                "description": "조선 시대 세종 때 건립된 정자로, 금강변의 아름다운 풍광을 조망할 수 있는 곳에 위치해 있습니다."
+            },
+            {
+                "id": "cha_12_0020000000000_45",
+                "name": "김종서장군묘",
+                "address": "세종특별자치시 장군면 대교리 산51",
+                "category": "문화유산",
+                "latitude": 36.521025,
+                "longitude": 127.214022,
+                "description": "조선 초기의 명신이자 북방 개척의 영웅인 김종서 장군의 묘소입니다."
+            },
+            {
+                "id": "cha_16_0010000000000_45",
+                "name": "봉산동 향나무",
+                "address": "세종특별자치시 조치원읍 봉산리 128",
+                "category": "자연유산",
+                "latitude": 36.602120,
+                "longitude": 127.284050,
+                "description": "수령이 수백 년에 달하는 향나무로, 그 독특한 수형과 역사적 가치를 지닌 천연유산입니다."
+            }
+        ]
+        for h in hard_fallbacks:
+            if not any(m["name"] == h["name"] for m in matched):
+                matched.append({
+                    "id": h["id"],
+                    "name": h["name"],
+                    "address": h["address"],
+                    "category": h["category"],
+                    "era_normalized": "조선시대",
+                    "latitude": h["latitude"],
+                    "longitude": h["longitude"],
+                    "description": h["description"],
+                    "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                })
+                if len(matched) == 5:
+                    break
 
     matched = matched[:5]
     
