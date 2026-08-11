@@ -1404,9 +1404,6 @@
           if (!dataHeritages) throw new Error("서버로부터 유효하지 않은 응답을 받았습니다.");
           
           ragCards = dataHeritages.output_heritages || [];
-          if (ragCards.length === 0) {
-            throw new Error("검색 결과 수록된 문화유산이 없습니다.");
-          }
           
           // Automatically add all recommended heritages to the course list
           const seenNames = new Set(courseList.map(c => c.name));
