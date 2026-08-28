@@ -86,6 +86,14 @@ class QueryRoute(BaseModel):
     target: str = Field(description="선택된 라우팅 경로: 'heritage' (개별 유산 역사/지식) 또는 'course' (코스/경로 추천)")
     rationale: str = Field(description="해당 경로를 선택한 이유")
 
+class SaveCourseRequest(BaseModel):
+    user_id: str = "guest@sejong.go.kr"
+    course_name: str
+    description: Optional[str] = ""
+    transport: Optional[str] = "승용차"
+    total_duration: Optional[int] = 0
+    items: List[Any] = []
+
 # Initialize Guidebook Service
 guidebook_service = GuidebookService()
 
@@ -835,12 +843,57 @@ async def save_selected_tour_spots_to_db(spots: List[Dict[str, Any]]):
         logger.error(f"Error saving selected tourist spots to database: {e}")
 
 async def generate_shortest_path_course_via_llm(spots: List[Dict[str, Any]], transport: str = "승용차") -> Dict[str, Any]:
-    """Sort the 10 spots (5 heritages + 5 tour spots) to create the shortest-path logical travel itinerary utilizing LLM tsp analysis"""
+    """Sort the spots to create the shortest-path logical travel itinerary utilizing Nearest-Neighbor algorithm, and generate course details via LLM"""
     if not spots:
         return {}
+
+    # 1. Perform Nearest-Neighbor Sorting using Haversine formula to guarantee the absolute shortest distance route
+    def calculate_haversine(lat1, lon1, lat2, lon2):
+        import math
+        R = 6371.0
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+        return 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)) * R
+
+    sorted_spots = []
+    if len(spots) > 0:
+        best_path = []
+        min_total_dist = float('inf')
         
+        # Test starting from each spot to find the path with the minimum overall total distance
+        for start_idx in range(len(spots)):
+            unvisited = list(spots)
+            current = unvisited.pop(start_idx)
+            path = [current]
+            total_dist = 0.0
+            
+            while unvisited:
+                curr_lat = float(current.get("latitude") or current.get("lat") or 0.0)
+                curr_lng = float(current.get("longitude") or current.get("lng") or 0.0)
+                
+                closest_idx = 0
+                closest_dist = float('inf')
+                for idx, candidate in enumerate(unvisited):
+                    cand_lat = float(candidate.get("latitude") or candidate.get("lat") or 0.0)
+                    cand_lng = float(candidate.get("longitude") or candidate.get("lng") or 0.0)
+                    dist = calculate_haversine(curr_lat, curr_lng, cand_lat, cand_lng)
+                    if dist < closest_dist:
+                        closest_dist = dist
+                        closest_idx = idx
+                
+                total_dist += closest_dist
+                current = unvisited.pop(closest_idx)
+                path.append(current)
+                
+            if total_dist < min_total_dist:
+                min_total_dist = total_dist
+                best_path = path
+        sorted_spots = best_path
+    else:
+        sorted_spots = list(spots)
+
     reference_courses = []
-    # Query up to 10 existing courses from database to serve as prompt references
     if settings.SUPABASE_URL and settings.SUPABASE_KEY:
         try:
             headers = {
@@ -855,13 +908,13 @@ async def generate_shortest_path_course_via_llm(spots: List[Dict[str, Any]], tra
             logger.warn(f"Failed to fetch reference courses from DB: {e}")
 
     if not settings.OPENAI_API_KEY:
-        logger.warn("OpenAI key missing. Returning default sorted list of items.")
+        logger.warn("OpenAI key missing. Returning Nearest-Neighbor sorted list of items.")
         return {
             "course_name": "세종 스마트 역사문화 탐방 코스",
-            "description": "AI 임베딩 기반으로 연계 구성한 추천 탐방 경로입니다.",
+            "description": "최단 거리 이동 동선으로 연계 구성한 추천 탐방 경로입니다.",
             "transport": transport,
             "total_duration": 120,
-            "items": spots
+            "items": sorted_spots
         }
 
     try:
@@ -872,7 +925,7 @@ async def generate_shortest_path_course_via_llm(spots: List[Dict[str, Any]], tra
             "latitude": s.get("latitude"),
             "longitude": s.get("longitude"),
             "description": s.get("description", "")[:120]
-        } for s in spots]
+        } for s in sorted_spots]
 
         prompt_context = {
             "spots": spots_input,
@@ -892,15 +945,13 @@ async def generate_shortest_path_course_via_llm(spots: List[Dict[str, Any]], tra
                     "role": "system",
                     "content": (
                         "당신은 전문 여행 동선 플래너입니다. "
-                        "전달받은 10개의 명소 장소 목록의 지리적 위/경도 좌표를 분석하여, "
-                        "가장 효율적이고 이동 동선 낭비가 적은 최단 경로 순서(TSP 라우팅)로 장소들을 정렬해 주세요. "
-                        "또한 기존 코스 데이터 구조의 형식을 참고하여 새로운 코스를 작성하세요. "
+                        "이미 지리적 최단 동선(Nearest-Neighbor)으로 정렬이 완료된 명소 목록을 받았습니다. "
+                        "이 정렬된 명소 순서를 그대로 유지하면서, 코스의 테마를 살린 창의적이고 매력적인 코스 이름과 요약 스토리라인 설명을 작성해 주세요. "
                         "출력 포맷은 반드시 아래 JSON 키 구조를 정확하게 만족해야 합니다:\n"
                         "{\n"
                         "  \"course_name\": \"추천 코스 이름(한글)\",\n"
                         "  \"description\": \"코스 전체 스토리라인 및 루트 요약 설명(한글)\",\n"
-                        "  \"total_duration\": 총 예상 소요시간 정수값(분 단위, 단순 이동 시간 및 장소별 평균 30분 체류 감안),\n"
-                        "  \"sorted_ids\": [정렬된 순서의 장소 id 문자열 배열]\n"
+                        "  \"total_duration\": 총 예상 소요시간 정수값(분 단위, 단순 이동 시간 및 장소별 평균 30분 체류 감안)\n"
                         "}"
                     )
                 },
@@ -922,23 +973,9 @@ async def generate_shortest_path_course_via_llm(spots: List[Dict[str, Any]], tra
             )
             if res.status_code == 200:
                 result_json = json.loads(res.json()["choices"][0]["message"]["content"])
-                sorted_ids = result_json.get("sorted_ids", [])
-                
-                # Reorder the spots according to sorted_ids
-                sorted_spots = []
-                for s_id in sorted_ids:
-                    match_item = next((s for s in spots if s.get("id") == s_id), None)
-                    if match_item:
-                        sorted_spots.append(match_item)
-                        
-                # Add any missing spots
-                for s in spots:
-                    if s not in sorted_spots:
-                        sorted_spots.append(s)
-                        
                 return {
                     "course_name": result_json.get("course_name") or "세종 스마트 역사문화 탐방 코스",
-                    "description": result_json.get("description") or "AI가 구성한 최적의 테마 코스입니다.",
+                    "description": result_json.get("description") or "최단 거리로 구성한 테마 코스입니다.",
                     "transport": transport,
                     "total_duration": int(result_json.get("total_duration") or 120),
                     "items": sorted_spots
@@ -948,13 +985,13 @@ async def generate_shortest_path_course_via_llm(spots: List[Dict[str, Any]], tra
 
     return {
         "course_name": "세종 스마트 역사문화 탐방 코스",
-        "description": "AI 연계 구성한 추천 탐방 경로입니다.",
+        "description": "최단 거리 이동 동선으로 연계 구성한 추천 탐방 경로입니다.",
         "transport": transport,
         "total_duration": 120,
-        "items": spots
+        "items": sorted_spots
     }
 
-async def save_generated_course_to_db(course_data: Dict[str, Any]):
+async def save_generated_course_to_db(course_data: Dict[str, Any], user_id: str = "guest@sejong.go.kr"):
     """Upsert the final generated AI course into Supabase 'courses' and 'courses_vector' database tables without generating embeddings"""
     if not course_data or not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
         return
@@ -969,7 +1006,9 @@ async def save_generated_course_to_db(course_data: Dict[str, Any]):
         "Content-Type": "application/json"
     }
     
+    target_user = user_id or course_data.get("user_id") or "guest@sejong.go.kr"
     payload = {
+        "user_id": target_user,
         "course_name": course_name,
         "description": course_data.get("description") or "",
         "transport": course_data.get("transport") or "승용차",
@@ -980,8 +1019,8 @@ async def save_generated_course_to_db(course_data: Dict[str, Any]):
     try:
         async with httpx.AsyncClient() as client:
             # 1. Upsert into public.courses table
-            # Check if course already exists by name
-            check_url = f"{settings.SUPABASE_URL}/rest/v1/courses?course_name=eq.{urllib.parse.quote(course_name)}&select=id"
+            # Check if course already exists by user_id and course_name
+            check_url = f"{settings.SUPABASE_URL}/rest/v1/courses?user_id=eq.{urllib.parse.quote(target_user)}&course_name=eq.{urllib.parse.quote(course_name)}&select=id"
             res_check = await client.get(check_url, headers=headers, timeout=4.0)
             
             course_id = None
@@ -1400,6 +1439,61 @@ async def get_initial_db_data(role: Optional[str] = "user"):
         logger.error(f"Error loading initial DB data: {e}")
         
     return result
+
+@app.get("/api/v1/db/user-courses")
+async def get_user_courses(user_id: str = "guest@sejong.go.kr"):
+    """Fetch saved course recommendations for a specific user"""
+    headers = get_supabase_headers()
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return {"status": "success", "courses": []}
+        
+    try:
+        async with httpx.AsyncClient() as client:
+            url = f"{settings.SUPABASE_URL}/rest/v1/courses?user_id=eq.{urllib.parse.quote(user_id)}&order=created_at.desc"
+            res = await client.get(url, headers=headers, timeout=5.0)
+            if res.status_code == 200:
+                courses = res.json()
+                for c in courses:
+                    c.pop("embedding", None)
+                    c.pop("courses_vector", None)
+                return {"status": "success", "courses": courses}
+            else:
+                logger.error(f"Failed to fetch user courses: {res.text}")
+                return {"status": "error", "message": res.text, "courses": []}
+    except Exception as e:
+        logger.error(f"Exception fetching user courses: {e}")
+        return {"status": "error", "message": str(e), "courses": []}
+
+@app.post("/api/v1/db/save-course")
+async def save_user_course_endpoint(req: SaveCourseRequest):
+    """Save/upsert a user recommended course to Supabase courses table"""
+    course_data = {
+        "user_id": req.user_id,
+        "course_name": req.course_name,
+        "description": req.description,
+        "transport": req.transport,
+        "total_duration": req.total_duration,
+        "items": req.items
+    }
+    await save_generated_course_to_db(course_data, user_id=req.user_id)
+    return {"status": "success", "message": "Course saved successfully", "course": course_data}
+
+@app.delete("/api/v1/db/delete-course")
+async def delete_user_course_endpoint(course_id: int, user_id: str = "guest@sejong.go.kr"):
+    """Delete a saved course for a user"""
+    headers = get_supabase_headers()
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return {"status": "success", "message": "Mock delete"}
+    try:
+        async with httpx.AsyncClient() as client:
+            url = f"{settings.SUPABASE_URL}/rest/v1/courses?id=eq.{course_id}&user_id=eq.{urllib.parse.quote(user_id)}"
+            res = await client.delete(url, headers=headers, timeout=5.0)
+            if res.status_code in [200, 204]:
+                return {"status": "success", "message": "Course deleted"}
+            else:
+                return {"status": "error", "message": res.text}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.post("/api/v1/db/user-profile")
 async def upsert_user_profile(req: UserProfileRequest):

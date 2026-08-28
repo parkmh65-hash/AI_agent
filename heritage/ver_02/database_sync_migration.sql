@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS public.citizen_recommendations (
 -- 3. Create saved courses table if not exists
 CREATE TABLE IF NOT EXISTS public.courses (
     id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) DEFAULT 'guest@sejong.go.kr',
     course_name VARCHAR(255) NOT NULL,
     description TEXT,
     transport VARCHAR(50) DEFAULT '승용차',
@@ -87,12 +88,21 @@ BEGIN
           AND column_name = 'longitude'
     ) THEN
         ALTER TABLE public.citizen_recommendations ADD COLUMN longitude NUMERIC(10,6);
+    -- Check if user_id is missing in courses
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+          AND table_name = 'courses' 
+          AND column_name = 'user_id'
+    ) THEN
+        ALTER TABLE public.courses ADD COLUMN user_id VARCHAR(255) DEFAULT 'guest@sejong.go.kr';
     END IF;
 END $$;
 
--- 5. Build indexes for geographical coordinate queries
+-- 5. Build indexes for geographical coordinate queries and user courses
 CREATE INDEX IF NOT EXISTS idx_heritages_coords ON public.heritages(latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_citizen_coords ON public.citizen_recommendations(latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_courses_user ON public.courses(user_id);
 
 -- 6. Enable pgvector extension and create courses_vector table
 CREATE EXTENSION IF NOT EXISTS vector;

@@ -101,6 +101,9 @@ function submitCitizenRecommendationGAS(item) {
 /**
  * Query courses list from database through backend proxy
  */
+/**
+ * Query courses list from database through backend proxy
+ */
 function fetchSavedCoursesGAS() {
   var backendUrl = getBackendUrl();
   try {
@@ -118,6 +121,71 @@ function fetchSavedCoursesGAS() {
   }
   return [];
 }
+
+/**
+ * Fetch saved courses for specific user email from database
+ */
+function fetchUserCoursesGAS(userEmail) {
+  var backendUrl = getBackendUrl();
+  var targetUser = userEmail || "guest@sejong.go.kr";
+  try {
+    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/db/user-courses?user_id=" + encodeURIComponent(targetUser), {
+      method: "GET",
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() === 200) {
+      var resData = JSON.parse(response.getContentText());
+      return resData.courses || [];
+    }
+  } catch (e) {
+    Logger.log("Error loading user courses: " + e);
+  }
+  return [];
+}
+
+/**
+ * Save user generated course recommendation to database
+ */
+function saveUserCourseGAS(courseData) {
+  var backendUrl = getBackendUrl();
+  try {
+    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/db/save-course", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      payload: JSON.stringify(courseData),
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() === 200) {
+      return JSON.parse(response.getContentText());
+    } else {
+      return { status: "error", message: response.getContentText() };
+    }
+  } catch (e) {
+    return { status: "error", message: e.toString() };
+  }
+}
+
+/**
+ * Delete a user's saved course
+ */
+function deleteUserCourseGAS(courseId, userEmail) {
+  var backendUrl = getBackendUrl();
+  var targetUser = userEmail || "guest@sejong.go.kr";
+  try {
+    var response = UrlFetchApp.fetch(backendUrl + "/api/v1/db/delete-course?course_id=" + courseId + "&user_id=" + encodeURIComponent(targetUser), {
+      method: "DELETE",
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() === 200) {
+      return JSON.parse(response.getContentText());
+    } else {
+      return { status: "error", message: response.getContentText() };
+    }
+  } catch (e) {
+    return { status: "error", message: e.toString() };
+  }
+}
+
 
 
 /**

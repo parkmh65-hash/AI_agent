@@ -318,27 +318,77 @@ async def fetch_kto_nearby_facilities(latitude: float, longitude: float) -> str:
         
     return "\n[한국관광공사 국문 관광정보 서비스_GW 10km 인근 시설 정보]\n주변의 연계 편의시설 정보를 조회하지 못했습니다.\n"
 
+async def fetch_supabase_citizen_recommendations(latitude: float = 0.0, longitude: float = 0.0) -> str:
+    """Query Supabase 'citizen_recommendations' table to gather citizen-submitted recommendations and hidden local spots"""
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return "\n[Supabase 시민 추천 문화유산 및 숨은 명소 정보]\n시민 추천 DB가 연결되지 않았습니다.\n"
+
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}"
+    }
+
+    try:
+        url = f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?select=name,address,description,reason,latitude,longitude,recommend_count,heart,status&limit=10"
+        async with httpx.AsyncClient() as client:
+            res = await client.get(url, headers=headers, timeout=4.0)
+            if res.status_code == 200:
+                items = res.json()
+                if items:
+                    info_list = []
+                    for item in items:
+                        name = item.get("name", "")
+                        addr = item.get("address") or "세종특별자치시"
+                        desc = item.get("description") or item.get("reason") or "시민이 직접 추천한 생생한 지역 명소입니다."
+                        recs = item.get("recommend_count") or item.get("heart") or 0
+
+                        # Calculate distance if latitude & longitude are available
+                        dist_str = ""
+                        c_lat = float(item.get("latitude") or item.get("lat") or 0.0)
+                        c_lng = float(item.get("longitude") or item.get("lng") or 0.0)
+                        if latitude != 0.0 and longitude != 0.0 and c_lat != 0.0 and c_lng != 0.0:
+                            import math
+                            dlat = math.radians(c_lat - latitude)
+                            dlon = math.radians(c_lng - longitude)
+                            a = math.sin(dlat / 2)**2 + math.cos(math.radians(latitude)) * math.cos(math.radians(c_lat)) * math.sin(dlon / 2)**2
+                            dist_km = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)) * 6371.0
+                            dist_str = f" (거리: 약 {dist_km:.2f}km)"
+
+                        info_list.append(f"- [시민 추천 생생 명소] {name}{dist_str} (주소: {addr}) | 추천수: {recs}회 | 팁: {desc}")
+
+                    if info_list:
+                        return "\n[Supabase 시민 추천 문화유산 및 지역 주민 제보 생생 정보]\n" + "\n".join(info_list[:5]) + "\n"
+    except Exception as e:
+        print(f"Failed to fetch Supabase citizen recommendations: {e}")
+
+    return "\n[Supabase 시민 추천 문화유산 및 숨은 명소 정보]\n시민 추천 명소 정보를 조회하지 못했습니다.\n"
+
 async def gather_enriched_knowledge(heritages: List[str]) -> str:
-    """Collect official knowledge on heritages using National Heritage API, KTO TourAPI, and Wikipedia/Naver fun facts"""
+    """Collect official knowledge on heritages using National Heritage API, KTO TourAPI, Wikipedia/Naver fun facts, and Supabase Citizen Recommendations"""
     knowledge_blocks = []
     for h in heritages:
         cha_detail = await fetch_cha_heritage_detail(h)
         nearby_tour = await fetch_kto_nearby_attractions(h)
         fun_fact = await fetch_fun_fact_from_web(h)
-        
+
         # 10km radius facilities retrieval (restrooms, parking, cafes, restaurants)
         lat, lng = await get_heritage_coords(h)
         facilities_fact = await fetch_kto_nearby_facilities(lat, lng)
-        
+
+        # Retrieve Supabase citizen recommendations data
+        citizen_fact = await fetch_supabase_citizen_recommendations(lat, lng)
+
         block = f"### {h} 관련 수집 지식:\n"
         block += cha_detail
         block += nearby_tour
         block += f"\n{fun_fact}\n"
         block += f"\n{facilities_fact}\n"
-        
+        block += f"\n{citizen_fact}\n"
+
         knowledge_blocks.append(block)
-        
+
     return "\n".join(knowledge_blocks)
+
 
 # 4. Multi-Agent Nodes (Using OpenAI Chat model)
 def get_llm():

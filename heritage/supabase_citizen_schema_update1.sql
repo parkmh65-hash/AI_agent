@@ -47,3 +47,8 @@ END $$;
 -- 6. 승인 데이터 빠른 조회를 위한 복합 인덱스 보완
 CREATE INDEX IF NOT EXISTS idx_citizen_rec_status_name 
 ON citizen_recommendations (status, name);
+
+-- 7. 추천 코스 유저 식별자 컬럼 및 사용자별 코스 인덱스 보완
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS user_id VARCHAR(255) DEFAULT 'guest@sejong.go.kr';
+CREATE INDEX IF NOT EXISTS idx_courses_user ON courses (user_id);
+
