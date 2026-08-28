@@ -215,6 +215,21 @@
         border-radius: 3px;
       }
 
+      /* Main Content Drawer Expansion (Overlay over Map) */
+      .main-content-viewport.expanded-overlay {
+        position: absolute !important;
+        top: 60px !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 56px !important;
+        z-index: 500 !important;
+        background: rgba(9, 13, 22, 0.98) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border-top: 1px solid rgba(0, 245, 212, 0.3) !important;
+        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8) !important;
+      }
+
       /* Glassmorphic Auth Overlay */
       .auth-overlay {
         position: absolute;
@@ -453,8 +468,15 @@
           <div id="map-container" style="width: 100%; height: 210px; flex-shrink: 0; border-bottom: 1px solid rgba(0, 245, 212, 0.15); position: relative; z-index: 1;">
           </div>
 
+          <!-- Expand / Overlay Toggle Button Bar -->
+          <div id="main-content-expand-bar" style="display: flex; justify-content: center; align-items: center; background: rgba(15, 23, 42, 0.85); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 5px 0; cursor: pointer; user-select: none; z-index: 10;" onclick="toggleMainContentExpand()">
+            <button id="main-expand-btn" type="button" style="background: rgba(0, 245, 212, 0.12); border: 1px solid rgba(0, 245, 212, 0.4); color: #00f5d4; border-radius: 12px; padding: 4px 14px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.3s ease;">
+              <span id="expand-btn-icon">▲</span> <span id="expand-btn-text">목록 전체 화면으로 확장 (지도 덮기)</span>
+            </button>
+          </div>
+
           <!-- Scrollable Main Content Viewport -->
-          <main style="padding: 16px; flex: 1; overflow-y: auto; display: flex; flex-direction: column;">
+          <main id="main-content-viewport" class="main-content-viewport" style="padding: 16px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
             
             <!-- Tab 1: Home View -->
             <section id="section-home">
@@ -1046,6 +1068,39 @@
           console.error("Map init failed:", e);
         }
       }
+
+      // Toggle Main Content Overlay over Map
+      window.toggleMainContentExpand = function() {
+        const viewport = document.getElementById('main-content-viewport');
+        const btn = document.getElementById('main-expand-btn');
+        const icon = document.getElementById('expand-btn-icon');
+        const text = document.getElementById('expand-btn-text');
+
+        if (!viewport) return;
+
+        const isExpanded = viewport.classList.toggle('expanded-overlay');
+        if (isExpanded) {
+          if (icon) icon.textContent = '▼';
+          if (text) text.textContent = '지도 다시 보이기 (목록 축소)';
+          if (btn) {
+            btn.style.background = 'rgba(239, 68, 68, 0.2)';
+            btn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+            btn.style.color = '#f87171';
+          }
+        } else {
+          if (icon) icon.textContent = '▲';
+          if (text) text.textContent = '목록 전체 화면으로 확장 (지도 덮기)';
+          if (btn) {
+            btn.style.background = 'rgba(0, 245, 212, 0.12)';
+            btn.style.borderColor = 'rgba(0, 245, 212, 0.4)';
+            btn.style.color = '#00f5d4';
+          }
+        }
+
+        if (typeof mapInstance !== 'undefined' && mapInstance && mapInstance.invalidateSize) {
+          setTimeout(() => mapInstance.invalidateSize(), 350);
+        }
+      };
  
       // 6. Update Map Markers and Connecting Polyline Paths
       function updateMap(listToShow, showPath = true) {
