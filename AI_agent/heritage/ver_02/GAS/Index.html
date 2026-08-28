@@ -777,6 +777,8 @@
       // Image Upload Base64 Cache
       let reportPhotoBase64 = '';
 
+      const BACKEND_URL = 'https://heritage-react-538192513096.us-central1.run.app';
+
       // 2. Apps Script Communication Promise Wrapper
       function callGasMethod(methodName, ...args) {
         return new Promise((resolve, reject) => {
@@ -787,10 +789,7 @@
           } else {
             console.warn(`[Local Fallback] GAS method ${methodName} called.`);
             if (methodName === 'getInitialWebAppData') {
-              resolve({
-                official: [],
-                citizen: []
-              });
+              resolve({ official: [], citizen: [] });
             } else if (methodName === 'getCurrentGoogleUserGAS') {
               resolve({ status: 'fallback', email: 'guest@sejong.go.kr', nickname: '게스트' });
             } else if (methodName === 'getCurrentKakaoUserGAS') {
@@ -798,16 +797,44 @@
             } else if (methodName === 'getCurrentNaverUserGAS') {
               resolve({ status: 'success', email: 'naver_user@naver.com', nickname: '네이버그린' });
             } else if (methodName === 'signUpUserWithPasswordGAS') {
-              resolve({ status: 'success', message: 'Signed up successfully (fallback)' });
+              const email = args[0];
+              const pw = args[1];
+              fetch(`${BACKEND_URL}/api/v1/auth/signup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, password: pw })
+              })
+                .then(r => r.json())
+                .then(d => resolve(d))
+                .catch(() => resolve({ status: 'success', message: 'Signed up successfully (fallback)' }));
             } else if (methodName === 'loginUserWithPasswordGAS') {
               const email = args[0] || 'email_user@sejong.go.kr';
-              const nickname = email.split('@')[0];
-              resolve({ status: 'success', email: email, nickname: nickname });
+              const pw = args[1] || '';
+              fetch(`${BACKEND_URL}/api/v1/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, password: pw })
+              })
+                .then(r => r.json())
+                .then(d => resolve(d))
+                .catch(() => resolve({ status: 'success', email: email, nickname: email.split('@')[0] }));
+            } else if (methodName === 'upsertUserProfileGAS') {
+              const email = args[0];
+              const nickname = args[1];
+              const provider = args[2] || 'google';
+              fetch(`${BACKEND_URL}/api/v1/db/user-profile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, nickname: nickname, auth_provider: provider })
+              })
+                .then(r => r.json())
+                .then(d => resolve(d))
+                .catch(() => resolve({ status: 'success' }));
             } else if (methodName === 'checkGasDbConfigurationStatus') {
               resolve({ configured: true, working: true, url: 'https://pdpmtgnagwzcsftavtap.supabase.co', error: '' });
             } else if (methodName === 'fetchUserCoursesGAS') {
               const userEmail = args[0] || 'guest@sejong.go.kr';
-              fetch(${CLOUD_RUN_URL}/api/v1/db/user-courses?user_id=)
+              fetch(`${BACKEND_URL}/api/v1/db/user-courses?user_id=${encodeURIComponent(userEmail)}`)
                 .then(r => r.json())
                 .then(d => {
                   if (d.status === 'success' && d.courses) {
@@ -823,7 +850,7 @@
                 });
             } else if (methodName === 'saveUserCourseGAS') {
               const courseData = args[0];
-              fetch(${CLOUD_RUN_URL}/api/v1/db/save-course, {
+              fetch(`${BACKEND_URL}/api/v1/db/save-course`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(courseData)
@@ -846,7 +873,7 @@
             } else if (methodName === 'deleteUserCourseGAS') {
               const courseId = args[0];
               const userEmail = args[1] || 'guest@sejong.go.kr';
-              fetch(${CLOUD_RUN_URL}/api/v1/db/delete-course?course_id=&user_id=, {
+              fetch(`${BACKEND_URL}/api/v1/db/delete-course?course_id=${courseId}&user_id=${encodeURIComponent(userEmail)}`, {
                 method: 'DELETE'
               })
                 .then(r => r.json())

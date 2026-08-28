@@ -1518,7 +1518,7 @@ async def upsert_user_profile(req: UserProfileRequest):
     try:
         async with httpx.AsyncClient() as client:
             res = await client.post(
-                f"{settings.SUPABASE_URL}/rest/v1/users_profile",
+                f"{settings.SUPABASE_URL}/rest/v1/users_profile?on_conflict=email",
                 headers=headers,
                 json=payload,
                 timeout=5.0
@@ -1567,7 +1567,7 @@ async def auth_signup(req: UserAuthRequest):
                 profile_headers["Prefer"] = "resolution=merge-duplicates"
                 
                 await client.post(
-                    f"{settings.SUPABASE_URL}/rest/v1/users_profile",
+                    f"{settings.SUPABASE_URL}/rest/v1/users_profile?on_conflict=email",
                     headers=profile_headers,
                     json=profile_payload,
                     timeout=5.0
@@ -1620,7 +1620,7 @@ async def auth_login(req: UserAuthRequest):
                 profile_headers["Prefer"] = "resolution=merge-duplicates"
                 
                 await client.post(
-                    f"{settings.SUPABASE_URL}/rest/v1/users_profile",
+                    f"{settings.SUPABASE_URL}/rest/v1/users_profile?on_conflict=email",
                     headers=profile_headers,
                     json=profile_payload,
                     timeout=5.0
