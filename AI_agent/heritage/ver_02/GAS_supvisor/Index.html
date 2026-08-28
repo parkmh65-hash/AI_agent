@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>문화유산 감독관 관리 대시보드</title>
+    <!-- Premium Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Dynamic CSS injection -->
+    <style>
+      :root {
+        --bg-color: #080c14;
+        --panel-bg: rgba(17, 24, 39, 0.7);
+        --border-color: rgba(255, 255, 255, 0.08);
+        --text-main: #f3f4f6;
+        --text-sub: #9ca3af;
+        --accent-blue: #3b82f6;
+        --accent-green: #10b981;
+        --accent-amber: #f59e0b;
+        --accent-rose: #ef4444;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Noto Sans KR", "Outfit", sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-main);
+        box-sizing: border-box;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+        margin-bottom: 24px;
+      }
+
+      .stats-card {
+        background: var(--panel-bg);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        transition: border-color 0.2s ease;
+      }
+
+      .stats-card:hover {
+        border-color: rgba(59, 130, 246, 0.4);
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .badge-pending {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--accent-amber);
+        border: 1px solid var(--accent-amber);
+      }
+
+      .badge-approved {
+        background: rgba(16, 185, 129, 0.15);
+        color: var(--accent-green);
+        border: 1px solid var(--accent-green);
+      }
+
+      .badge-rejected {
+        background: rgba(239, 68, 68, 0.15);
+        color: var(--accent-rose);
+        border: 1px solid var(--accent-rose);
+      }
+
+      .action-btn {
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: none;
+        transition: opacity 0.2s ease;
+      }
+
+      .action-btn:hover {
+        opacity: 0.9;
+      }
+
+      .tab-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 24px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 10px;
+      }
+
+      .tab-btn {
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-sub);
+        border: 1px solid var(--border-color);
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .tab-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text-main);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+
+      .tab-btn.active {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(16, 185, 129, 0.2));
+        color: #fff;
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
+      }
+
+      @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+        70% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+      }
+
+      .pulse-node {
+        animation: pulse 2s infinite;
+      }
+
+      .workflow-connector {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--accent-blue);
+        font-size: 1.5rem;
+        min-width: 40px;
+      }
+
+      .agent-node {
+        position: relative;
+        background: rgba(30, 41, 59, 0.6);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+
+      .agent-node:hover {
+        transform: translateY(-4px);
+        border-color: var(--accent-blue);
+        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
+      }
+
+      .agent-tooltip {
+        display: none;
+        position: absolute;
+        bottom: 110%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 240px;
+        background: #0f172a;
+        border: 1px solid var(--accent-blue);
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 0.75rem;
+        color: #e2e8f0;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        z-index: 10;
+      }
+
+      .agent-node:hover .agent-tooltip {
+        display: block;
+      }
+
+      .viewer-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.85rem;
+      }
+
+      .viewer-table th {
+        padding: 12px 16px;
+        background: rgba(255, 255, 255, 0.02);
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-sub);
+      }
+
+      .viewer-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        color: #cbd5e1;
+      }
+
+      /* Glassmorphic Auth Overlay */
+      .auth-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(8, 12, 20, 0.95);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 30px;
+        box-sizing: border-box;
+      }
+
+      .auth-card {
+        width: 100%;
+        max-width: 380px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        padding: 40px 30px;
+        box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+        text-align: center;
+      }
+
+      .google-btn {
+        width: 100%;
+        padding: 14px;
+        background: #fff;
+        color: #111827;
+        font-weight: 700;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 24px;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(255,255,255,0.1);
+      }
+
+      .google-btn:hover {
+        background: #f3f4f6;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(255,255,255,0.2);
+      }
+
+      .auth-input {
+        width: 100%;
+        padding: 12px;
+        background: rgba(0,0,0,0.4);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        color: #fff;
+        font-size: 0.88rem;
+        outline: none;
+        box-sizing: border-box;
+        margin-bottom: 12px;
+        transition: border-color 0.2s;
+      }
+
+      .auth-input:focus {
+        border-color: #3b82f6;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Glassmorphic Auth Overlay -->
+    <div id="auth-overlay" class="auth-overlay">
+      <div class="auth-card">
+        <h2 style="margin: 0 0 8px 0; color: #fff; font-size: 1.5rem; font-family: 'Outfit'; font-weight: 800; background: linear-gradient(135deg, #60a5fa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+          🏰 Heritage Console
+        </h2>
+        <p style="margin: 0 0 24px 0; color: var(--text-sub); font-size: 0.85rem;">
+          관리자 구글 계정 또는 전용 이메일 계정으로 인증 후 대시보드 컨트롤 패널에 진입합니다.
+        </p>
+
+        <!-- Google OAuth button -->
+        <button id="google-login-btn" class="google-btn" style="margin-bottom: 8px;">
+          <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          Google 계정으로 로그인
+        </button>
+
+        <!-- Kakao OAuth button -->
+        <button id="kakao-login-btn" class="google-btn" style="background: #fee500; color: #191919; margin-bottom: 8px; box-shadow: 0 4px 12px rgba(254,229,0,0.15); border: none;">
+          <span style="font-size: 1.0rem; margin-right: 8px;">💬</span>
+          카카오 계정으로 로그인
+        </button>
+
+        <!-- Naver OAuth button -->
+        <button id="naver-login-btn" class="google-btn" style="background: #03c75a; color: #fff; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(3,199,90,0.15); border: none;">
+          <span style="font-size: 1.0rem; margin-right: 8px;">💚</span>
+          Naver 계정으로 로그인
+        </button>
+
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px;">
+          <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.08);"></span>
+          <span style="font-size: 0.72rem; color: var(--text-sub); text-transform: uppercase;">또는</span>
+          <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.08);"></span>
+        </div>
+
+        <!-- Login Container -->
+        <div id="login-container">
+          <input id="auth-email-input" class="auth-input" type="email" placeholder="관리자 이메일 입력" style="margin-bottom: 8px;" />
+          <input id="auth-password-input" class="auth-input" type="password" placeholder="비밀번호 입력" style="margin-bottom: 12px;" />
+          
+          <button id="email-login-btn" class="action-btn" style="width: 100%; background: #3b82f6; color: #fff; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; border: none; margin-bottom: 12px;">
+            관리자 로그인
+          </button>
+          <p style="font-size: 0.75rem; color: var(--text-sub); margin: 0;">
+            아직 관리자 계정이 없으신가요? <a href="#" id="go-to-signup" style="color: #60a5fa; text-decoration: underline;">관리자 등록 신청</a>
+          </p>
+        </div>
+
+        <!-- Signup Container (Initially Hidden) -->
+        <div id="signup-container" style="display: none; text-align: left;">
+          <label style="font-size: 0.72rem; color: #fff; display: block; margin-bottom: 4px;">관리자 이메일 주소 (ID)</label>
+          <input id="signup-email-input" class="auth-input" type="email" placeholder="가입할 관리자 이메일 주소 입력" style="margin-bottom: 8px;" />
+          
+          <label style="font-size: 0.72rem; color: #fff; display: block; margin-bottom: 4px;">비밀번호</label>
+          <input id="signup-password-input" class="auth-input" type="password" placeholder="비밀번호 입력" style="margin-bottom: 8px;" />
+          
+          <label style="font-size: 0.72rem; color: #fff; display: block; margin-bottom: 4px;">비밀번호 확인</label>
+          <input id="signup-password-confirm-input" class="auth-input" type="password" placeholder="비밀번호 재입력" style="margin-bottom: 12px;" />
+          
+          <button id="email-signup-submit-btn" class="action-btn" style="width: 100%; background: #fbbf24; color: #000; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; border: none; margin-bottom: 12px;">
+            등록 신청 완료
+          </button>
+          <p style="font-size: 0.75rem; color: var(--text-sub); margin: 0; text-align: center;">
+            이미 관리자 계정이 있으신가요? <a href="#" id="go-to-login" style="color: #60a5fa; text-decoration: underline;">로그인으로 돌아가기</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding: 30px; max-width: 1200px; margin: 0 auto;">
+      <!-- Toast message popup banner -->
+      <div id="toast-banner" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 9999; background: #1e293b; border: 1px solid #3b82f6; color: #60a5fa; padding: 12px 24px; border-radius: 8px; fontSize: 0.85rem; box-shadow: 0 4px 12px rgba(0,0,0,0.5);"></div>
+
+      <!-- Main Header -->
+      <header style="margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h1 style="margin: 0 0 5px 0; font-size: 1.75rem; font-weight: 900; background: linear-gradient(135deg, #60a5fa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            전국 스마트 문화유산 감독관 시스템 ver_02
+          </h1>
+          <p style="margin: 0; font-size: 0.9rem; color: #9ca3af;">통합 플랫폼 데이터 연동 감시 및 시민 제보 심사 원격 컨트롤 센터</p>
+        </div>
+        <button id="sync-refresh-btn" class="action-btn" style="background: #3b82f6; color: #fff; padding: 10px 20px; font-size: 0.85rem;">
+          🔄 실시간 동기화
+        </button>
+      </header>
+
+      <!-- 4-Tab Bar Navigation -->
+      <nav class="tab-bar">
+        <button id="tab-vetting-btn" class="tab-btn active">🌱 시민 제보 심사</button>
+        <button id="tab-db-btn" class="tab-btn">💽 데이터베이스 뷰어</button>
+        <button id="tab-api-btn" class="tab-btn">🔍 공공 API 검색 & 연동</button>
+        <button id="tab-workflow-btn" class="tab-btn">🧠 AI 워크플로우 도식화</button>
+      </nav>
+
+      <!-- Section Tab 1: Vetting Vibe -->
+      <section id="view-vetting">
+        <!-- Stats Summary grid cards -->
+        <div class="dashboard-grid">
+          <div class="stats-card">
+            <span style="font-size: 0.78rem; color: #9ca3af; display: block; margin-bottom: 6px; text-transform: uppercase;">공식 수록 문화유산</span>
+            <strong id="stat-official-count" style="font-size: 2rem; color: #60a5fa;">0개</strong>
+          </div>
+
+          <div class="stats-card">
+            <span style="font-size: 0.78rem; color: #9ca3af; display: block; margin-bottom: 6px; text-transform: uppercase;">심사 대기 시민제보</span>
+            <strong id="stat-citizen-pending" style="font-size: 2rem; color: #f59e0b;">0건</strong>
+          </div>
+
+          <div class="stats-card">
+            <span style="font-size: 0.78rem; color: #9ca3af; display: block; margin-bottom: 6px; text-transform: uppercase;">최종 승인 시민제보</span>
+            <strong id="stat-citizen-approved" style="font-size: 2rem; color: #10b981;">0건</strong>
+          </div>
+
+          <div class="stats-card">
+            <span style="font-size: 0.78rem; color: #9ca3af; display: block; margin-bottom: 6px; text-transform: uppercase;">시스템 연동 상태</span>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+              <!-- 1. FastAPI Backend Server -->
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                <span style="color: #9ca3af;">🖥️ 백엔드 서버:</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span id="health-status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; display: inline-block;"></span>
+                  <strong id="health-status-text" style="color: #fff; font-size: 0.85rem;">OFFLINE</strong>
+                  <span id="health-latency-text" style="font-size: 0.72rem; color: #9ca3af;">(0ms)</span>
+                </div>
+              </div>
+              
+              <!-- 2. FastAPI Server DB Config -->
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                <span style="color: #9ca3af;">💽 백엔드 DB 연동:</span>
+                <strong id="server-db-status" style="color: #9ca3af; font-size: 0.85rem;">-</strong>
+              </div>
+              
+              <!-- 3. GAS Backend DB Configuration -->
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                <span style="color: #9ca3af;">🏰 GAS DB 연동:</span>
+                <strong id="gas-db-status" style="color: #9ca3af; font-size: 0.85rem;">-</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Citizens Vetting Submissions Table -->
+        <div class="stats-card" style="padding: 0; overflow: hidden;">
+          <div style="padding: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+            <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">🌱 접수된 시민 제보 유산 심사 대장</h3>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="viewer-table">
+              <thead>
+                <tr style="background: rgba(255,255,255,0.02); color: #9ca3af;">
+                  <th style="padding: 14px 20px;">제보 유산명</th>
+                  <th style="padding: 14px 20px;">제보 위치 / 주소</th>
+                  <th style="padding: 14px 20px;">제보 사유</th>
+                  <th style="padding: 14px 20px;">제보 위/경도</th>
+                  <th style="padding: 14px 20px;">진행 상태</th>
+                  <th style="padding: 14px 20px; text-align: center;">승인 및 반려 심사</th>
+                </tr>
+              </thead>
+              <tbody id="vetting-table-body">
+                <!-- Dynamic vetting rows loader -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section Tab 2: Database Remote Viewer -->
+      <section id="view-db-viewer" style="display: none;">
+        <div class="stats-card" style="padding: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <h3 style="margin: 0; font-size: 1.2rem; color: #fff;">💽 Supabase 데이터베이스 원격 뷰어</h3>
+            
+            <div style="display: flex; gap: 6px;">
+              <button id="db-tab-official" class="tab-btn active" style="padding: 6px 12px; font-size: 0.78rem;">🏛️ 공식 유산 (heritages)</button>
+              <button id="db-tab-citizen" class="tab-btn" style="padding: 6px 12px; font-size: 0.78rem;">🌱 시민 제보 (recommendations)</button>
+              <button id="db-tab-courses" class="tab-btn" style="padding: 6px 12px; font-size: 0.78rem;">🗺️ 저장 코스 (courses)</button>
+            </div>
+          </div>
+
+          <!-- Dynamic table wrapper viewport -->
+          <div id="db-table-viewport" style="overflow-x: auto; max-height: 450px; overflow-y: auto;"></div>
+        </div>
+      </section>
+
+      <!-- Section Tab 3: OpenAPI Search Sync -->
+      <section id="view-api-search" style="display: none;">
+        <div class="stats-card" style="padding: 24px;">
+          <h3 style="margin: 0 0 8px 0; font-size: 1.25rem; color: #fff;">🔍 공공데이터 OpenAPI 연동 검색기</h3>
+          <p style="margin: 0 0 20px 0; font-size: 0.82rem; color: #9ca3af;">국가유산청 공공 OpenAPI 데이터를 검색하고 조회한 유산을 공식 데이터베이스(heritages) 테이블로 즉각 동기화시킵니다.</p>
+
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span style="font-size: 0.8rem; color: var(--text-sub);">🌐 연동 API 데이터 출처 선택:</span>
+              <select id="api-source-select" style="padding: 8px 12px; background: #0b0f19; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 0.82rem; outline: none; border-color: rgba(255,255,255,0.08);">
+                <option value="heritage">🏛️ 국가유산청 공공 OpenAPI (지정 문화유산)</option>
+                <option value="tour">🗺️ 한국관광공사 TourAPI (관광지/명소)</option>
+              </select>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <input 
+                id="openapi-query-input"
+                type="text" 
+                placeholder="문화유산 또는 자연 유산 명칭 입력 (예: 은행나무, 독락정)" 
+                style="flex: 1; padding: 12px 16px; background: #0b0f19; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; font-size: 0.9rem; outline: none;"
+              />
+              <button id="openapi-search-btn" class="action-btn" style="background: #3b82f6; color: #fff; padding: 0 24px; font-size: 0.9rem;">
+                OpenAPI 검색
+              </button>
+            </div>
+          </div>
+
+          <!-- Result card grid -->
+          <div id="openapi-results-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px 0; color: #9ca3af; border: 1px dashed rgba(255,255,255,0.05); border-radius: 8px;">
+              문화유산을 검색하여 동기화할 유산을 발굴해 보세요.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section Tab 4: Interactive AI Workflow Diagrams -->
+      <section id="view-ai-workflow" style="display: none;">
+        <div class="glass-card" style="padding: 24px;">
+          <h3 style="margin: 0 0 8px 0; font-size: 1.15rem; color: #fff;">🧭 실시간 AI 여정 추론 워크플로우 명세</h3>
+          <p style="margin: 0 0 24px 0; font-size: 0.82rem; color: #9ca3af;">각 카드에 마우스를 올리시면(Hover) 에이전트 및 연동 공공 API의 상세 작동 방식과 RAG 지식 구성 메커니즘을 실시간으로 확인하실 수 있습니다.</p>
+
+          <!-- Workflow 1 diagram block -->
+          <div style="margin-bottom: 40px;">
+            <h4 style="color: #60a5fa; margin: 0 0 16px 0; font-size: 0.98rem; display: flex; align-items: center; gap: 8px;">
+              <span class="pulse-node" style="width: 8px; height: 8px; border-radius: 50%; background: #60a5fa; display: inline-block;"></span>
+              1. 지리기반 AI RAG 문화유산 & 주변 관광지 연계 탐방 코스 라우팅 파이프라인
+            </h4>
+            
+            <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.03); border-radius: 14px; padding: 20px; overflow-x: auto; white-space: nowrap;">
+              
+              <div class="agent-node" style="border-left: 4px solid #3b82f6; min-width: 140px; display: inline-block; vertical-align: top;">
+                <strong style="font-size: 0.75rem; color: #3b82f6; display: block; margin-bottom: 4px;">Query Input</strong>
+                <span style="font-size: 0.8rem; color: #fff;">자연어 질문 입력</span>
+                <div class="agent-tooltip">
+                  <strong>[자연어 쿼리 수신]</strong><br />
+                  사용자가 검색창에 입력한 지역 및 키워드를 토대로 AI 탐방 코스 탐색 기동을 호출합니다.
+                </div>
+              </div>
+
+              <div class="workflow-connector">➔</div>
+
+              <div class="agent-node" style="border-left: 4px solid #10b981; min-width: 140px; display: inline-block; vertical-align: top;">
+                <strong style="font-size: 0.75rem; color: #10b981; display: block; margin-bottom: 4px;">유산 후보 풀 통합</strong>
+                <span style="font-size: 0.8rem; color: #fff;">OpenAPI 15선 + DB 15선</span>
+                <div class="agent-tooltip">
+                  <strong>[Heritage Candidate Merge]</strong><br />
+                  국가유산 OpenAPI 조회 후보와 DB에 이미 등록되어 있던 유산을 중복 제거하여 풍부한 후보 풀을 구성합니다.
+                </div>
+              </div>
+
+              <div class="workflow-connector">➔</div>
+
+              <div class="agent-node" style="border-left: 4px solid #f59e0b; min-width: 140px; display: inline-block; vertical-align: top;">
+                <strong style="font-size: 0.75rem; color: #f59e0b; display: block; margin-bottom: 4px;">LLM 유산 5선 선별</strong>
+                <span style="font-size: 0.8rem; color: #fff;">맥락 매칭 AI 분석</span>
+                <div class="agent-tooltip">
+                  <strong>[select_top_heritages_via_llm]</strong><br />
+                  통합 후보들 중 사용자의 질문 의도 및 테마에 완벽히 부합하는 최적의 문화유산 5선을 LLM 분석으로 선별합니다.
+                </div>
+              </div>
+
+              <div class="workflow-connector">➔</div>
+
+              <div class="agent-node" style="border-left: 4px solid #ec4899; min-width: 140px; display: inline-block; vertical-align: top;">
+                <strong style="font-size: 0.75rem; color: #ec4899; display: block; margin-bottom: 4px;">좌표 검증 & 저장</strong>
+                <span style="font-size: 0.8rem; color: #fff;">Geocoding 보정 Upsert</span>
+                <div class="agent-tooltip">
+                  <strong>[Coordinate & DB Upsert]</strong><br />
+                  5선 유산의 위경도가 오류이거나 0이면 주소기반 Geocoding으로 좌표를 보정하고 `heritages` 테이블에 중복 없이 적재합니다.
+                </div>
+              </div>
+
+              <div class="workflow-connector">➔</div>
+
+              <div class="agent-node" style="border-left: 4px solid #10b981; min-width: 140px; display: inline-block; vertical-align: top;">
+                <strong style="font-size: 0.75rem; color: #10b981; min-width: 140px; display: inline-block; vertical-align: top;">관광지 후보 통합</strong>
+                <span style="font-size: 0.8rem; color: #fff;">KTO API 15선 + DB 15선</span>
+                <div class="agent-tooltip">
+                  <strong>[Tour Spot Candidate Merge]</strong><br />
+                  관광공사 API와 DB의 승인 추천 관광지 목록을 이름 기준으로 중복 제거하여 관광지 연계 후보 풀을 구축합니다.
+                </div>
+              </div>
+
+              <div class="workflow-connector">➔</div>
+
+              <div class="agent-node" style="border-left: 4px solid #f59e0b; min-width: 140px; display: inline-block; vertical-align: top;">
+                <strong style="font-size: 0.75rem; color: #f59e0b; display: block; margin-bottom: 4px;">LLM 관광지 5선 선별</strong>
+                <span style="font-size: 0.8rem; color: #fff;">근접 연계 AI 매칭</span>
+                <div class="agent-tooltip">
+                  <strong>[select_top_tourist_spots_via_llm]</strong><br />
+                  문화유산 5선의 지리적 위경도를 기준으로 물리적 거리가 가까우며 동선이 효율적인 연계 주변 관광지 5선을 LLM이 선택합니다.
+                </div>
+              </div>
+
+              <div class="workflow-connector">➔</div>
+
+              <div class="agent-node" style="border-left: 4px solid #eab308; min-width: 140px; display: inline-block; vertical-align: top;">
+                <strong style="font-size: 0.75rem; color: #eab308; display: block; margin-bottom: 4px;">관광지 좌표 정제</strong>
+                <span style="font-size: 0.8rem; color: #fff;">주소 좌표화 & DB 저장</span>
+                <div class="agent-tooltip">
+                  <strong>[Spot Geocoding & DB Upsert]</strong><br />
+                  관광지의 좌표 오류를 Geocoding으로 자동 확인·교정하고 이미지 주소와 함께 `citizen_recommendations`에 승인 상태로 저장합니다.
+                </div>
+              </div>
+
+              <div class="workflow-connector">➔</div>
+
+              <div class="agent-node" style="border-left: 4px solid #8b5cf6; min-width: 140px; display: inline-block; vertical-align: top;">
+                <strong style="font-size: 0.75rem; color: #8b5cf6; display: block; margin-bottom: 4px;">최단 경로 TSP 코스화</strong>
+                <span style="font-size: 0.8rem; color: #fff;">10선 코스 및 스토리 빌드</span>
+                <div class="agent-tooltip">
+                  <strong>[generate_shortest_path_course_via_llm]</strong><br />
+                  유산 5선 + 관광지 5선을 좌표 연산하여 동선 낭비가 가장 적은 순서로 정렬하고 기존 명품 코스 서식을 레퍼런스로 정합 코스 스토리를 생성합니다.
+                </div>
+              </div>
+
+              <div class="workflow-connector">➔</div>
+
+              <div class="agent-node" style="border-left: 4px solid #14b8a6; min-width: 140px; display: inline-block; vertical-align: top;">
+                <strong style="font-size: 0.75rem; color: #14b8a6; display: block; margin-bottom: 4px;">코스 DB 적재</strong>
+                <span style="font-size: 0.8rem; color: #fff;">courses 테이블 저장</span>
+                <div class="agent-tooltip">
+                  <strong>[save_generated_course_to_db]</strong><br />
+                  완성된 코스를 `courses` 테이블에 중복 체크 후 Upsert합니다.
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Workflow 2 diagram block -->
+          <div style="margin-bottom: 40px;">
+            <h4 style="color: #10b981; margin: 0 0 16px 0; font-size: 0.98rem; display: flex; align-items: center; gap: 8px;">
+              <span class="pulse-node" style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+              2. AI 가이드북 멀티에이전트 스토리북 생성 파이프라인 (LangChain StateGraph)
+            </h4>
+
+            <div style="display: flex; flex-direction: column; gap: 16px; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.03); border-radius: 14px; padding: 24px;">
+              
+              <!-- Input step -->
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; overflow-x: auto;">
+                <div class="agent-node" style="border-left: 4px solid #3b82f6;">
+                  <strong style="font-size: 0.8rem; color: #3b82f6; display: block; margin-bottom: 4px;">입력 파라미터 수신</strong>
+                  <span style="font-size: 0.82rem; color: #fff;">최단경로 10선 코스 & 교통수단</span>
+                  <div class="agent-tooltip">
+                    사용자가 코스 생성을 마친 10대 추천 탐방 장소 목록과 차량/대중교통 이동 수단을 에이전트 그래프 입력으로 세팅합니다.
+                  </div>
+                </div>
+
+                <div class="workflow-connector">➔</div>
+
+                <div class="agent-node" style="border-left: 4px solid #10b981;">
+                  <strong style="font-size: 0.8rem; color: #10b981; display: block; margin-bottom: 4px;">RAG 공식 정보 조회</strong>
+                  <span style="font-size: 0.82rem; color: #fff;">공간정보 API & KTO & 위키백과</span>
+                  <div class="agent-tooltip">
+                    선택 장소들의 공식 텍스트, 인근 관광시설 정보, 위키백과/네이버 지식 백과 등의 전설·역사 Fun Fact 등을 수집해 지식 풀을 보강합니다.
+                  </div>
+                </div>
+              </div>
+
+              <!-- StateGraph cooperative agent loops -->
+              <div style="margin: 10px 0; border: 1px dashed rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; background: rgba(0,0,0,0.15);">
+                <span style="font-size: 0.72rem; color: #fbbf24; display: block; margin-bottom: 12px; font-weight: bold; text-transform: uppercase;">
+                  🔄 LangChain StateGraph 협업 에이전트 핵심 루프
+                </span>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
+                  
+                  <div class="agent-node" style="background: #111827; border: 1px solid rgba(251,191,36,0.3);">
+                    <strong style="font-size: 0.78rem; color: #fbbf24; display: block; margin-bottom: 4px;">(1) 교육 및 재미 분석 에이전트 (Analyzer)</strong>
+                    <span style="font-size: 0.75rem; color: #cbd5e1;">각 장소의 '교육적 가치'와 '재미 요소' 입체 재분석</span>
+                    <div class="agent-tooltip">
+                      수집된 RAG 지식을 바탕으로 각 장소의 역사적 배울 점(교육적 의미)과 전설 및 흥미진진한 탐방 포인트(재미적 요소)를 전문적으로 분석 및 구조화합니다.
+                    </div>
+                  </div>
+
+                  <div class="agent-node" style="background: #111827; border: 1px solid rgba(251,191,36,0.3);">
+                    <strong style="font-size: 0.78rem; color: #fbbf24; display: block; margin-bottom: 4px;">(2) 엄마 목소리 작가 에이전트 (Storywriter)</strong>
+                    <span style="font-size: 0.75rem; color: #cbd5e1;">엄마 말투의 자녀 전달용 1page 동화 원고 집필</span>
+                    <div class="agent-tooltip">
+                      분석된 교육/재미적 가치를 부드럽게 융합하고, 엄마가 아이에게 다정하고 이해하기 쉽게 대화식(~단다, ~했단다)으로 전달하는 약 1000자 분량의 감성 가이드글로 재창작합니다.
+                    </div>
+                  </div>
+
+                  <div class="agent-node" style="background: #111827; border: 1px solid rgba(251,191,36,0.3);">
+                    <strong style="font-size: 0.78rem; color: #fbbf24; display: block; margin-bottom: 4px;">(3) 엄마 말투 검수 에이전트 (Critic)</strong>
+                    <span style="font-size: 0.75rem; color: #cbd5e1;">구어체 톤 및 최종 구조화 검증</span>
+                    <div class="agent-tooltip">
+                      스토리보드 카드의 가이드 팁과 낭독 스크립트 전반에 다정한 엄마의 대화식 음성이 이질감 없이 완벽히 유지되는지 최종 오디팅 및 구조 정비를 완료합니다.
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- Final artifact output step -->
+              <div class="agent-node" style="border-left: 4px solid #10b981; text-align: center;">
+                <strong style="font-size: 0.8rem; color: #10b981; display: block; margin-bottom: 4px;">최종 아티팩트 결과 도출</strong>
+                <span style="font-size: 0.82rem; color: #fff;">엄마 목소리 한국어 가이드 아티클 배포 및 스토리보드 카드 렌더링</span>
+                <div class="agent-tooltip" style="bottom: 120%;">
+                  정제된 최종 엄마의 낭독용 스크립트는 성우의 따뜻한 오디오 합성(SpeechSynthesis) 출력과 연계되어 사용자 화면으로 즉시 흘러나옵니다.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+    <!-- Dynamic script template injection -->
+    <script>
+      // script.html - ver_02 Supervisor Control Dashboard Vanilla JavaScript Engine
+      
+      const CLOUD_RUN_URL = 'https://heritage-react-538192513096.us-central1.run.app';
+
+      // Safe storage wrapper to prevent crashes in sandboxed iframe environments (e.g. Google Apps Script Web App)
+      const safeLocalStorage = {
+        getItem(key) {
+          try {
+            return localStorage.getItem(key);
+          } catch (e) {
+            console.warn("localStorage access denied. Falling back to in-memory store.", e);
+            return this.fallbackStore[key] || null;
+          }
+        },
+        setItem(key, value) {
+          try {
+            localStorage.setItem(key, value);
+          } catch (e) {
+            console.warn("localStorage write denied. Falling back to in-memory store.", e);
+            this.fallbackStore[key] = String(value);
+          }
+        },
+        removeItem(key) {
+          try {
+            localStorage.removeItem(key);
+          } catch (e) {
+            console.warn("localStorage delete denied. Falling back to in-memory store.", e);
+            delete this.fallbackStore[key];
+          }
+        },
+        fallbackStore: {}
+      };
+      
+      // 1. Global Application State
+      let currentTab = 'vetting'; // 'vetting', 'db_viewer', 'api_search', 'ai_workflow'
+      let citizenSubmissions = [];
+      let officialHeritages = [];
+      let coursesList = [];
+      let dbActiveTable = 'official'; // 'official', 'citizen', 'courses'
+      
+      // OpenAPI Search States
+      let apiSearchQuery = '';
+      let apiSearchResults = [];
+      let apiSearchLoading = false;
+
+      // Stats latency states
+      let stats = { official_count: 0, citizen_pending: 0, citizen_approved: 0 };
+      let backendHealth = { status: 'unknown', supabase_configured: false, llm_configured: false };
+      let gasDbStatus = { configured: false, working: false, url: '', error: '' };
+      let pingLatency = '0ms';
+      let loading = false;
+
+      // 2. Apps Script Communication Promiser
+      function callGasMethod(methodName, ...args) {
+        return new Promise((resolve, reject) => {
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)[methodName](...args);
+          } else {
+            console.warn(`[Local Fallback] GAS method ${methodName} called.`);
+            if (methodName === 'getInitialWebAppData') {
+              resolve({
+                official: [],
+                citizen: [],
+                courses: []
+              });
+            } else if (methodName === 'getDatabaseStatsGAS') {
+              resolve({ official_count: stats.official_count, citizen_pending: 0, citizen_approved: 0 });
+            } else if (methodName === 'getCurrentGoogleUserGAS') {
+              resolve({ status: 'fallback', email: 'guest@sejong.go.kr', nickname: '게스트' });
+            } else if (methodName === 'getCurrentKakaoUserGAS') {
+              resolve({ status: 'success', email: 'kakao_user@kakao.com', nickname: '카카오프렌즈' });
+            } else if (methodName === 'getCurrentNaverUserGAS') {
+              resolve({ status: 'success', email: 'naver_user@naver.com', nickname: '네이버그린' });
+            } else if (methodName === 'signUpUserWithPasswordGAS') {
+              resolve({ status: 'success', message: 'Signed up successfully (fallback)' });
+            } else if (methodName === 'loginUserWithPasswordGAS') {
+              const email = args[0] || 'email_user@sejong.go.kr';
+              const nickname = email.split('@')[0];
+              resolve({ status: 'success', email: email, nickname: nickname });
+            } else if (methodName === 'checkGasDbConfigurationStatus') {
+              resolve({ configured: true, working: true, url: 'https://pdpmtgnagwzcsftavtap.supabase.co', error: '' });
+            } else {
+              resolve({ status: 'success' });
+            }
+          }
+        });
+      }
+
+      // Toast Helper
+      function showToast(message) {
+        const toast = document.getElementById('toast-banner');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.style.display = 'block';
+        
+        // Auto hide after 3 seconds
+        if (window.toastTimeout) clearTimeout(window.toastTimeout);
+        window.toastTimeout = setTimeout(() => {
+          toast.style.display = 'none';
+        }, 3000);
+      }
+
+      // 3. Mount Load Initial Entry
+      window.addEventListener('DOMContentLoaded', () => {
+        checkAuthSession();
+        setupEventListeners();
+        setupAuthListeners();
+        switchTab('vetting');
+      });
+
+      // Session Verification
+      function checkAuthSession() {
+        const session = safeLocalStorage.getItem('supervisor_session');
+        const overlay = document.getElementById('auth-overlay');
+        if (session) {
+          overlay.style.display = 'none';
+          loadDashboardData();
+        } else {
+          overlay.style.display = 'flex';
+        }
+      }
+
+      // Authentication Listeners
+      function setupAuthListeners() {
+        // Google OAuth Sign In
+        document.getElementById('google-login-btn').addEventListener('click', async () => {
+          showToast('⏳ Google OAuth 인증 대행 요청 중...');
+          try {
+            const userRes = await callGasMethod('getCurrentGoogleUserGAS');
+            if (userRes.status === 'success' || userRes.status === 'fallback') {
+              const email = userRes.email;
+              const nickname = userRes.nickname;
+              
+              // Register/Upsert in Supabase
+              const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'google');
+              if (dbRes.status === 'success') {
+                safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
+                document.getElementById('auth-overlay').style.display = 'none';
+                showToast(`👋 환영합니다, ${nickname} 감독관님! (Google 로그인 완료)`);
+                loadDashboardData();
+              } else {
+                showToast('❌ DB에 관리자 프로필을 등록하지 못했습니다.');
+              }
+            } else {
+              showToast('❌ 구글 계정 정보를 가져오지 못했습니다.');
+            }
+          } catch(err) {
+            showToast('❌ 구글 연동 중 오류 발생.');
+          }
+        });
+
+        // Kakao OAuth Login
+        document.getElementById('kakao-login-btn').addEventListener('click', async () => {
+          showToast('⏳ 카카오 계정 로그인 진행 중...');
+          try {
+            const userRes = await callGasMethod('getCurrentKakaoUserGAS');
+            if (userRes.status === 'success') {
+              const email = userRes.email;
+              const nickname = userRes.nickname;
+              const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'kakao');
+              if (dbRes.status === 'success') {
+                safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
+                document.getElementById('auth-overlay').style.display = 'none';
+                showToast(`👋 환영합니다, ${nickname} 감독관님! (카카오 로그인 완료)`);
+                loadDashboardData();
+              } else {
+                showToast('❌ DB 프로필 등록 실패.');
+              }
+            }
+          } catch (err) {
+            showToast('❌ 카카오 연동 중 오류 발생.');
+          }
+        });
+
+        // Naver OAuth Login
+        document.getElementById('naver-login-btn').addEventListener('click', async () => {
+          showToast('⏳ Naver 계정 로그인 진행 중...');
+          try {
+            const userRes = await callGasMethod('getCurrentNaverUserGAS');
+            if (userRes.status === 'success') {
+              const email = userRes.email;
+              const nickname = userRes.nickname;
+              const dbRes = await callGasMethod('upsertUserProfileGAS', email, nickname, 'naver');
+              if (dbRes.status === 'success') {
+                safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
+                document.getElementById('auth-overlay').style.display = 'none';
+                showToast(`👋 환영합니다, ${nickname} 감독관님! (네이버 로그인 완료)`);
+                loadDashboardData();
+              } else {
+                showToast('❌ DB 프로필 등록 실패.');
+              }
+            }
+          } catch (err) {
+            showToast('❌ 네이버 연동 중 오류 발생.');
+          }
+        });
+
+        // Switch to Signup container view
+        document.getElementById('go-to-signup').addEventListener('click', (e) => {
+          e.preventDefault();
+          document.getElementById('login-container').style.display = 'none';
+          document.getElementById('signup-container').style.display = 'block';
+        });
+
+        // Switch back to Login container view
+        document.getElementById('go-to-login').addEventListener('click', (e) => {
+          e.preventDefault();
+          document.getElementById('login-container').style.display = 'block';
+          document.getElementById('signup-container').style.display = 'none';
+        });
+
+        // Password Signup Complete Trigger
+        document.getElementById('email-signup-submit-btn').addEventListener('click', async () => {
+          const email = document.getElementById('signup-email-input').value.trim();
+          const pw = document.getElementById('signup-password-input').value.trim();
+          const pwConfirm = document.getElementById('signup-password-confirm-input').value.trim();
+          
+          if (!email || !pw || !pwConfirm) {
+            showToast('모든 가입 필드를 채워주세요.');
+            return;
+          }
+          if (pw !== pwConfirm) {
+            showToast('비밀번호가 일치하지 않습니다.');
+            return;
+          }
+          
+          showToast('⏳ 등록 신청서를 제출하는 중...');
+          try {
+            const res = await callGasMethod('signUpUserWithPasswordGAS', email, pw);
+            if (res.status === 'success') {
+              showToast('✅ 등록 성공! 로그인해 주세요.');
+              document.getElementById('login-container').style.display = 'block';
+              document.getElementById('signup-container').style.display = 'none';
+              document.getElementById('auth-email-input').value = email;
+              document.getElementById('auth-password-input').value = '';
+            } else {
+              showToast(`❌ 등록 실패: ${res.message || '가입 정보를 확인해 주세요.'}`);
+            }
+          } catch (err) {
+            showToast('❌ 회원가입 연동 에러.');
+          }
+        });
+
+        // Email Log In (with Password validation)
+        document.getElementById('email-login-btn').addEventListener('click', async () => {
+          const email = document.getElementById('auth-email-input').value.trim();
+          const pw = document.getElementById('auth-password-input').value.trim();
+          if (!email || !pw) {
+            showToast('이메일과 비밀번호를 모두 입력해 주세요.');
+            return;
+          }
+
+          showToast('⏳ 로그인 정보 검증 중...');
+          try {
+            const dbRes = await callGasMethod('loginUserWithPasswordGAS', email, pw);
+            if (dbRes.status === 'success') {
+              const nickname = dbRes.nickname;
+              safeLocalStorage.setItem('supervisor_session', JSON.stringify({ email, nickname }));
+              document.getElementById('auth-overlay').style.display = 'none';
+              showToast(`👋 반갑습니다, ${nickname} 감독관님!`);
+              loadDashboardData();
+            } else {
+              showToast(`❌ 로그인 실패: ${dbRes.message || '이메일 혹은 패스워드가 틀렸습니다.'}`);
+            }
+          } catch (err) {
+            showToast('❌ 로그인 요청 중 에러 발생.');
+          }
+        });
+      }
+
+      // 4. Load & Synchronize All Tables and Stats Details
+      async function loadDashboardData() {
+        loading = true;
+        const syncBtn = document.getElementById('sync-refresh-btn');
+        if (syncBtn) syncBtn.textContent = '\ub3d9\uae30\ud654 \uc911...';
+
+        try {
+          // 1. Fetch tables data (including official, citizen, and courses)
+          const data = await callGasMethod('getInitialWebAppData');
+          citizenSubmissions = data.citizen || [];
+          officialHeritages = data.official || [];
+          coursesList = data.courses || [];
+
+          // 2. Fetch rows counts stats
+          stats = await callGasMethod('getDatabaseStatsGAS');
+
+          // Fetch GAS DB connection status
+          try {
+            gasDbStatus = await callGasMethod('checkGasDbConfigurationStatus');
+          } catch (err) {
+            gasDbStatus = { configured: false, working: false, url: '', error: err.toString() };
+          }
+
+          // 3. Ping backend health latency
+          const start = Date.now();
+          try {
+            const res = await fetch(`${CLOUD_RUN_URL}/health`, { method: "GET" });
+            if (res.ok) {
+              backendHealth = await res.json();
+            } else {
+              backendHealth = { status: 'offline' };
+            }
+          } catch (err) {
+            backendHealth = { status: 'offline' };
+          }
+          pingLatency = `${Date.now() - start}ms`;
+
+          // 4. Update UI Renders
+          updateStatsUI();
+          renderVettingTable();
+          renderDBViewerTable();
+          showToast('\u1f504 \ud1b5\ud569 \ub370\uc774\ud130 \uc6d0\uaca9 \ub3d9\uae30\ud654\uac00 \uc131\uacf5\uc801\uc73c\ub85c \uc644\ub8cc\ub418\uc5c8\uc2b5\ub2c8\ub2e4.');
+        } catch (err) {
+          showToast('\u274c \uc6d0\uaca9 \ub300\uc2dc\ubcf4\ub4dc \uc0c1\ud0dc\ub97c \ub3d9\uae30\ud654\ud558\ub294 \uc911 \uc5d0\ub7ec\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4.');
+        } finally {
+          loading = false;
+          if (syncBtn) syncBtn.innerHTML = '\u1f504 \uc2e4\uc2dc\uac04 \ub3d9\uae30\ud654';
+        }
+      }
+
+      // 5. Update summary statistics card values
+      function updateStatsUI() {
+        document.getElementById('stat-official-count').textContent = `${stats.official_count}\uac1c`;
+        document.getElementById('stat-citizen-pending').textContent = `${stats.citizen_pending}\uac74`;
+        document.getElementById('stat-citizen-approved').textContent = `${stats.citizen_approved}\uac74`;
+
+        const statusDot = document.getElementById('health-status-dot');
+        const statusText = document.getElementById('health-status-text');
+        const latencyText = document.getElementById('health-latency-text');
+
+        const isServerOnline = backendHealth.status === 'healthy' || backendHealth.status === 'ok';
+
+        if (isServerOnline) {
+          statusDot.style.background = '#10b981';
+          statusText.textContent = 'CONNECTED';
+        } else {
+          statusDot.style.background = '#ef4444';
+          statusText.textContent = 'OFFLINE';
+        }
+        latencyText.textContent = `(${pingLatency})`;
+
+        // Update server-db-status
+        const serverDbEl = document.getElementById('server-db-status');
+        if (serverDbEl) {
+          if (isServerOnline) {
+            if (backendHealth.supabase_configured === true) {
+              serverDbEl.textContent = 'CONNECTED';
+              serverDbEl.style.color = '#10b981';
+            } else if (backendHealth.supabase_configured === false) {
+              serverDbEl.textContent = '\uc124\uc815 \ub204\ub77d';
+              serverDbEl.style.color = '#ef4444';
+            } else {
+              // Older server version doesn't export supabase_configured in /health, but server is online
+              serverDbEl.textContent = 'CONNECTED (\uad6c\ubc84\uc804)';
+              serverDbEl.style.color = '#10b981';
+            }
+          } else {
+            serverDbEl.textContent = 'OFFLINE';
+            serverDbEl.style.color = '#ef4444';
+          }
+        }
+
+        // Update gas-db-status
+        const gasDbEl = document.getElementById('gas-db-status');
+        if (gasDbEl) {
+          if (gasDbStatus.working) {
+            gasDbEl.textContent = 'CONNECTED';
+            gasDbEl.style.color = '#10b981';
+            gasDbEl.title = `Supabase URL: ${gasDbStatus.url}`;
+          } else if (gasDbStatus.configured) {
+            gasDbEl.textContent = '\uc5f0\uacb0 \uc2e4\ud328';
+            gasDbEl.style.color = '#f59e0b';
+            gasDbEl.title = `Error: ${gasDbStatus.error}`;
+          } else {
+            gasDbEl.textContent = '\uc124\uc815 \ub204\ub77d';
+            gasDbEl.style.color = '#ef4444';
+            gasDbEl.title = `Error: ${gasDbStatus.error}`;
+          }
+        }
+      }
+
+      // 6. Setup general click listener attachments
+      function setupEventListeners() {
+        // Navigation items tabs switch events
+        document.getElementById('tab-vetting-btn').addEventListener('click', () => switchTab('vetting'));
+        document.getElementById('tab-db-btn').addEventListener('click', () => switchTab('db_viewer'));
+        document.getElementById('tab-api-btn').addEventListener('click', () => switchTab('api_search'));
+        document.getElementById('tab-workflow-btn').addEventListener('click', () => switchTab('ai_workflow'));
+
+        // Manual Refresh button
+        document.getElementById('sync-refresh-btn').addEventListener('click', loadDashboardData);
+
+        // Database Viewer segment filter switches
+        document.getElementById('db-tab-official').addEventListener('click', () => switchDBTable('official'));
+        document.getElementById('db-tab-citizen').addEventListener('click', () => switchDBTable('citizen'));
+        document.getElementById('db-tab-courses').addEventListener('click', () => switchDBTable('courses'));
+
+        // OpenAPI Search buttons
+        document.getElementById('openapi-search-btn').addEventListener('click', handleOpenAPISearch);
+        document.getElementById('openapi-query-input').addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') handleOpenAPISearch();
+        });
+
+        // API source select change listner
+        document.getElementById('api-source-select').addEventListener('change', (e) => {
+          const input = document.getElementById('openapi-query-input');
+          if (e.target.value === 'tour') {
+            input.placeholder = "\uc138\uc885\uc2dc \ucd94\ucc9c \uad00\uad11\uc9c0 \ubc0f \uba85\uc18c \uc785\ub825 (\uc608: \ubca0\uc5b4\ud2b8\ub9ac\ud30c\ud06c, \ud638\uc218\uacf5\uc6d0)";
+          } else {
+            input.placeholder = "\ubb38\ud654\uc720\uc0b0 \ub610\ub294 \uc790\uc5f0 \uc720\uc0b0 \uba85\uce6d \uc785\ub825 (\uc608: \uc740\ud589\ub098\ubb34, \ub3c5\ub77d\uc815)";
+          }
+        });
+      }
+
+      // 7. Navigation tab router switcher
+      function switchTab(tab) {
+        currentTab = tab;
+        document.getElementById('tab-vetting-btn').classList.toggle('active', tab === 'vetting');
+        document.getElementById('tab-db-btn').classList.toggle('active', tab === 'db_viewer');
+        document.getElementById('tab-api-btn').classList.toggle('active', tab === 'api_search');
+        document.getElementById('tab-workflow-btn').classList.toggle('active', tab === 'ai_workflow');
+
+        document.getElementById('view-vetting').style.display = tab === 'vetting' ? 'block' : 'none';
+        document.getElementById('view-db-viewer').style.display = tab === 'db_viewer' ? 'block' : 'none';
+        document.getElementById('view-api-search').style.display = tab === 'api_search' ? 'block' : 'none';
+        document.getElementById('view-ai-workflow').style.display = tab === 'ai_workflow' ? 'block' : 'none';
+
+        if (tab === 'db_viewer') {
+          renderDBViewerTable();
+        }
+      }
+
+      // 8. Render Citizen Submissions table entries
+      function renderVettingTable() {
+        const tbody = document.getElementById('vetting-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (citizenSubmissions.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colSpan="6" style="padding: 40px 0; text-align: center; color: #9ca3af;">
+                \uc811\uc218\ub41c \uc81c\ubcf4 \ub0b4\uc5ed\uc774 \uc874\uc7ac\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        citizenSubmissions.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.style.borderBottom = '1px solid rgba(255, 255, 255, 0.04)';
+          tr.style.transition = 'background 0.2s';
+          tr.onmouseenter = () => tr.style.background = 'rgba(255, 255, 255, 0.02)';
+          tr.onmouseleave = () => tr.style.background = 'transparent';
+
+          const statusBadgeClass = row.status === '\uc2b9\uc778' ? 'badge-approved' : row.status === '\ubc18\ub824' ? 'badge-rejected' : 'badge-pending';
+          const statusLabel = row.status || '\ub300\uae30';
+          
+          const lat = parseFloat(row.latitude || row.lat || 0).toFixed(4);
+          const lng = parseFloat(row.longitude || row.lng || 0).toFixed(4);
+
+          let actionButtonsHtml = `<span style="font-size: 0.78rem; color: #9ca3af;">\uc2ec\uc0ac \uc885\uacb0</span>`;
+          if (statusLabel === '\ub300\uae30') {
+            actionButtonsHtml = `
+              <button onclick="handleProcessVetting('${row.id}', '\uc2b9\uc778')" class="action-btn" style="background: #10b981; color: #fff; margin-right: 6px;">\uc2b9\uc778</button>
+              <button onclick="handleProcessVetting('${row.id}', '\ubc18\ub824')" class="action-btn" style="background: #ef4444; color: #fff;">\ubc18\ub824</button>
+            `;
+          }
+
+          tr.innerHTML = `
+            <td style="padding: 14px 20px; font-weight: bold; color: #fff;">${row.name}</td>
+            <td style="padding: 14px 20px; color: #cbd5e1;">${row.address}</td>
+            <td style="padding: 14px 20px; color: #cbd5e1; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${row.description || ''}">
+              ${row.description || '\ub0b4\uc6a9 \uc5c6\uc74c'}
+            </td>
+            <td style="padding: 14px 20px; color: #9ca3af;">${lat}, ${lng}</td>
+            <td style="padding: 14px 20px;">
+              <span class="badge ${statusBadgeClass}">${statusLabel}</span>
+            </td>
+            <td style="padding: 14px 20px; display: flex; justify-content: center; gap: 8px;">
+              ${actionButtonsHtml}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Process recommendation status update
+      window.handleProcessVetting = async function(id, newStatus) {
+        try {
+          showToast(`\u1f4c1 \uc81c\ubcf4 \uc2ec\uc0ac \uc0c1\ud0dc \ubcc0\uacbd \uc911 (${newStatus})...`);
+          const res = await callGasMethod('updateRecommendationStatusGAS', id, newStatus);
+          if (res.status === 'success') {
+            showToast(`\u2705 \uc131\uacf5\uc801\uc73c\ub85c ${newStatus} \ucc98\ub9ac \uc644\ub8cc\ub418\uc5c8\uc2b5\ub2c8\ub2e4.`);
+            loadDashboardData();
+          } else {
+            showToast(`\u274c \uc0c1\ud0dc \uc5c5\ub370\uc774\ud2b8 \uc2e4\ud328: ${res.message}`);
+          }
+        } catch (err) {
+          showToast('\u274c \uc2ec\uc0ac \uc694\uccad \ucc98\ub9ac \uc911 \ub124\ud2b8\uc6cc\ud06c \uc624\ub958\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4.');
+        }
+      };
+
+      // 9. Database viewer segmented table switcher
+      function switchDBTable(table) {
+        dbActiveTable = table;
+        document.getElementById('db-tab-official').classList.toggle('active', table === 'official');
+        document.getElementById('db-tab-citizen').classList.toggle('active', table === 'citizen');
+        document.getElementById('db-tab-courses').classList.toggle('active', table === 'courses');
+        renderDBViewerTable();
+      }
+
+      // Render Supabase data tables
+      function renderDBViewerTable() {
+        const tableContainer = document.getElementById('db-table-viewport');
+        if (!tableContainer) return;
+        tableContainer.innerHTML = '';
+
+        if (dbActiveTable === 'official') {
+          const table = document.createElement('table');
+          table.className = 'viewer-table';
+          table.innerHTML = `
+            <thead>
+              <tr>
+                <th>\uc720\uc0b0 ID</th>
+                <th>\ubb38\ud654\uc720\uc0b0\uba85</th>
+                <th>\uc8fc\uc18c / \uc18c\uc7ac\uc9c0</th>
+                <th>\ubd84\ub958 / \uce74\ud14c\uace0\ub9ac</th>
+                <th>\uc704\uce58 (\uc704/\uacbd\ub3c4)</th>
+              </tr>
+            </thead>
+            <tbody id="db-viewer-official-tbody"></tbody>
+          `;
+          tableContainer.appendChild(table);
+          
+          const tbody = document.getElementById('db-viewer-official-tbody');
+          if (officialHeritages.length === 0) {
+            tbody.innerHTML = `<tr><td colSpan="5" style="text-align: center; padding: 30px 0;">\uacf5\uc2dd DB \ud14c\uc774\ube14\uc774 \ube44\uc5b4\uc788\uc2b5\ub2c8\ub2e4.</td></tr>`;
+          } else {
+            officialHeritages.forEach(item => {
+              const tr = document.createElement('tr');
+              const lat = parseFloat(item.latitude || item.lat || 0).toFixed(4);
+              const lng = parseFloat(item.longitude || item.lng || 0).toFixed(4);
+              tr.innerHTML = `
+                <td style="color: #60a5fa; font-weight: bold;">${item.id || item.h_id}</td>
+                <td style="color: #fff; font-weight: 600;">${item.name}</td>
+                <td>${item.address}</td>
+                <td>
+                  <span style="padding: 2px 6px; background: rgba(59,130,246,0.1); color: #60a5fa; border-radius: 4px; font-size: 0.7rem;">
+                    ${item.category}
+                  </span>
+                </td>
+                <td style="color: #9ca3af;">${lat}, ${lng}</td>
+              `;
+              tbody.appendChild(tr);
+            });
+          }
+        } else if (dbActiveTable === 'citizen') {
+          const table = document.createElement('table');
+          table.className = 'viewer-table';
+          table.innerHTML = `
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>\uc81c\ubcf4\uba85</th>
+                <th>\uc8fc\uc18c</th>
+                <th>\uc0c1\ud0dc</th>
+                <th>\uc81c\ubcf4\uc790</th>
+                <th>\ub4f1\ub85d\uc77c\uc790</th>
+              </tr>
+            </thead>
+            <tbody id="db-viewer-citizen-tbody"></tbody>
+          `;
+          tableContainer.appendChild(table);
+
+          const tbody = document.getElementById('db-viewer-citizen-tbody');
+          if (citizenSubmissions.length === 0) {
+            tbody.innerHTML = `<tr><td colSpan="6" style="text-align: center; padding: 30px 0;">\uc2dc\ubbfc \uc81c\ubcf4 \ud14c\uc774\ube14\uc774 \ube44\uc5b4\uc788\uc2b5\ub2c8\ub2e4.</td></tr>`;
+          } else {
+            citizenSubmissions.forEach(item => {
+              const tr = document.createElement('tr');
+              const badgeClass = item.status === '\uc2b9\uc778' ? 'badge-approved' : item.status === '\ubc18\ub824' ? 'badge-rejected' : 'badge-pending';
+              const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString() : '-';
+              tr.innerHTML = `
+                <td>${item.id}</td>
+                <td style="color: #fff; font-weight: 600;">${item.name}</td>
+                <td>${item.address}</td>
+                <td>
+                  <span class="badge ${badgeClass}">${item.status || '\ub300\uae30'}</span>
+                </td>
+                <td style="color: #9ca3af;">${item.user_id}</td>
+                <td style="color: #9ca3af;">${dateStr}</td>
+              `;
+              tbody.appendChild(tr);
+            });
+          }
+        } else if (dbActiveTable === 'courses') {
+          const table = document.createElement('table');
+          table.className = 'viewer-table';
+          table.innerHTML = `
+            <thead>
+              <tr>
+                <th>\ucf54\uc2a4 ID</th>
+                <th>\ucf54\uc2a4 \uba85\uce6d</th>
+                <th>\ucf54\uc2a4 \uac1c\uc694 \uc124\uba85</th>
+                <th>\uc774\ub3d9 \uc218\ub2e8</th>
+                <th>\ucd1d \uc18c\uc694\uc2dc\uac04</th>
+                <th>\uad6c\uc131 \ub178\ub4dc \uc218</th>
+              </tr>
+            </thead>
+            <tbody id="db-viewer-courses-tbody"></tbody>
+          `;
+          tableContainer.appendChild(table);
+
+          const tbody = document.getElementById('db-viewer-courses-tbody');
+          if (coursesList.length === 0) {
+            tbody.innerHTML = `<tr><td colSpan="6" style="text-align: center; padding: 30px 0;">\uc800\uc7a5\ub41c \uc5ec\ud589 \ucf54\uc2a4\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.</td></tr>`;
+          } else {
+            coursesList.forEach(item => {
+              const tr = document.createElement('tr');
+              let nodeCount = 0;
+              try {
+                const parsed = typeof item.items === 'string' ? JSON.parse(item.items) : item.items;
+                nodeCount = Array.isArray(parsed) ? parsed.length : 0;
+              } catch(e) {}
+              
+              tr.innerHTML = `
+                <td>${item.id}</td>
+                <td style="color: #fbbf24; font-weight: 600;">${item.course_name}</td>
+                <td>${item.description || '\uc124\uba85 \uc5c6\uc74c'}</td>
+                <td>
+                  <span style="padding: 2px 6px; background: rgba(245,158,11,0.1); color: #fbbf24; border-radius: 4px; font-size: 0.7rem;">
+                    ${item.transport}
+                  </span>
+                </td>
+                <td style="color: #fff;">${item.total_duration}\ubd84</td>
+                <td style="color: #10b981; font-weight: bold;">${nodeCount}\uac1c \uc720\uc0b0</td>
+              `;
+              tbody.appendChild(tr);
+            });
+          }
+        }
+      }
+
+      // 10. OpenAPI designated heritage/tourist search (Real API Integration)
+      async function handleOpenAPISearch() {
+        const input = document.getElementById('openapi-query-input');
+        const apiSource = document.getElementById('api-source-select').value;
+        apiSearchQuery = input.value.trim();
+        if (!apiSearchQuery) {
+          showToast(apiSource === 'tour' ? '\u1f50d \uad00\uad11\uc9c0 \uba85\uce6d\uc744 \uc785\ub825\ud574 \uc8fc\uc138\uc694.' : '\u1f50d \uc720\uc0b0 \uba85\uce6d\uc744 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
+          return;
+        }
+        
+        apiSearchLoading = true;
+        const searchBtn = document.getElementById('openapi-search-btn');
+        searchBtn.disabled = true;
+        searchBtn.textContent = '\uc5f0\ub3d9 \ub85c\ub529 \uc911..';
+
+        try {
+          let res;
+          if (apiSource === 'tour') {
+            res = await fetch(`${CLOUD_RUN_URL}/api/v1/tour-search`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: apiSearchQuery, area_code: "\uc138\uc885\uc2dc" })
+            });
+            if (!res.ok) throw new Error("\uad00\uad11\uc9c0 API \uc870\ud68c \uc2e4\ud328");
+            const data = await res.json();
+            apiSearchResults = data.tourist_spots || [];
+          } else {
+            res = await fetch(`${CLOUD_RUN_URL}/api/v1/heritage-search?query=${encodeURIComponent(apiSearchQuery)}&area_code=\uc138\uc885\uc2dc`, {
+              method: "GET"
+            });
+            if (!res.ok) throw new Error("\ubb38\ud654\uc720\uc0b0 API \uc870\ud68c \uc2e4\ud328");
+            const data = await res.json();
+            apiSearchResults = data.heritages || [];
+          }
+          
+          renderOpenAPISearchResults(apiSource);
+          showToast(`\u1f50d \uacf5\uacf5 API \uac80\uc0c9 \uc644\ub8cc (\uacb0\uacfc ${apiSearchResults.length}\uac74)`);
+        } catch (e) {
+          showToast(`\u274c \uacf5\uacf5 API \uac80\uc0c9 \uc2e4\ud328: ${e.message}`);
+          console.error(e);
+        } finally {
+          apiSearchLoading = false;
+          searchBtn.disabled = false;
+          searchBtn.textContent = 'OpenAPI \uac80\uc0c9';
+        }
+      }
+
+      function renderOpenAPISearchResults(apiSource) {
+        const container = document.getElementById('openapi-results-grid');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (apiSearchResults.length === 0) {
+          container.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px 0; color: #9ca3af; border: 1px dashed rgba(255,255,255,0.05); border-radius: 8px;">
+              ${apiSearchQuery ? '\uac80\uc0c9 \uacb0\uacfc\uac00 \uc874\uc7ac\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.' : '\uad00\uad11\uc9c0\ub098 \ubb38\ud654\uc720\uc0b0\uc744 \uac80\uc0c9\ud558\uc5ec \ub3d9\uae30\ud654\ud560 \ub370\uc774\ud130\ub97c \ubc1c\uad74\ud574 \ubcf4\uc138\uc694.'}
+            </div>
+          `;
+          return;
+        }
+
+        apiSearchResults.forEach((item, idx) => {
+          const card = document.createElement('div');
+          card.style.background = 'rgba(0,0,0,0.3)';
+          card.style.border = '1px solid rgba(255,255,255,0.05)';
+          card.style.borderRadius = '12px';
+          card.style.padding = '16px';
+          card.style.display = 'flex';
+          card.style.flexDirection = 'column';
+          card.style.justifyContent = 'space-between';
+
+          const badgeLabel = apiSource === 'tour' ? '\u1f5fa\ufe0f TourAPI \uad00\uad11\uc9c0' : '\u1f310 OpenAPI \uc9c0\uc815 \uc720\uc0b0';
+          const badgeBg = apiSource === 'tour' ? 'rgba(59,130,246,0.1)' : 'rgba(52,211,153,0.1)';
+          const badgeColor = apiSource === 'tour' ? '#60a5fa' : '#34d399';
+
+          card.innerHTML = `
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.72rem; padding: 2px 6px; background: ${badgeBg}; color: ${badgeColor}; border-radius: 4px; font-weight: bold;">
+                  ${badgeLabel}
+                </span>
+                <span style="font-size: 0.75rem; color: #fbbf24; font-weight: bold;">${item.category}</span>
+              </div>
+              <h4 style="margin: 0 0 6px 0; color: #fff; font-size: 1rem;">${item.name}</h4>
+              <p style="margin: 0 0 10px 0; font-size: 0.75rem; color: #9ca3af;">\u1f4cd ${item.address}</p>
+              <p style="margin: 0 0 16px 0; font-size: 0.8rem; color: #cbd5e1; line-height: 1.5;">${item.description}</p>
+            </div>
+            <button onclick="handleSyncToDB(${idx}, '${apiSource}')" class="action-btn" style="width: 100%; background: #10b981; color: #fff; font-weight: bold; padding: 10px;">
+              \u1f4be \uacf5\uc2dd DB\ub85c \ub3d9\uae30\ud654(\ucd94\uac00)
+            </button>
+          `;
+          container.appendChild(card);
+        });
+      }
+
+      window.handleSyncToDB = async function(idx, apiSource) {
+        const item = apiSearchResults[idx];
+        if (!item) return;
+
+        try {
+          showToast(`\u1f4be [${item.name}] \uc720\uc0b0\uc744 \uacf5\uc2dd DB\uc5d0 \ucd94\uac00\ud558\ub294 \uc911...`);
+          if (officialHeritages.some(oh => oh.name === item.name)) {
+            showToast('\u26a0\ufe0f \uc774\ubbf8 \uacf5\uc2dd DB\uc5d0 \ucd94\uac00\ub418\uc5b4 \uc788\ub294 \ubb38\ud654\uc720\uc0b0\uc785\ub2c8\ub2e4.');
+            return;
+          }
+
+          const prefix = apiSource === 'tour' ? 'T' : 'H';
+          const payload = {
+            h_id: `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            name: item.name,
+            address: item.address,
+            latitude: item.latitude,
+            longitude: item.longitude,
+            category: item.category,
+            description: item.description,
+            image_url: item.image_url
+          };
+
+          const res = await callGasMethod('insertOfficialHeritageGAS', payload);
+          if (res.status === 'success') {
+            showToast(`\u2705 [${item.name}] \uacf5\uc2dd DB \ucd94\uac00(\ub3d9\uae30\ud654)\uac00 \uc644\ub8cc\ub418\uc5c8\uc2b5\ub2c8\ub2e4.`);
+            loadDashboardData();
+          } else {
+            showToast(`\u274c DB \ub3d9\uae30\ud654 \uc2e4\ud328: ${res.message}`);
+          }
+        } catch (err) {
+          showToast('\u274c DB \ub3d9\uae30\ud654 \ucc98\ub9ac \uc911 \uc11c\ubc84 \uc5f0\ub3d9 \uc2e4\ud328.');
+        }
+      };
+    </script>
+  </body>
+</html>
