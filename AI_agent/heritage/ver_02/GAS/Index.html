@@ -901,11 +901,11 @@
               fetch(`${BACKEND_URL}/api/v1/db/user-courses?user_id=${encodeURIComponent(userEmail)}`)
                 .then(r => r.json())
                 .then(d => {
-                  if (d.status === 'success' && d.courses) {
+                  if (d.status === 'success' && Array.isArray(d.courses) && d.courses.length > 0) {
                     resolve(d.courses);
                   } else {
                     const localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
-                    resolve(localSaved ? JSON.parse(localSaved) : []);
+                    resolve(localSaved ? JSON.parse(localSaved) : (d.courses || []));
                   }
                 })
                 .catch(() => {
@@ -2295,8 +2295,11 @@
         const session = sessionRaw ? JSON.parse(sessionRaw) : { email: 'guest@sejong.go.kr', nickname: '게스트' };
         const userEmail = session.email || 'guest@sejong.go.kr';
 
-        const defaultName = `${session.nickname || '내'} 세종 추천 코스 (${courseList.length}곳)`;
-        const courseName = prompt('보관할 추천 경로 이름을 입력하세요:', defaultName);
+        const todayStr = new Date().toISOString().split('T')[0];
+        const idName = session.nickname || userEmail.split('@')[0] || '게스트';
+        const defaultName = `${todayStr}-${idName}`;
+        const inputName = prompt('보관할 추천 경로 이름을 확인/수정해 주세요:', defaultName);
+        const courseName = inputName ? inputName.trim() : defaultName;
         if (!courseName) return;
 
         let totalMins = 0;

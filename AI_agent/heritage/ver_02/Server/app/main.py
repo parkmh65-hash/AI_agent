@@ -446,11 +446,9 @@ async def update_db_heritage_image(name: str, image_url: str):
     """Update photo_url/image_url in the database for the matching heritage name"""
     if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
         return
-    headers = {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = get_supabase_headers()
+    headers["Content-Type"] = "application/json"
+    headers["Prefer"] = "return=representation" 
     try:
         async with httpx.AsyncClient() as client:
             table = await get_heritage_table_name(client, headers)
