@@ -2384,9 +2384,13 @@
 
         if (!courses || courses.length === 0) {
           listContainer.innerHTML = `
-            <div style="text-align: center; color: var(--text-sub); padding: 30px 10px;">
-              <span style="font-size: 2rem; display: block; margin-bottom: 8px;">📭</span>
-              보관된 추천 경로가 없습니다.<br>1~2단계에서 추천 경로 생성 후 <strong>[💾 경로 보관]</strong> 버튼을 눌러보세요!
+            <div style="text-align: center; color: var(--text-sub); padding: 24px 10px; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+              <span style="font-size: 2.2rem;">📭</span>
+              <div style="font-size: 0.9rem; font-weight: 800; color: #fff;">보관된 추천 경로가 없습니다.</div>
+              <p style="margin: 0; font-size: 0.78rem; color: #94a3b8; line-height: 1.5;">1~2단계에서 AI 추천 경로를 생성한 후<br><strong style="color: #00f5d4;">[💾 경로 보관]</strong> 버튼을 누르시면 여기에 보관됩니다.</p>
+              <button onclick="createSampleCourseForUser('${userEmail}')" style="margin-top: 6px; background: rgba(0, 245, 212, 0.15); border: 1px solid #00f5d4; color: #00f5d4; padding: 8px 14px; border-radius: 8px; font-size: 0.78rem; font-weight: 800; cursor: pointer;">
+                ✨ 샘플 세종 역사 탐방 코스 보관해보기
+              </button>
             </div>
           `;
           return;
@@ -2483,6 +2487,35 @@
         setTimeout(() => {
           goToWizardStep(2);
         }, 200);
+      };
+
+      window.createSampleCourseForUser = function(userEmail) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const sampleCourse = {
+          id: Date.now(),
+          user_id: userEmail,
+          course_name: `${todayStr}-샘플세종탐방`,
+          description: `${userEmail} 계정을 위한 세종시 대표 문화유산 3선 탐방 코스입니다.`,
+          transport: '승용차',
+          total_duration: 90,
+          created_at: new Date().toISOString(),
+          items: [
+            { name: "세종 영평사", category: "사찰/유산", address: "세종 특별자치시 장군면 영평사길 124", latitude: 36.4678, longitude: 127.2412, description: "조선 시대 고찰로 구절초 축제로 유명한 명승지입니다." },
+            { name: "세종 비암사", category: "사찰/유산", address: "세종 특별자치시 전의면 비암사길 137", latitude: 36.6341, longitude: 127.2023, description: "백제 유민들의 서원이 서려 있는 대표적 삼국 시대 사찰입니다." },
+            { name: "고복자연공원(저수지)", category: "관광명소", address: "세종 특별자치시 연서면 고복리", latitude: 36.5789, longitude: 127.2245, description: "아름다운 수변 산책로와 자연 경관을 자랑하는 힐링 관광지입니다." }
+          ]
+        };
+
+        try {
+          let localRaw = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
+          let localList = localRaw ? JSON.parse(localRaw) : [];
+          localList.unshift(sampleCourse);
+          safeLocalStorage.setItem('user_saved_courses_' + userEmail, JSON.stringify(localList));
+        } catch(e){}
+
+        callGasMethod('saveUserCourseGAS', sampleCourse);
+        showToast('✨ 샘플 추천 경로가 보관되었습니다!');
+        openSavedCoursesModal();
       };
     </script>
 
