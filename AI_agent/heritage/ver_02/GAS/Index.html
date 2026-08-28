@@ -2462,21 +2462,19 @@
         const userEmail = session.email || 'guest@sejong.go.kr';
 
         if (userInfo) {
-          userInfo.innerHTML = `
-            <div style="background: rgba(0, 245, 212, 0.05); padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(0, 245, 212, 0.25); display: flex; flex-direction: column; gap: 6px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
-                <span style="font-size: 0.8rem; font-weight: 800; color: #fff;">👤 계정: <span style="color: #00f5d4;">${userEmail}</span> (${session.nickname || '사용자'})</span>
-                <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; font-size: 0.68rem; padding: 2px 6px;">🟢 DB 연동 성공</span>
-              </div>
-              <div style="height: 1px; background: rgba(255,255,255,0.08); margin: 2px 0;"></div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; font-size: 0.72rem; color: #94a3b8;">
-                <div>🌐 <strong>DB 주소:</strong> https://pdpmtgnagwzcsftavtap.supabase.co</div>
-                <div>📦 <strong>프로젝트:</strong> pdpmtgnagwzcsftavtap</div>
-                <div>🗄️ <strong>테이블:</strong> public.courses</div>
-                <div>⚡ <strong>동기화 상태:</strong> Supabase DB + Local Storage</div>
-              </div>
-            </div>
-          `;
+          const userNick = session.nickname || '사용자';
+          userInfo.innerHTML = '<div style="background: rgba(0, 245, 212, 0.05); padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(0, 245, 212, 0.25); display: flex; flex-direction: column; gap: 6px;">' +
+            '<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">' +
+            '<span style="font-size: 0.8rem; font-weight: 800; color: #fff;">👤 계정: <span style="color: #00f5d4;">' + userEmail + '</span> (' + userNick + ')</span>' +
+            '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; font-size: 0.68rem; padding: 2px 6px;">🟢 DB 연동 성공</span>' +
+            '</div>' +
+            '<div style="height: 1px; background: rgba(255,255,255,0.08); margin: 2px 0;"></div>' +
+            '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; font-size: 0.72rem; color: #94a3b8;">' +
+            '<div>🌐 <strong>DB 주소:</strong> pdpmtgnagwzcsftavtap.supabase.co</div>' +
+            '<div>📦 <strong>프로젝트:</strong> pdpmtgnagwzcsftavtap</div>' +
+            '<div>🗄️ <strong>테이블:</strong> public.courses</div>' +
+            '<div>⚡ <strong>동기화 상태:</strong> Supabase DB + Local Storage</div>' +
+            '</div></div>';
         }
         listContainer.innerHTML = '<div style="text-align: center; color: var(--text-sub); padding: 20px;">⏳ 보관된 경로 불러오는 중...</div>';
         modal.style.display = 'flex';
@@ -2528,7 +2526,7 @@
               <span style="font-size: 2.2rem;">📭</span>
               <div style="font-size: 0.9rem; font-weight: 800; color: #fff;">보관된 추천 경로가 없습니다.</div>
               <p style="margin: 0; font-size: 0.78rem; color: #94a3b8; line-height: 1.5;">1~2단계에서 AI 추천 경로를 생성한 후<br><strong style="color: #00f5d4;">[💾 경로 보관]</strong> 버튼을 누르시면 여기에 보관됩니다.</p>
-              <button onclick="createSampleCourseForUser('${userEmail}')" style="margin-top: 6px; background: rgba(0, 245, 212, 0.15); border: 1px solid #00f5d4; color: #00f5d4; padding: 8px 14px; border-radius: 8px; font-size: 0.78rem; font-weight: 800; cursor: pointer;">
+              <button onclick="createSampleCourseForUser(this.getAttribute('data-email'))" data-email="${userEmail}" style="margin-top: 6px; background: rgba(0, 245, 212, 0.15); border: 1px solid #00f5d4; color: #00f5d4; padding: 8px 14px; border-radius: 8px; font-size: 0.78rem; font-weight: 800; cursor: pointer;">
                 ✨ 샘플 세종 역사 탐방 코스 보관해보기
               </button>
             </div>
@@ -2554,7 +2552,7 @@
                     🌐 DB: pdpmtgnagwzcsftavtap | 🗄️ 테이블: public.courses | 🟢 연동 성공
                   </div>
                 </div>
-                <button onclick="handleDeleteSavedCourse('${cid}', '${userEmail}')" style="background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.4); color: #f43f5e; font-size: 0.75rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; font-weight: 700;">🗑️ 삭제</button>
+                <button onclick="handleDeleteSavedCourse(this.getAttribute('data-cid'), this.getAttribute('data-email'))" data-cid="${cid}" data-email="${userEmail}" style="background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.4); color: #f43f5e; font-size: 0.75rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; font-weight: 700;">🗑️ 삭제</button>
               </div>
               
               ${itemNames ? `<div style="font-size: 0.74rem; color: #94a3b8; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📍 ${itemNames} ${Array.isArray(itemsList) && itemsList.length > 4 ? '...' : ''}</div>` : ''}
