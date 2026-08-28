@@ -1594,15 +1594,22 @@
 
         // Overall add to course action handler
         const headerWrapper = document.getElementById('rag-header-actions');
+        let saveBtnHtml = courseList.length > 0 ? `<button onclick="saveCurrentCourseRoute()" style="background: rgba(0, 245, 212, 0.15); border: 1px solid #00f5d4; color: #00f5d4; font-size: 0.75rem; font-weight: 800; padding: 4px 8px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;">💾 경로 보관 (${courseList.length})</button>` : '';
         if (ragCards.length > 0) {
           headerWrapper.innerHTML = `
             <h4 style="margin: 0; font-size: 0.95rem; color: #fff;">🤖 AI 추천 문화유산</h4>
-            <button onclick="addAllToCourse()" style="background: none; border: none; color: #00f5d4; font-size: 0.75rem; font-weight: 800; cursor: pointer;">
-              + 전체 코스에 담기
-            </button>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              ${saveBtnHtml}
+              <button onclick="addAllToCourse()" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #00f5d4; font-size: 0.75rem; font-weight: 800; padding: 4px 8px; border-radius: 6px; cursor: pointer;">
+                + 전체 코스에 담기
+              </button>
+            </div>
           `;
         } else {
-          headerWrapper.innerHTML = `<h4 style="margin: 0; font-size: 0.95rem; color: #fff;">🤖 AI 추천 문화유산</h4>`;
+          headerWrapper.innerHTML = `
+            <h4 style="margin: 0; font-size: 0.95rem; color: #fff;">🤖 AI 추천 문화유산</h4>
+            ${saveBtnHtml}
+          `;
         }
 
         ragCards.forEach((item, idx) => {
@@ -1691,6 +1698,10 @@
 
         // Show active step section
         document.getElementById(`wizard-step-${step}`).style.display = 'block';
+        if (step === 2 && courseList.length > 0) {
+          const step2Wrapper = document.getElementById('step-2-course-wrapper');
+          if (step2Wrapper) step2Wrapper.style.display = 'flex';
+        }
 
         // Update indicators
         document.getElementById('step-ind-1').classList.toggle('active', step === 1);
@@ -1852,6 +1863,10 @@
       function renderCourseList() {
         if (courseList.length > 1) {
           courseList = sortNodesByNearestNeighbor(courseList);
+        }
+        const step2Wrapper = document.getElementById('step-2-course-wrapper');
+        if (step2Wrapper && courseList.length > 0) {
+          step2Wrapper.style.display = 'flex';
         }
         const tabContainer = document.getElementById('course-items-list');
         const wizardContainer = document.getElementById('wizard-course-items-list');
