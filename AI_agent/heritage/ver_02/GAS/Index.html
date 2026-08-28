@@ -2297,10 +2297,7 @@
 
         const todayStr = new Date().toISOString().split('T')[0];
         const idName = session.nickname || userEmail.split('@')[0] || '게스트';
-        const defaultName = `${todayStr}-${idName}`;
-        const inputName = prompt('보관할 추천 경로 이름을 확인/수정해 주세요:', defaultName);
-        const courseName = inputName ? inputName.trim() : defaultName;
-        if (!courseName) return;
+        const courseName = `${todayStr}-${idName}`;
 
         let totalMins = 0;
         try {
