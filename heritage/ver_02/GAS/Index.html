@@ -459,13 +459,10 @@
                 </span>
               </div>
             </div>
-            <button id="open-saved-courses-btn" onclick="openSavedCoursesModal()" style="background: rgba(0, 245, 212, 0.1); border: 1px solid #00f5d4; color: #00f5d4; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-              📂 내 보관 코스
-            </button>
           </header>
 
-          <!-- Common Leaflet Map Container (Reduced vertical height to 30% ratio) -->
-          <div id="map-container" style="width: 100%; height: 210px; flex-shrink: 0; border-bottom: 1px solid rgba(0, 245, 212, 0.15); position: relative; z-index: 1;">
+          <!-- Common Leaflet Map Container (Doubled vertical height to 420px) -->
+          <div id="map-container" style="width: 100%; height: 420px; flex-shrink: 0; border-bottom: 1px solid rgba(0, 245, 212, 0.15); position: relative; z-index: 1;">
           </div>
 
           <!-- Expand / Overlay Toggle Button Bar -->
@@ -553,9 +550,6 @@
                       <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
                         <strong style="font-size: 0.88rem; color: #fff;">병합된 여행 코스 목록</strong>
                         <div style="display: flex; gap: 6px; align-items: center;">
-                          <button onclick="saveCurrentCourseRoute()" style="background: rgba(0,245,212,0.15); border: 1px solid #00f5d4; color: #00f5d4; font-size: 0.72rem; font-weight: 800; padding: 4px 8px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 3px;">
-                            💾 경로 보관
-                          </button>
                           <button onclick="clearAllCourse()" style="background: none; border: none; color: #f43f5e; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
                             🗑️ 비우기
                           </button>
