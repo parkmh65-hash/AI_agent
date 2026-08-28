@@ -128,9 +128,9 @@ function fetchSavedCoursesGAS() {
 /**
  * Fetch saved courses for specific user email from database
  */
-function fetchUserCoursesGAS(userEmail) {
+function fetchUserCoursesGAS(user_id) {
   var backendUrl = getBackendUrl();
-  var targetUser = userEmail || "guest@sejong.go.kr";
+  var targetUser = user_id || "guest@sejong.go.kr";
   try {
     var response = UrlFetchApp.fetch(backendUrl + "/api/v1/db/user-courses?user_id=" + encodeURIComponent(targetUser), {
       method: "GET",

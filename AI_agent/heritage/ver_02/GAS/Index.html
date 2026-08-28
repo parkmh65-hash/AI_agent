@@ -897,8 +897,8 @@
             } else if (methodName === 'checkGasDbConfigurationStatus') {
               resolve({ configured: true, working: true, url: 'https://pdpmtgnagwzcsftavtap.supabase.co', error: '' });
             } else if (methodName === 'fetchUserCoursesGAS') {
-              const userEmail = args[0] || 'guest@sejong.go.kr';
-              fetch(`${BACKEND_URL}/api/v1/db/user-courses?user_id=${encodeURIComponent(userEmail)}`)
+              const user_id = args[0] || 'guest@sejong.go.kr';
+              fetch(`${BACKEND_URL}/api/v1/db/user-courses?user_id=${encodeURIComponent(user_id)}`)
                 .then(r => r.json())
                 .then(d => {
                   let dbCourses = (d.status === 'success' && Array.isArray(d.courses)) ? d.courses : [];
