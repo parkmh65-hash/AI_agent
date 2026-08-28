@@ -458,9 +458,14 @@
                 </span>
               </div>
             </div>
-            <button id="open-saved-courses-btn" onclick="openSavedCoursesModal()" style="background: rgba(0, 245, 212, 0.1); border: 1px solid #00f5d4; color: #00f5d4; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-              📂 내 보관 코스
-            </button>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button id="open-auth-modal-btn" onclick="openAuthOverlay()" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 6px 8px; border-radius: 8px; font-size: 0.72rem; font-weight: 800; cursor: pointer;">
+                👤 계정/로그인
+              </button>
+              <button id="open-saved-courses-btn" onclick="openSavedCoursesModal()" style="background: rgba(0, 245, 212, 0.1); border: 1px solid #00f5d4; color: #00f5d4; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                📂 내 보관 코스
+              </button>
+            </div>
           </header>
 
           <!-- Common Leaflet Map Container (Fixed at top of content area, hidden in Report tab) -->
@@ -1067,6 +1072,11 @@
           overlay.style.display = 'flex';
         }
       }
+
+      window.openAuthOverlay = function() {
+        const overlay = document.getElementById('auth-overlay');
+        if (overlay) overlay.style.display = 'flex';
+      };
 
       window.closeAuthOverlay = function() {
         const overlay = document.getElementById('auth-overlay');
