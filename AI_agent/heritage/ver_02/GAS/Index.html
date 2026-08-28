@@ -904,16 +904,17 @@
                   if (d.status === 'success' && d.courses) {
                     resolve(d.courses);
                   } else {
-                    const localSaved = safeLocalStorage.getItem('user_saved_courses');
+                    const localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
                     resolve(localSaved ? JSON.parse(localSaved) : []);
                   }
                 })
                 .catch(() => {
-                  const localSaved = safeLocalStorage.getItem('user_saved_courses');
+                  const localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
                   resolve(localSaved ? JSON.parse(localSaved) : []);
                 });
             } else if (methodName === 'saveUserCourseGAS') {
               const courseData = args[0];
+              const userEmail = courseData.user_id || 'guest@sejong.go.kr';
               fetch(`${BACKEND_URL}/api/v1/db/save-course`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -921,17 +922,17 @@
               })
                 .then(r => r.json())
                 .then(d => {
-                  let localSaved = safeLocalStorage.getItem('user_saved_courses');
+                  let localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
                   let coursesList = localSaved ? JSON.parse(localSaved) : [];
                   coursesList.unshift({ ...courseData, id: Date.now(), created_at: new Date().toISOString() });
-                  safeLocalStorage.setItem('user_saved_courses', JSON.stringify(coursesList));
+                  safeLocalStorage.setItem('user_saved_courses_' + userEmail, JSON.stringify(coursesList));
                   resolve(d.status === 'success' ? d : { status: 'success', message: 'Course saved (local fallback)' });
                 })
                 .catch(() => {
-                  let localSaved = safeLocalStorage.getItem('user_saved_courses');
+                  let localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
                   let coursesList = localSaved ? JSON.parse(localSaved) : [];
                   coursesList.unshift({ ...courseData, id: Date.now(), created_at: new Date().toISOString() });
-                  safeLocalStorage.setItem('user_saved_courses', JSON.stringify(coursesList));
+                  safeLocalStorage.setItem('user_saved_courses_' + userEmail, JSON.stringify(coursesList));
                   resolve({ status: 'success', message: 'Course saved (local fallback)' });
                 });
             } else if (methodName === 'deleteUserCourseGAS') {
@@ -942,17 +943,17 @@
               })
                 .then(r => r.json())
                 .then(d => {
-                  let localSaved = safeLocalStorage.getItem('user_saved_courses');
+                  let localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
                   let coursesList = localSaved ? JSON.parse(localSaved) : [];
                   coursesList = coursesList.filter(c => c.id !== courseId);
-                  safeLocalStorage.setItem('user_saved_courses', JSON.stringify(coursesList));
+                  safeLocalStorage.setItem('user_saved_courses_' + userEmail, JSON.stringify(coursesList));
                   resolve(d);
                 })
                 .catch(() => {
-                  let localSaved = safeLocalStorage.getItem('user_saved_courses');
+                  let localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
                   let coursesList = localSaved ? JSON.parse(localSaved) : [];
                   coursesList = coursesList.filter(c => c.id !== courseId);
-                  safeLocalStorage.setItem('user_saved_courses', JSON.stringify(coursesList));
+                  safeLocalStorage.setItem('user_saved_courses_' + userEmail, JSON.stringify(coursesList));
                   resolve({ status: 'success', message: 'Course deleted (local fallback)' });
                 });
             } else {

@@ -1444,7 +1444,7 @@ async def get_initial_db_data(role: Optional[str] = "user"):
 
 @app.get("/api/v1/db/user-courses")
 async def get_user_courses(user_id: str = "guest@sejong.go.kr"):
-    """Fetch saved course recommendations strictly from public.courses based on user_id email"""
+    """Fetch saved course recommendations strictly isolated for individual user_id"""
     headers = get_supabase_headers()
     if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
         return {"status": "success", "courses": []}
@@ -1452,20 +1452,13 @@ async def get_user_courses(user_id: str = "guest@sejong.go.kr"):
     try:
         async with httpx.AsyncClient() as client:
             target_encoded = urllib.parse.quote(user_id)
-            # Query public.courses matching exact user_id
+            # Query public.courses matching ONLY the specific individual user_id
             url = f"{settings.SUPABASE_URL}/rest/v1/courses?user_id=eq.{target_encoded}&order=created_at.desc"
             res = await client.get(url, headers=headers, timeout=5.0)
             
             courses = []
             if res.status_code == 200:
                 courses = res.json()
-                
-            # If logged in user has no courses yet, check guest courses
-            if not courses and user_id != "guest@sejong.go.kr":
-                url_guest = f"{settings.SUPABASE_URL}/rest/v1/courses?user_id=eq.guest%40sejong.go.kr&order=created_at.desc"
-                res_guest = await client.get(url_guest, headers=headers, timeout=5.0)
-                if res_guest.status_code == 200:
-                    courses = res_guest.json()
 
             for c in courses:
                 c.pop("embedding", None)
