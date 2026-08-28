@@ -6,10 +6,10 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     APP_NAME: str = "세종시 AI 문화유산 스마트 플랫폼 API (ver_02)"
     DEBUG: bool = False
-    PORT: int = 8080
+    PORT: int = int(os.getenv("PORT", 8080))
     
-    # Supabase Credentials
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    # Read Supabase Credentials dynamically from Google Cloud Run Environment Variables / Properties
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://wylcqlmffchvufxpxydc.supabase.co")
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
     
     # LLM Settings (OpenAI / Gemini API keys)
@@ -24,5 +24,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 settings = Settings()
