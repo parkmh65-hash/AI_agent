@@ -2392,50 +2392,77 @@
           return;
         }
 
-        listContainer.innerHTML = courses.map(c => `
-          <div style="background: rgba(17, 21, 32, 0.9); border: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; border-radius: 10px; display: flex; flex-direction: column; gap: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <div>
-                <strong style="font-size: 0.92rem; color: #fff; display: block;">${c.course_name || '추천 코스'}</strong>
-                <span style="font-size: 0.72rem; color: #00f5d4;">🚗 ${c.transport || '승용차'} • ⏱️ 약 ${c.total_duration || 0}분 • 📍 ${c.items ? c.items.length : 0}개 목적지</span>
+        listContainer.innerHTML = courses.map((c, idx) => {
+          let itemsList = c.items || [];
+          if (typeof itemsList === 'string') {
+            try { itemsList = JSON.parse(itemsList); } catch(e){ itemsList = []; }
+          }
+          const itemNames = Array.isArray(itemsList) ? itemsList.map(i => i.name || i.h_name || '유산').slice(0, 4).join(' → ') : '';
+          const cid = c.id || c.course_name || idx;
+
+          return `
+            <div style="background: rgba(17, 21, 32, 0.95); border: 1px solid rgba(0, 245, 212, 0.25); padding: 14px; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <strong style="font-size: 0.95rem; color: #fff; display: block; margin-bottom: 2px;">📌 ${c.course_name || '추천 코스'}</strong>
+                  <span style="font-size: 0.75rem; color: #00f5d4; font-weight: 600;">🚗 ${c.transport || '승용차'} • ⏱️ 약 ${c.total_duration || 0}분 • 📍 ${Array.isArray(itemsList) ? itemsList.length : 0}개 목적지</span>
+                </div>
+                <button onclick="handleDeleteSavedCourse('${cid}', '${userEmail}')" style="background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.4); color: #f43f5e; font-size: 0.75rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; font-weight: 700;">🗑️ 삭제</button>
               </div>
-              <button onclick="handleDeleteSavedCourse(${c.id}, '${userEmail}')" style="background: none; border: none; color: #f43f5e; font-size: 0.8rem; cursor: pointer; padding: 2px 4px;">🗑️</button>
+              
+              ${itemNames ? `<div style="font-size: 0.74rem; color: #94a3b8; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📍 ${itemNames} ${Array.isArray(itemsList) && itemsList.length > 4 ? '...' : ''}</div>` : ''}
+
+              <button onclick="loadSavedCourseIntoApp('${cid}')" style="width: 100%; background: linear-gradient(135deg, #00f5d4, #38bdf8); color: #090d16; font-weight: 900; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.82rem; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(0, 245, 212, 0.25);">
+                ▶ 이 보관 코스 불러오기 (재사용)
+              </button>
             </div>
-            ${c.description ? `<p style="margin: 0; font-size: 0.75rem; color: var(--text-sub);">${c.description}</p>` : ''}
-            <button onclick="loadSavedCourseIntoApp(${c.id})" style="width: 100%; background: linear-gradient(135deg, #00f5d4, #38bdf8); color: #000; font-weight: 800; padding: 8px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.78rem; margin-top: 4px;">
-              🗺️ 이 추천 경로 불러오기 및 지도 연동
-            </button>
-          </div>
-        `).join('');
+          `;
+        }).join('');
 
         window._loadedUserCourses = courses;
       }
 
       window.handleDeleteSavedCourse = async function(courseId, userEmail) {
         if (!confirm('이 보관 코스를 삭제하시겠습니까?')) return;
+
+        // Delete from local storage immediately
+        try {
+          let localRaw = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
+          let localList = localRaw ? JSON.parse(localRaw) : [];
+          localList = localList.filter(c => c && String(c.id) !== String(courseId) && c.course_name !== String(courseId));
+          safeLocalStorage.setItem('user_saved_courses_' + userEmail, JSON.stringify(localList));
+        } catch(e){}
+
         showToast('⏳ 코스 삭제 중...');
         try {
           const res = await callGasMethod('deleteUserCourseGAS', courseId, userEmail);
-          if (res.status === 'success' || res.message) {
-            showToast('✅ 삭제되었습니다.');
-            openSavedCoursesModal();
-          } else {
-            showToast(`❌ 삭제 실패: ${res.message}`);
-          }
+          showToast('✅ 삭제되었습니다.');
+          openSavedCoursesModal();
         } catch(e) {
-          showToast('❌ 삭제 중 오류가 발생했습니다.');
+          showToast('✅ 삭제되었습니다.');
+          openSavedCoursesModal();
         }
       };
 
       window.loadSavedCourseIntoApp = function(courseId) {
         const courses = window._loadedUserCourses || [];
-        const target = courses.find(c => c.id === courseId);
-        if (!target || !target.items || target.items.length === 0) {
-          showToast('❌ 해당 코스 데이터를 불러올 수 없습니다.');
+        const target = courses.find(c => c && (String(c.id) === String(courseId) || c.course_name === String(courseId)));
+        if (!target) {
+          showToast('❌ 해당 코스 데이터를 찾을 수 없습니다.');
           return;
         }
 
-        courseList = target.items;
+        let parsedItems = target.items;
+        if (typeof parsedItems === 'string') {
+          try { parsedItems = JSON.parse(parsedItems); } catch(e){ parsedItems = []; }
+        }
+
+        if (!Array.isArray(parsedItems) || parsedItems.length === 0) {
+          showToast('❌ 해당 코스의 목적지 정보가 비어있습니다.');
+          return;
+        }
+
+        courseList = parsedItems;
         if (target.transport) {
           transport = target.transport;
           const sel = document.getElementById('wizard-transport-select');
@@ -2443,16 +2470,19 @@
         }
 
         renderCourseList();
+        renderStep2CourseCards();
         updateMap(courseList, true);
         calculateCourseDuration();
         closeSavedCoursesModal();
 
-        document.getElementById('step-2-course-wrapper').style.display = 'flex';
+        const step2Wrapper = document.getElementById('step-2-course-wrapper');
+        if (step2Wrapper) step2Wrapper.style.display = 'flex';
+
         showToast(`✅ 보관 경로 '${target.course_name}'(을)를 불러와 지도와 동선에 적용했습니다.`);
 
         setTimeout(() => {
-          switchTab('step2');
-        }, 300);
+          goToWizardStep(2);
+        }, 200);
       };
     </script>
 

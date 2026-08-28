@@ -1481,14 +1481,18 @@ async def save_user_course_endpoint(req: SaveCourseRequest):
     return {"status": "success", "message": "Course saved successfully", "course": course_data}
 
 @app.delete("/api/v1/db/delete-course")
-async def delete_user_course_endpoint(course_id: int, user_id: str = "guest@sejong.go.kr"):
-    """Delete a saved course for a user"""
+async def delete_user_course_endpoint(course_id: str, user_id: str = "guest@sejong.go.kr"):
+    """Delete a saved course for a user by id or course_name"""
     headers = get_supabase_headers()
     if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
         return {"status": "success", "message": "Mock delete"}
     try:
         async with httpx.AsyncClient() as client:
-            url = f"{settings.SUPABASE_URL}/rest/v1/courses?id=eq.{course_id}&user_id=eq.{urllib.parse.quote(user_id)}"
+            target_user = urllib.parse.quote(user_id)
+            if str(course_id).isdigit():
+                url = f"{settings.SUPABASE_URL}/rest/v1/courses?id=eq.{course_id}&user_id=ilike.{target_user}"
+            else:
+                url = f"{settings.SUPABASE_URL}/rest/v1/courses?course_name=eq.{urllib.parse.quote(str(course_id))}&user_id=ilike.{target_user}"
             res = await client.delete(url, headers=headers, timeout=5.0)
             if res.status_code in [200, 204]:
                 return {"status": "success", "message": "Course deleted"}
