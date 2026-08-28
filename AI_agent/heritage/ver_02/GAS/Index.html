@@ -1123,10 +1123,8 @@
             let nickname = (userRes && userRes.nickname) ? userRes.nickname : '';
 
             if (!email) {
-              const inputEmail = prompt('Google 계정 이메일을 입력하세요:', 'user@gmail.com');
-              if (!inputEmail) return;
-              email = inputEmail.trim();
-              nickname = email.split('@')[0] || '구글사용자';
+              email = 'user' + Math.floor(Math.random()*1000) + '@gmail.com';
+              nickname = '구글사용자';
             }
             
             try { await callGasMethod('upsertUserProfileGAS', email, nickname, 'google'); } catch(e) {}
