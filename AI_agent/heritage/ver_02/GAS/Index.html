@@ -2321,13 +2321,18 @@
           created_at: new Date().toISOString()
         };
 
-        // Immediately save to per-user local storage for instant availability
+        // Immediately save to per-user and legacy local storage for instant availability
         try {
-          let localRaw = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
-          let localList = localRaw ? JSON.parse(localRaw) : [];
-          localList = localList.filter(c => c && c.course_name !== courseName);
-          localList.unshift(courseData);
-          safeLocalStorage.setItem('user_saved_courses_' + userEmail, JSON.stringify(localList));
+          const keys = ['user_saved_courses_' + userEmail, 'user_saved_courses', 'user_courses'];
+          keys.forEach(k => {
+            let localRaw = safeLocalStorage.getItem(k);
+            let localList = localRaw ? JSON.parse(localRaw) : [];
+            if (Array.isArray(localList)) {
+              localList = localList.filter(c => c && (c.course_name !== courseName && c.name !== courseName));
+              localList.unshift(courseData);
+              safeLocalStorage.setItem(k, JSON.stringify(localList));
+            }
+          });
         } catch(e) {}
 
         showToast('⏳ 추천 경로를 보관 중...');
@@ -2354,23 +2359,36 @@
         listContainer.innerHTML = '<div style="text-align: center; color: var(--text-sub); padding: 20px;">⏳ 보관된 경로 불러오는 중...</div>';
         modal.style.display = 'flex';
 
-        const localRaw = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
-        let localCourses = localRaw ? JSON.parse(localRaw) : [];
+        let allLocal = [];
+        const keysToTry = ['user_saved_courses_' + userEmail, 'user_saved_courses', 'user_courses'];
+        keysToTry.forEach(k => {
+          try {
+            const raw = safeLocalStorage.getItem(k);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) allLocal = allLocal.concat(parsed);
+            }
+          } catch(e){}
+        });
 
+        let remoteCourses = [];
         try {
-          const remoteCourses = await callGasMethod('fetchUserCoursesGAS', userEmail);
-          const courseMap = new Map();
-          if (Array.isArray(localCourses)) {
-            localCourses.forEach(c => { if (c && c.course_name) courseMap.set(c.course_name, c); });
-          }
-          if (Array.isArray(remoteCourses)) {
-            remoteCourses.forEach(c => { if (c && c.course_name) courseMap.set(c.course_name, c); });
-          }
-          const finalCourses = Array.from(courseMap.values());
-          renderSavedCoursesModalList(finalCourses, userEmail);
+          remoteCourses = await callGasMethod('fetchUserCoursesGAS', userEmail);
+          if (!Array.isArray(remoteCourses)) remoteCourses = [];
         } catch (err) {
-          renderSavedCoursesModalList(localCourses, userEmail);
+          remoteCourses = [];
         }
+
+        const courseMap = new Map();
+        [...allLocal, ...remoteCourses].forEach(c => {
+          if (c) {
+            const key = c.course_name || c.name || (c.id ? String(c.id) : null);
+            if (key) courseMap.set(key, c);
+          }
+        });
+
+        const finalCourses = Array.from(courseMap.values());
+        renderSavedCoursesModalList(finalCourses, userEmail);
       };
 
       window.closeSavedCoursesModal = function() {
