@@ -17,13 +17,7 @@ function getBackendUrl() {
  * Get current Google User Email from Active Session
  */
 function getCurrentGoogleUserGAS() {
-  try {
-    var email = Session.getEffectiveUser().getEmail();
-    if (email && email.indexOf('@') !== -1) {
-      return { status: 'success', email: email, nickname: email.split('@')[0] };
-    }
-  } catch(e) {}
-  return { status: 'fallback', email: 'guest@sejong.go.kr', nickname: '게스트' };
+  return { status: 'success', email: 'guest@sejong.go.kr', nickname: '게스트' };
 }
 
 /**
