@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>시 소설 쓰기 (Local Runner)</title>
+  
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts Outfit & Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Embedded style.html content -->
+  <style>
+    :root {
+      --bg-main: #0a0e17;
+      --bg-card: rgba(20, 26, 43, 0.65);
+      --bg-input: rgba(13, 17, 28, 0.8);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.2);
+      
+      --primary: #6366f1;
+      --primary-gradient: linear-gradient(135deg, #6366f1, #d946ef);
+      --primary-hover-gradient: linear-gradient(135deg, #4f46e5, #c084fc);
+      --accent: #d946ef;
+      
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-disabled: #4b5563;
+      
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      
+      --font-family: 'Inter', sans-serif;
+      --font-header: 'Outfit', sans-serif;
+      
+      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.2);
+      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+      --shadow-glow: 0 0 15px rgba(99, 102, 241, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      min-height: 100vh;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-image: 
+        radial-gradient(at 10% 20%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 90% 80%, rgba(217, 70, 239, 0.1) 0px, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 1200px;
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: var(--shadow-lg), var(--shadow-glow);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Header Section */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+    }
+
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-logo i {
+      font-size: 2.2rem;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.3));
+    }
+
+    h1 {
+      font-family: var(--font-header);
+      font-weight: 800;
+      font-size: 1.8rem;
+      letter-spacing: -0.5px;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* Core Layout Grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Card Component */
+    .card {
+      background: rgba(13, 17, 28, 0.4);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(99, 102, 241, 0.3);
+      box-shadow: var(--shadow-md), 0 0 10px rgba(99, 102, 241, 0.05);
+    }
+
+    .card-title {
+      font-family: var(--font-header);
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 10px;
+    }
+
+    .card-title i {
+      color: var(--primary);
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .input-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Input fields */
+    .input-field {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .input-field:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    .textarea-field {
+      width: 100%;
+      min-height: 120px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      font-size: 0.9rem;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .textarea-field:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    /* Toggle Switch */
+    .switch-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 4px;
+      transition: border-color 0.2s ease;
+    }
+
+    .switch-container:hover {
+      border-color: var(--border-hover);
+    }
+
+    .switch-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    .switch-label i {
+      width: 16px;
+      text-align: center;
+      color: var(--primary);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 26px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--text-disabled);
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background: var(--primary-gradient);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--primary-gradient);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      padding: 12px 20px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn:hover {
+      background: var(--primary-hover-gradient);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 12px rgba(99, 102, 241, 0.2);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn:disabled {
+      background: var(--text-disabled);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--border-hover);
+      box-shadow: none;
+    }
+
+    /* Settings Panel */
+    .settings-card {
+      border-left: 3px solid var(--primary);
+      background: rgba(99, 102, 241, 0.02);
+    }
+
+    /* Chat Area & Output Board */
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      height: 580px;
+    }
+
+    .chat-history {
+      flex-grow: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding-right: 8px;
+    }
+
+    .chat-history::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .chat-history::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 3px;
+    }
+
+    .chat-history::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+
+    .chat-history::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .empty-chat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-secondary);
+      gap: 16px;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+      opacity: 0.3;
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+
+    /* Response Card Styles */
+    .response-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.3s ease;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .response-card.active {
+      border-color: rgba(99, 102, 241, 0.3);
+      background: rgba(99, 102, 241, 0.02);
+      box-shadow: var(--shadow-md), 0 0 15px rgba(99, 102, 241, 0.05);
+    }
+
+    .response-title {
+      font-family: var(--font-header);
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--primary);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 8px;
+    }
+
+    .response-title i {
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .response-body {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+
+    /* Loader styling inside output area */
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 16px;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(99, 102, 241, 0.1);
+      border-top: 3px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .btn .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top: 2px solid white;
+    }
+
+    /* Animations */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.05); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React & ReactDOM (Production UMD) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- React Logic -->
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const safeLocalStorage = {
+      getItem: (key) => {
+        try { return localStorage.getItem(key); }
+        catch (e) { return null; }
+      },
+      setItem: (key, value) => {
+        try { localStorage.setItem(key, value); }
+        catch (e) {}
+      }
+    };
+
+    function App() {
+      const [apiBaseUrl, setApiBaseUrl] = useState(
+        safeLocalStorage.getItem("langchain_server_api_url") || "http://localhost:8000"
+      );
+      const [showSettings, setShowSettings] = useState(false);
+      
+      const [topic, setTopic] = useState("");
+      const [selectedModel, setSelectedModel] = useState("OpenAIModel+소설 작성");
+      const [writeNovel, setWriteNovel] = useState(true);
+      const [writePoem, setWritePoem] = useState(false);
+      
+      const [isLoading, setIsLoading] = useState(false);
+      const [responses, setResponses] = useState(null);
+      const [errorMsg, setErrorMsg] = useState("");
+
+      const handleApiUrlChange = (e) => {
+        const url = e.target.value.trim().replace(/\/$/, "");
+        setApiBaseUrl(url);
+        safeLocalStorage.setItem("langchain_server_api_url", url);
+      };
+
+      const handleRequest = async () => {
+        if (!topic.trim()) {
+          alert("주제를 입력해 주세요.");
+          return;
+        }
+        if (!writeNovel && !writePoem) {
+          alert("작성을 원하는 항목을 최소 하나 이상 선택해 주세요.");
+          return;
+        }
+
+        const currentTopic = topic.trim();
+        setTopic("");
+        setIsLoading(true);
+        setErrorMsg("");
+        setResponses(null);
+
+        const isLlama = selectedModel.startsWith("llamaModel");
+        const modelPrefix = isLlama ? "llama" : "openai";
+
+        const requests = [];
+        let finalNovel = "";
+        let finalPoem = "";
+
+        if (writeNovel) {
+          requests.push(
+            fetch(`${apiBaseUrl}/${modelPrefix}/novel/invoke`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ input: { topic: currentTopic } })
+            })
+            .then(async (res) => {
+              if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "소설 생성 실패");
+              }
+              const data = await res.json();
+              finalNovel = data.output || "작성된 소설이 없습니다.";
+            })
+            .catch(err => {
+              console.error(err);
+              finalNovel = `⚠️ 소설 작성 중 오류가 발생했습니다: ${err.message}`;
+            })
+          );
+        }
+
+        if (writePoem) {
+          requests.push(
+            fetch(`${apiBaseUrl}/${modelPrefix}/poem/invoke`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ input: { topic: currentTopic } })
+            })
+            .then(async (res) => {
+              if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "시 생성 실패");
+              }
+              const data = await res.json();
+              finalPoem = data.output || "작성된 시가 없습니다.";
+            })
+            .catch(err => {
+              console.error(err);
+              finalPoem = `⚠️ 시 작성 중 오류가 발생했습니다: ${err.message}`;
+            })
+          );
+        }
+
+        try {
+          await Promise.all(requests);
+          setResponses({
+            novel: finalNovel,
+            poem: finalPoem
+          });
+        } catch (e) {
+          setErrorMsg("API 호출 도중 예기치 못한 에러가 발생했습니다.");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      return (
+        <div className="app-container">
+          <header>
+            <div className="header-logo">
+              <i className="fa-solid fa-pen-nib"></i>
+              <div>
+                <h1>시 소설 쓰기</h1>
+                <div className="subtitle">AI Creative Writing Assistant (Langchain & Langserve)</div>
+              </div>
+            </div>
+            <div className="header-actions">
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setShowSettings(!showSettings)}
+                style={{ padding: '8px 12px' }}
+              >
+                <i className="fa-solid fa-gear"></i> 설정
+              </button>
+            </div>
+          </header>
+
+          {showSettings && (
+            <div className="card settings-card">
+              <div className="card-title" style={{ fontSize: '0.95rem', borderBottom: 'none', paddingBottom: 0 }}>
+                <i className="fa-solid fa-network-wired"></i> API 주소 설정
+              </div>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  value={apiBaseUrl}
+                  onChange={handleApiUrlChange}
+                  placeholder="예: http://localhost:8000"
+                />
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                * 로컬 테스트 시 <code>http://localhost:8000</code>을 사용하고, Render 배포 시 해당 배포 주소를 지정하세요.
+              </p>
+            </div>
+          )}
+
+          <div className="main-grid">
+            <div className="card">
+              <div className="card-title">
+                <i className="fa-solid fa-sliders"></i> 설정 및 주제 입력
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">수행 모델 선택하기</label>
+                <select 
+                  className="input-field"
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                >
+                  <option value="OpenAIModel+소설 작성">OpenAIModel+소설 작성</option>
+                  <option value="OpenAIModel+시작성">OpenAIModel+시작성</option>
+                  <option value="llamaModel+소설 작성">llamaModel+소설 작성</option>
+                  <option value="llamaModel+시작성">llamaModel+시작성</option>
+                </select>
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">작성을 원하는 항목 선택하기</label>
+                
+                <div className="switch-container">
+                  <div className="switch-label">
+                    <i className="fa-solid fa-book"></i>
+                    <span>소설</span>
+                  </div>
+                  <label className="switch">
+                    <input 
+                      type="checkbox" 
+                      checked={writeNovel} 
+                      onChange={(e) => setWriteNovel(e.target.checked)}
+                    />
+                    <span className="slider"></span>
+                  </label>
+                </div>
+
+                <div className="switch-container">
+                  <div className="switch-label">
+                    <i className="fa-solid fa-feather-pointed"></i>
+                    <span>시</span>
+                  </div>
+                  <label className="switch">
+                    <input 
+                      type="checkbox" 
+                      checked={writePoem} 
+                      onChange={(e) => setWritePoem(e.target.checked)}
+                    />
+                    <span className="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">주제를 입력하기</label>
+                <textarea 
+                  className="textarea-field"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="예: 푸른 가을 하늘 아래 피어난 코스모스"
+                  disabled={isLoading}
+                />
+              </div>
+
+              <button 
+                className="btn btn-primary"
+                onClick={handleRequest}
+                disabled={isLoading || !topic.trim()}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="spinner"></div> 작성 중...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-paper-plane"></i> 작성요청 보내기
+                  </>
+                )}
+              </button>
+
+              {errorMsg && (
+                <div style={{ color: 'var(--danger)', fontSize: '0.8rem', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="card chat-panel">
+              <div className="card-title">
+                <i className="fa-solid fa-file-invoice"></i> 작품 응답 영역
+              </div>
+
+              <div className="chat-history">
+                {isLoading && (
+                  <div className="loading-container">
+                    <div className="spinner"></div>
+                    <h3>AI 질문중입니다</h3>
+                    <p style={{ fontSize: '0.85rem' }}>선택하신 작품 형식을 AI가 창작하고 있습니다. 잠시만 기다려 주세요.</p>
+                  </div>
+                )}
+
+                {!isLoading && !responses && (
+                  <div className="empty-chat">
+                    <div className="empty-icon">
+                      <i className="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <h3>창작된 작품이 여기에 표시됩니다</h3>
+                    <p>
+                      왼쪽 패널에서 수행할 모델, 장르(소설/시), 그리고 주제를 입력하신 후<br />
+                      <strong>[작성요청 보내기]</strong> 버튼을 클릭하여 아름다운 이야기를 써보세요.
+                    </p>
+                  </div>
+                )}
+
+                {!isLoading && responses && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {writeNovel && responses.novel && (
+                      <div className="response-card active">
+                        <div className="response-title">
+                          <i className="fa-solid fa-book-open"></i> 소설 창작 결과
+                        </div>
+                        <div className="response-body">
+                          {responses.novel}
+                        </div>
+                      </div>
+                    )}
+
+                    {writePoem && responses.poem && (
+                      <div className="response-card active">
+                        <div className="response-title">
+                          <i className="fa-solid fa-feather"></i> 시 창작 결과
+                        </div>
+                        <div className="response-body">
+                          {responses.poem}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>

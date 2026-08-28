@@ -1,3 +1,12 @@
 __pycache__/
 *.pyc
 .env
+.venv/
+venv/
+.git_backup/
+node_modules/
+chroma_db/
+.gemini/
+.vscode/
+.idea/
+*.log

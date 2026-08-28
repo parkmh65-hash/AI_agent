@@ -1038,25 +1038,27 @@ async def save_generated_course_to_db(course_data: Dict[str, Any], user_id: str 
                 await client.post(insert_url, headers=headers, json=payload, timeout=4.0)
                 logger.info(f"Successfully inserted new course '{course_name}' into public.courses database.")
                 
-            # 2. Upsert into public.courses_vector table (without embedding field to respect no-vectorize user rule)
-            check_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector?course_name=eq.{urllib.parse.quote(course_name)}&select=id"
-            res_vec_check = await client.get(check_vec_url, headers=headers, timeout=4.0)
-            
-            vec_id = None
-            if res_vec_check.status_code == 200:
-                vec_records = res_vec_check.json()
-                if len(vec_records) > 0:
-                    vec_id = vec_records[0]["id"]
-                    
-            # Payload for courses_vector doesn't include "embedding" key to bypass vectorize processing
-            if vec_id:
-                patch_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector?id=eq.{vec_id}"
-                await client.patch(patch_vec_url, headers=headers, json=payload, timeout=4.0)
-                logger.info(f"Successfully updated course '{course_name}' in public.courses_vector database.")
-            else:
-                insert_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector"
-                await client.post(insert_vec_url, headers=headers, json=payload, timeout=4.0)
-                logger.info(f"Successfully inserted new course '{course_name}' into public.courses_vector database.")
+            # 2. Upsert into public.courses_vector table (without embedding field) safely
+            try:
+                check_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector?course_name=eq.{urllib.parse.quote(course_name)}&select=id"
+                res_vec_check = await client.get(check_vec_url, headers=headers, timeout=4.0)
+                
+                vec_id = None
+                if res_vec_check.status_code == 200:
+                    vec_records = res_vec_check.json()
+                    if len(vec_records) > 0:
+                        vec_id = vec_records[0]["id"]
+                        
+                if vec_id:
+                    patch_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector?id=eq.{vec_id}"
+                    await client.patch(patch_vec_url, headers=headers, json=payload, timeout=4.0)
+                    logger.info(f"Successfully updated course '{course_name}' in public.courses_vector database.")
+                else:
+                    insert_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector"
+                    await client.post(insert_vec_url, headers=headers, json=payload, timeout=4.0)
+                    logger.info(f"Successfully inserted new course '{course_name}' into public.courses_vector database.")
+            except Exception as vec_err:
+                logger.warning(f"courses_vector save bypassed/failed: {vec_err}")
                 
     except Exception as e:
         logger.error(f"Error saving generated course to database: {e}")

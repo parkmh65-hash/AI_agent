@@ -450,11 +450,14 @@
           </header>
 
           <!-- Common Leaflet Map Container (Fixed at top of content area, hidden in Report tab) -->
-          <div id="map-container" style="width: 100%; aspect-ratio: 2 / 3; height: auto; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1;">
+          <div id="map-container" style="width: 100%; aspect-ratio: 5 / 6; height: auto; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1;">
           </div>
 
-          <!-- Scrollable Main Content Viewport -->
-          <main style="padding: 16px; flex: 1; overflow-y: auto; display: flex; flex-direction: column;">
+          <!-- Scrollable Main Content Viewport (Overlapping Sheet overlaying map) -->
+          <main style="padding: 12px 16px 24px 16px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; z-index: 10; margin-top: -36px; background: rgba(9, 13, 22, 0.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top-left-radius: 24px; border-top-right-radius: 24px; border-top: 1px solid rgba(0, 245, 212, 0.3); box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6); transition: margin-top 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.3s ease;">
+            
+            <!-- Sheet Drag / Overlap Handle Indicator -->
+            <div id="sheet-drag-handle" style="width: 44px; height: 5px; background: rgba(255, 255, 255, 0.35); border-radius: 3px; margin: 2px auto 14px auto; flex-shrink: 0; cursor: pointer; touch-action: none;" title="드래그 또는 클릭하여 지도 오버랩 크기 조절"></div>
             
             <!-- Tab 1: Home View -->
             <section id="section-home">
@@ -796,22 +799,64 @@
             } else if (methodName === 'checkGasDbConfigurationStatus') {
               resolve({ configured: true, working: true, url: 'https://pdpmtgnagwzcsftavtap.supabase.co', error: '' });
             } else if (methodName === 'fetchUserCoursesGAS') {
-              const localSaved = safeLocalStorage.getItem('user_saved_courses');
-              resolve(localSaved ? JSON.parse(localSaved) : []);
+              const userEmail = args[0] || 'guest@sejong.go.kr';
+              fetch(${CLOUD_RUN_URL}/api/v1/db/user-courses?user_id=)
+                .then(r => r.json())
+                .then(d => {
+                  if (d.status === 'success' && d.courses) {
+                    resolve(d.courses);
+                  } else {
+                    const localSaved = safeLocalStorage.getItem('user_saved_courses');
+                    resolve(localSaved ? JSON.parse(localSaved) : []);
+                  }
+                })
+                .catch(() => {
+                  const localSaved = safeLocalStorage.getItem('user_saved_courses');
+                  resolve(localSaved ? JSON.parse(localSaved) : []);
+                });
             } else if (methodName === 'saveUserCourseGAS') {
               const courseData = args[0];
-              let localSaved = safeLocalStorage.getItem('user_saved_courses');
-              let coursesList = localSaved ? JSON.parse(localSaved) : [];
-              coursesList.unshift({ ...courseData, id: Date.now(), created_at: new Date().toISOString() });
-              safeLocalStorage.setItem('user_saved_courses', JSON.stringify(coursesList));
-              resolve({ status: 'success', message: 'Course saved (local fallback)' });
+              fetch(${CLOUD_RUN_URL}/api/v1/db/save-course, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(courseData)
+              })
+                .then(r => r.json())
+                .then(d => {
+                  let localSaved = safeLocalStorage.getItem('user_saved_courses');
+                  let coursesList = localSaved ? JSON.parse(localSaved) : [];
+                  coursesList.unshift({ ...courseData, id: Date.now(), created_at: new Date().toISOString() });
+                  safeLocalStorage.setItem('user_saved_courses', JSON.stringify(coursesList));
+                  resolve(d.status === 'success' ? d : { status: 'success', message: 'Course saved (local fallback)' });
+                })
+                .catch(() => {
+                  let localSaved = safeLocalStorage.getItem('user_saved_courses');
+                  let coursesList = localSaved ? JSON.parse(localSaved) : [];
+                  coursesList.unshift({ ...courseData, id: Date.now(), created_at: new Date().toISOString() });
+                  safeLocalStorage.setItem('user_saved_courses', JSON.stringify(coursesList));
+                  resolve({ status: 'success', message: 'Course saved (local fallback)' });
+                });
             } else if (methodName === 'deleteUserCourseGAS') {
               const courseId = args[0];
-              let localSaved = safeLocalStorage.getItem('user_saved_courses');
-              let coursesList = localSaved ? JSON.parse(localSaved) : [];
-              coursesList = coursesList.filter(c => c.id !== courseId);
-              safeLocalStorage.setItem('user_saved_courses', JSON.stringify(coursesList));
-              resolve({ status: 'success', message: 'Course deleted (local fallback)' });
+              const userEmail = args[1] || 'guest@sejong.go.kr';
+              fetch(${CLOUD_RUN_URL}/api/v1/db/delete-course?course_id=&user_id=, {
+                method: 'DELETE'
+              })
+                .then(r => r.json())
+                .then(d => {
+                  let localSaved = safeLocalStorage.getItem('user_saved_courses');
+                  let coursesList = localSaved ? JSON.parse(localSaved) : [];
+                  coursesList = coursesList.filter(c => c.id !== courseId);
+                  safeLocalStorage.setItem('user_saved_courses', JSON.stringify(coursesList));
+                  resolve(d);
+                })
+                .catch(() => {
+                  let localSaved = safeLocalStorage.getItem('user_saved_courses');
+                  let coursesList = localSaved ? JSON.parse(localSaved) : [];
+                  coursesList = coursesList.filter(c => c.id !== courseId);
+                  safeLocalStorage.setItem('user_saved_courses', JSON.stringify(coursesList));
+                  resolve({ status: 'success', message: 'Course deleted (local fallback)' });
+                });
             } else {
               resolve({ status: 'success' });
             }
@@ -1028,15 +1073,15 @@
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           }).addTo(mapInstance);
 
-        // National Heritage GIS WMS Overlay Layer
-        L.tileLayer.wms('https://gis-heritage.go.kr/checkKey.do', {
-          layers: 'TB_THFS_MID',
-          format: 'image/png',
-          transparent: true,
-          version: '1.3.0',
-          domain: 'https://gis-heritage.go.kr/',
-          attribution: '&copy; \uad6d\uac00\uc720\uc0b0 \uacf5\uac04\uc815\ubcf4 \uc11c\ube44\uc2a4'
-        }).addTo(mapInstance);
+          // National Heritage GIS WMS Overlay Layer
+          L.tileLayer.wms('https://gis-heritage.go.kr/checkKey.do', {
+            layers: 'TB_THFS_MID',
+            format: 'image/png',
+            transparent: true,
+            version: '1.3.0',
+            domain: 'https://gis-heritage.go.kr/',
+            attribution: '&copy; \uad6d\uac00\uc720\uc0b0 \uacf5\uac04\uc815\ubcf4 \uc11c\ube44\uc2a4'
+          }).addTo(mapInstance);
           
           // Fix map size on render delay
           setTimeout(() => {
@@ -1046,6 +1091,59 @@
           console.error("Map init failed:", e);
         }
       }
+
+      // Shortest Path Nearest-Neighbor sorting function (Haversine formula based TSP)
+      function sortNodesByNearestNeighbor(items) {
+        if (!items || items.length <= 1) return items;
+
+        function getDist(lat1, lon1, lat2, lon2) {
+          const R = 6371; // Earth radius in km
+          const dLat = (lat2 - lat1) * Math.PI / 180;
+          const dLon = (lon2 - lon1) * Math.PI / 180;
+          const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+          return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * R;
+        }
+
+        let bestPath = [...items];
+        let minTotalDist = Infinity;
+
+        for (let startIdx = 0; startIdx < items.length; startIdx++) {
+          const unvisited = [...items];
+          let current = unvisited.splice(startIdx, 1)[0];
+          const path = [current];
+          let totalDist = 0;
+
+          while (unvisited.length > 0) {
+            const cLat = parseFloat(current.latitude || current.lat) || 36.48;
+            const cLng = parseFloat(current.longitude || current.lng) || 127.28;
+            let closestIdx = 0;
+            let closestDist = Infinity;
+
+            for (let i = 0; i < unvisited.length; i++) {
+              const candLat = parseFloat(unvisited[i].latitude || unvisited[i].lat) || 36.48;
+              const candLng = parseFloat(unvisited[i].longitude || unvisited[i].lng) || 127.28;
+              const dist = getDist(cLat, cLng, candLat, candLng);
+              if (dist < closestDist) {
+                closestDist = dist;
+                closestIdx = i;
+              }
+            }
+
+            totalDist += closestDist;
+            current = unvisited.splice(closestIdx, 1)[0];
+            path.push(current);
+          }
+
+          if (totalDist < minTotalDist) {
+            minTotalDist = totalDist;
+            bestPath = path;
+          }
+        }
+
+        return bestPath;
+      }
  
       // 6. Update Map Markers and Connecting Polyline Paths
       function updateMap(listToShow, showPath = true) {
@@ -1054,7 +1152,13 @@
         // Force Leaflet to recalculate container size based on aspect-ratio styling
         mapInstance.invalidateSize();
         
-        window.mapItemCache = listToShow; // Cache items globally to prevent single quote syntax errors
+
+        // Calculate shortest-path nearest-neighbor sequence when connecting nodes
+        let targetList = listToShow;
+        if (showPath && listToShow && listToShow.length > 1) {
+          targetList = sortNodesByNearestNeighbor(listToShow);
+        }
+        window.mapItemCache = targetList; // Cache items globally to prevent single quote syntax errors
         
         // Clear old markers & paths
         mapMarkers.forEach(m => mapInstance.removeLayer(m));
@@ -1065,13 +1169,13 @@
         }
  
         const latlngs = [];
-        listToShow.forEach((item, index) => {
+        targetList.forEach((item, index) => {
           const lat = parseFloat(item.latitude || item.lat) || 36.48;
           const lng = parseFloat(item.longitude || item.lng) || 127.28;
           latlngs.push([lat, lng]);
  
           // If showPath is false, treat it as a collection of individual heritages (no numbering, gold-rose style)
-          const useSingleStyle = !showPath || listToShow.length === 1;
+          const useSingleStyle = !showPath || targetList.length === 1;
           const sequenceIcon = L.divIcon({
             className: 'custom-sequence-marker-container',
             html: `
@@ -1262,6 +1366,43 @@
 
         // Submission form handler
         document.getElementById('report-form').addEventListener('submit', handleReportSubmit);
+
+        // Bottom sheet interactive drag/click expand-collapse logic
+        const sheetHandle = document.getElementById('sheet-drag-handle');
+        const mainSheet = document.querySelector('main');
+        if (sheetHandle && mainSheet) {
+          let startY = 0;
+          let isDragging = false;
+
+          sheetHandle.addEventListener('click', () => {
+            const isExpanded = mainSheet.dataset.expanded === 'true';
+            mainSheet.dataset.expanded = !isExpanded ? 'true' : 'false';
+            mainSheet.style.marginTop = !isExpanded ? '-180px' : '-36px';
+            if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 300);
+          });
+
+          sheetHandle.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+            isDragging = true;
+          });
+
+          sheetHandle.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const deltaY = e.touches[0].clientY - startY;
+            if (deltaY < -30) {
+              mainSheet.dataset.expanded = 'true';
+              mainSheet.style.marginTop = '-180px';
+            } else if (deltaY > 30) {
+              mainSheet.dataset.expanded = 'false';
+              mainSheet.style.marginTop = '-36px';
+            }
+          });
+
+          sheetHandle.addEventListener('touchend', () => {
+            isDragging = false;
+            if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 300);
+          });
+        }
       }
 
       // 9. Tab View switcher
@@ -1286,9 +1427,14 @@
 
         // Show or hide the shared Leaflet map container dynamically
         const mapContainer = document.getElementById('map-container');
+        const mainSheet = document.querySelector('main');
         if (mapContainer) {
           const hideMap = tab === 'report' || (isHome && activeWizardStep === 3) || (targetStep === 3);
           mapContainer.style.display = hideMap ? 'none' : 'block';
+          if (mainSheet) {
+            mainSheet.style.marginTop = hideMap ? '0px' : (mainSheet.dataset.expanded === 'true' ? '-180px' : '-36px');
+            mainSheet.style.borderRadius = hideMap ? '0' : '24px 24px 0 0';
+          }
         }
 
         // Apply wizard step change if requested
@@ -1433,8 +1579,14 @@
 
         // Show or hide map container based on wizard step
         const mapContainer = document.getElementById('map-container');
+        const mainSheet = document.querySelector('main');
         if (mapContainer) {
-          mapContainer.style.display = (step === 3) ? 'none' : 'block';
+          const hideMap = (step === 3);
+          mapContainer.style.display = hideMap ? 'none' : 'block';
+          if (mainSheet) {
+            mainSheet.style.marginTop = hideMap ? '0px' : (mainSheet.dataset.expanded === 'true' ? '-180px' : '-36px');
+            mainSheet.style.borderRadius = hideMap ? '0' : '24px 24px 0 0';
+          }
         }
 
         // Map focus synchronization depending on step
@@ -1442,7 +1594,7 @@
           setTimeout(() => {
             mapInstance.invalidateSize();
             if (step === 1) {
-              updateMap(ragCards, false);
+              updateMap(ragCards, true);
             } else if (step === 2 || step === 3) {
               updateMap(courseList, true);
             }
@@ -1497,7 +1649,7 @@
 
           renderRAGCards();
           renderCourseList();
-          updateMap(ragCards, false);
+          updateMap(ragCards, true);
 
           showToast('✅ 추천 완료: 추천 문화유산 5선이 코스에 자동으로 추가되었습니다. 하단의 [2단계: 동선] 메뉴를 클릭하여 확인해 보세요!');
           
@@ -1554,10 +1706,6 @@
           
           document.getElementById('step-2-course-wrapper').style.display = 'flex';
           showToast('✅ 2단계 완료: 문화유산 및 주변 관광지가 매핑되었습니다.');
-          
-          setTimeout(() => {
-            switchTab('step3');
-          }, 1000);
         } catch(err) {
           showToast(`❌ 2단계 에러: ${err.message}`);
         } finally {
@@ -1573,6 +1721,9 @@
 
       // 13. Course Planner Lists Rendering & Duration Calculations
       function renderCourseList() {
+        if (courseList.length > 1) {
+          courseList = sortNodesByNearestNeighbor(courseList);
+        }
         const tabContainer = document.getElementById('course-items-list');
         const wizardContainer = document.getElementById('wizard-course-items-list');
 
