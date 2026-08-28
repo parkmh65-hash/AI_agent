@@ -1101,15 +1101,68 @@
           setTimeout(() => mapInstance.invalidateSize(), 350);
         }
       };
+      // 5.5 Shortest Path Algorithm (Greedy Nearest Neighbor TSP)
+      function calculateGeoDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Earth radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = 
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // Distance in kilometers
+      }
+
+      function sortRouteByNearestNeighbor(items) {
+        if (!Array.isArray(items) || items.length <= 2) return items;
+
+        const unvisited = [...items];
+        const sorted = [];
+
+        // Start with Node 1 (index 0) as anchor
+        let current = unvisited.shift();
+        sorted.push(current);
+
+        while (unvisited.length > 0) {
+          const curLat = parseFloat(current.latitude || current.lat) || 36.48;
+          const curLng = parseFloat(current.longitude || current.lng) || 127.28;
+
+          let nearestIdx = 0;
+          let minDistance = Infinity;
+
+          for (let i = 0; i < unvisited.length; i++) {
+            const target = unvisited[i];
+            const targetLat = parseFloat(target.latitude || target.lat) || 36.48;
+            const targetLng = parseFloat(target.longitude || target.lng) || 127.28;
+
+            const dist = calculateGeoDistance(curLat, curLng, targetLat, targetLng);
+            if (dist < minDistance) {
+              minDistance = dist;
+              nearestIdx = i;
+            }
+          }
+
+          current = unvisited.splice(nearestIdx, 1)[0];
+          sorted.push(current);
+        }
+
+        return sorted;
+      }
  
       // 6. Update Map Markers and Connecting Polyline Paths
       function updateMap(listToShow, showPath = true) {
         if (!mapInstance) return;
         
-        // Force Leaflet to recalculate container size based on aspect-ratio styling
+        // Force Leaflet to recalculate container size
         mapInstance.invalidateSize();
+
+        // Apply Nearest Neighbor Shortest Path algorithm starting from Node 1
+        if (showPath && Array.isArray(listToShow) && listToShow.length > 1) {
+          listToShow = sortRouteByNearestNeighbor(listToShow);
+        }
         
-        window.mapItemCache = listToShow; // Cache items globally to prevent single quote syntax errors
+        window.mapItemCache = listToShow; // Cache items globally
         
         // Clear old markers & paths
         mapMarkers.forEach(m => mapInstance.removeLayer(m));
@@ -1631,13 +1684,33 @@
         const tabContainer = document.getElementById('course-items-list');
         const wizardContainer = document.getElementById('wizard-course-items-list');
 
+        // Apply Nearest Neighbor Shortest Path Algorithm starting from Node 1 (index 0)
+        if (Array.isArray(courseList) && courseList.length > 1) {
+          courseList = sortRouteByNearestNeighbor(courseList);
+        }
+
+        // Calculate total shortest path distance
+        let totalPathDistanceKm = 0;
+        for (let i = 0; i < courseList.length - 1; i++) {
+          const lat1 = parseFloat(courseList[i].latitude || courseList[i].lat) || 36.48;
+          const lon1 = parseFloat(courseList[i].longitude || courseList[i].lng) || 127.28;
+          const lat2 = parseFloat(courseList[i+1].latitude || courseList[i+1].lat) || 36.48;
+          const lon2 = parseFloat(courseList[i+1].longitude || courseList[i+1].lng) || 127.28;
+          totalPathDistanceKm += calculateGeoDistance(lat1, lon1, lat2, lon2);
+        }
+
         const markup = courseList.map((item, idx) => `
-          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
-            <span onclick="showCourseCardDetail(${idx})" style="font-size: 0.8rem; color: #fff; font-weight: 600; cursor: pointer; transition: color 0.2s;">
-              ${idx + 1}. ${item.name}
-            </span>
+          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.25); padding: 8px 12px; border-radius: 8px; margin-bottom: 8px; border: 1px solid rgba(0,245,212,0.15);">
+            <div onclick="showCourseCardDetail(${idx})" style="display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1;">
+              <span style="background: linear-gradient(135deg, #00f5d4, #7209b7); color: #fff; font-size: 0.72rem; font-weight: 900; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                ${idx + 1}
+              </span>
+              <span style="font-size: 0.8rem; color: #fff; font-weight: 600;">
+                ${item.name}
+              </span>
+            </div>
             <button onclick="removeCourseItem('${item.id}')" style="background: none; border: none; color: #f43f5e; cursor: pointer; font-size: 0.78rem; position: relative; z-index: 2;">
-              \uc0ad\uc81c
+              삭제
             </button>
           </div>
         `).join('');
@@ -1646,17 +1719,22 @@
           const listActionsWrapper = document.getElementById('course-list-actions');
           if (courseList.length > 0) {
             listActionsWrapper.innerHTML = `
-              <strong style="font-size: 0.88rem; color: #fff;">\ubaa9\uc801\uc9c0 \ubaa9\ub85d (${courseList.length}\uac1c)</strong>
-              <button id="clear-course-btn" onclick="clearAllCourse()" style="background: none; border: none; color: #f43f5e; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
-                \u1f5d1\ufe0f \uc804\uccb4 \ube44\uc6b0\uae30
-              </button>
+              <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="font-size: 0.88rem; color: #fff;">목적지 목록 (${courseList.length}개)</strong>
+                  <button id="clear-course-btn" onclick="clearAllCourse()" style="background: none; border: none; color: #f43f5e; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
+                    🗑️ 전체 비우기
+                  </button>
+                </div>
+                ${courseList.length > 1 ? `<div style="font-size: 0.72rem; color: #00f5d4; background: rgba(0, 245, 212, 0.1); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(0, 245, 212, 0.25);">⚡ 1번 노드 기반 최단거리 탐색 연결 완료 (총 ${totalPathDistanceKm.toFixed(1)} km)</div>` : ''}
+              </div>
             `;
           } else {
-            listActionsWrapper.innerHTML = `<strong style="font-size: 0.88rem; color: #fff;">\ubaa9\uc801\uc9c0 \ubaa9\ub85d (0\uac1c)</strong>`;
+            listActionsWrapper.innerHTML = `<strong style="font-size: 0.88rem; color: #fff;">목적지 목록 (0개)</strong>`;
           }
           tabContainer.innerHTML = courseList.length > 0 ? markup : `
             <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; padding: 20px 0;">
-              \ucd94\uac00\ub41c \ubb38\ud654\uc720\uc0b0\uc774 \uc5c6\uc2b5\ub2c8\ub2e4. \uba54\uc778 \ud0ed\uc5d0\uc11c \ucf54\uc2a4\ub97c \ube4c\ub4dc\ud558\uc138\uc694.
+              추가된 문화유산이 없습니다. 메인 탭에서 코스를 빌드하세요.
             </div>
           `;
         }
@@ -1664,7 +1742,7 @@
         if (wizardContainer) {
           wizardContainer.innerHTML = courseList.length > 0 ? markup : `
             <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; padding: 20px 0;">
-              \ucd94\uac00\ub41c \uba85\uc18c\uac00 \uc5c6\uc2b5\ub2c8\ub2e4. 2\ub2e8\uacc4 \uc5f0\ub3d9 \ubc84\ud2bc\uc744 \uc2e4\ud589\ud574 \uba85\uc18c\ub97c \ubd88\ub7ec\uc624\uc138\uc694.
+              추가된 명소가 없습니다. 2단계 연동 버튼을 실행해 명소를 불러오세요.
             </div>
           `;
         }
