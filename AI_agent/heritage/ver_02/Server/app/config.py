@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     PORT: int = int(os.getenv("PORT", 8080))
     
     # Read Supabase Credentials dynamically from Google Cloud Run Environment Variables / Properties
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://wylcqlmffchvufxpxydc.supabase.co")
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co")
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
     
     # LLM Settings (OpenAI / Gemini API keys)

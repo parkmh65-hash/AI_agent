@@ -32,7 +32,7 @@ GAS 백엔드 프록시가 각각 분리된 DB 저장소와 통신하도록 **�
 
 | 스크립트 속성 키 (Key) | 설명 (Description) | 예시 값 (Value Example) |
 | :--- | :--- | :--- |
-| `USER_SUPABASE_URL` | 사용자용 Supabase API 주소 | `https://wylcqlmffchvufxpxydc.supabase.co` |
+| `USER_SUPABASE_URL` | 사용자용 Supabase API 주소 | `https://pdpmtgnagwzcsftavtap.supabase.co` |
 | `USER_SUPABASE_KEY` | 사용자용 Supabase anon public API 키 | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` |
 | `SUPERVISOR_SUPABASE_URL` | 관리자용 Supabase API 주소 | `https://your-supervisor-db.supabase.co` |
 | `SUPERVISOR_SUPABASE_KEY` | 관리자용 Supabase anon public API 키 | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` |

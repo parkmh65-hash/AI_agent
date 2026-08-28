@@ -895,7 +895,7 @@
                 .then(d => resolve(d))
                 .catch(() => resolve({ status: 'success' }));
             } else if (methodName === 'checkGasDbConfigurationStatus') {
-              resolve({ configured: true, working: true, url: 'https://wylcqlmffchvufxpxydc.supabase.co', error: '' });
+              resolve({ configured: true, working: true, url: 'https://pdpmtgnagwzcsftavtap.supabase.co', error: '' });
             } else if (methodName === 'fetchUserCoursesGAS') {
               const user_id = args[0] || 'guest@sejong.go.kr';
               fetch(`${BACKEND_URL}/api/v1/db/user-courses?user_id=${encodeURIComponent(user_id)}`)
