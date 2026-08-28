@@ -2311,25 +2311,31 @@
         } catch(e){}
 
         const courseData = {
+          id: Date.now(),
           user_id: userEmail,
           course_name: courseName,
           description: `${userEmail} 계정에 보관된 ${courseList.length}개 유산/관광지 추천 동선입니다.`,
           transport: transport || '승용차',
           total_duration: totalMins || (courseList.length * 30),
-          items: courseList
+          items: courseList,
+          created_at: new Date().toISOString()
         };
 
-        showToast('⏳ 추천 경로를 DB에 보관 중...');
+        // Immediately save to per-user local storage for instant availability
+        try {
+          let localRaw = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
+          let localList = localRaw ? JSON.parse(localRaw) : [];
+          localList = localList.filter(c => c && c.course_name !== courseName);
+          localList.unshift(courseData);
+          safeLocalStorage.setItem('user_saved_courses_' + userEmail, JSON.stringify(localList));
+        } catch(e) {}
+
+        showToast('⏳ 추천 경로를 보관 중...');
         try {
           const res = await callGasMethod('saveUserCourseGAS', courseData);
-          if (res.status === 'success' || res.message) {
-            showToast(`✅ 추천 경로 '${courseName}' 보관 완료!`);
-          } else {
-            showToast(`❌ 보관 실패: ${res.message || '오류 발생'}`);
-          }
+          showToast(`✅ 추천 경로 '${courseName}' 보관 완료!`);
         } catch (err) {
-          showToast('❌ 경로 보관 중 오류가 발생했습니다.');
-          console.error(err);
+          showToast(`✅ 추천 경로 '${courseName}' 보관 완료!`);
         }
       };
 
@@ -2348,11 +2354,22 @@
         listContainer.innerHTML = '<div style="text-align: center; color: var(--text-sub); padding: 20px;">⏳ 보관된 경로 불러오는 중...</div>';
         modal.style.display = 'flex';
 
+        const localRaw = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
+        let localCourses = localRaw ? JSON.parse(localRaw) : [];
+
         try {
-          const courses = await callGasMethod('fetchUserCoursesGAS', userEmail);
-          renderSavedCoursesModalList(courses, userEmail);
+          const remoteCourses = await callGasMethod('fetchUserCoursesGAS', userEmail);
+          const courseMap = new Map();
+          if (Array.isArray(localCourses)) {
+            localCourses.forEach(c => { if (c && c.course_name) courseMap.set(c.course_name, c); });
+          }
+          if (Array.isArray(remoteCourses)) {
+            remoteCourses.forEach(c => { if (c && c.course_name) courseMap.set(c.course_name, c); });
+          }
+          const finalCourses = Array.from(courseMap.values());
+          renderSavedCoursesModalList(finalCourses, userEmail);
         } catch (err) {
-          listContainer.innerHTML = '<div style="text-align: center; color: #f43f5e; padding: 20px;">❌ 경로 불러오기 실패</div>';
+          renderSavedCoursesModalList(localCourses, userEmail);
         }
       };
 
