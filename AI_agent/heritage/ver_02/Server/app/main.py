@@ -1444,7 +1444,7 @@ async def get_initial_db_data(role: Optional[str] = "user"):
 
 @app.get("/api/v1/db/user-courses")
 async def get_user_courses(user_id: str = "guest@sejong.go.kr"):
-    """Fetch saved course recommendations for a specific user, with guest and table fallback"""
+    """Fetch saved course recommendations strictly from public.courses based on user_id email"""
     headers = get_supabase_headers()
     if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
         return {"status": "success", "courses": []}
@@ -1452,26 +1452,20 @@ async def get_user_courses(user_id: str = "guest@sejong.go.kr"):
     try:
         async with httpx.AsyncClient() as client:
             target_encoded = urllib.parse.quote(user_id)
-            url = f"{settings.SUPABASE_URL}/rest/v1/courses?or=(user_id.eq.{target_encoded},user_id.eq.guest%40sejong.go.kr)&order=created_at.desc"
+            # Query public.courses matching exact user_id
+            url = f"{settings.SUPABASE_URL}/rest/v1/courses?user_id=eq.{target_encoded}&order=created_at.desc"
             res = await client.get(url, headers=headers, timeout=5.0)
             
             courses = []
             if res.status_code == 200:
                 courses = res.json()
                 
-            if not courses:
-                url_all = f"{settings.SUPABASE_URL}/rest/v1/courses?select=*&order=created_at.desc&limit=20"
-                res_all = await client.get(url_all, headers=headers, timeout=5.0)
-                if res_all.status_code == 200:
-                    courses = res_all.json()
-                    
-            if not courses:
-                for tbl in ["saved_courses", "user_courses"]:
-                    res_tbl = await client.get(f"{settings.SUPABASE_URL}/rest/v1/{tbl}?select=*&order=created_at.desc&limit=20", headers=headers, timeout=3.0)
-                    if res_tbl.status_code == 200:
-                        courses = res_tbl.json()
-                        if courses:
-                            break
+            # If logged in user has no courses yet, check guest courses
+            if not courses and user_id != "guest@sejong.go.kr":
+                url_guest = f"{settings.SUPABASE_URL}/rest/v1/courses?user_id=eq.guest%40sejong.go.kr&order=created_at.desc"
+                res_guest = await client.get(url_guest, headers=headers, timeout=5.0)
+                if res_guest.status_code == 200:
+                    courses = res_guest.json()
 
             for c in courses:
                 c.pop("embedding", None)
