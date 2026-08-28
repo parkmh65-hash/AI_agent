@@ -1661,11 +1661,7 @@
           updateMap(courseList, true);
           
           document.getElementById('step-2-course-wrapper').style.display = 'flex';
-          showToast('✅ 2단계 완료: 문화유산 및 주변 관광지가 매핑되었습니다.');
-          
-          setTimeout(() => {
-            switchTab('step3');
-          }, 1000);
+          showToast('✅ 2단계 완료: 1번 노드 기반 최단거리 경로 및 동선이 배치되었습니다.');
         } catch(err) {
           showToast(`❌ 2단계 에러: ${err.message}`);
         } finally {
