@@ -19,11 +19,14 @@ function getBackendUrl() {
 function getCurrentGoogleUserGAS() {
   try {
     var email = Session.getActiveUser().getEmail();
-    if (email) {
+    if (!email) {
+      email = Session.getEffectiveUser().getEmail();
+    }
+    if (email && email.indexOf('@') !== -1) {
       return { status: 'success', email: email, nickname: email.split('@')[0] };
     }
   } catch(e) {}
-  return { status: 'fallback', email: 'guest@sejong.go.kr', nickname: '게스트' };
+  return { status: 'fallback', email: '', nickname: '' };
 }
 
 /**

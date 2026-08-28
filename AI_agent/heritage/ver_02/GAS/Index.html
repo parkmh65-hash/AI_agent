@@ -932,8 +932,15 @@
           showToast('⏳ Google OAuth 인증 진행 중...');
           try {
             const userRes = await callGasMethod('getCurrentGoogleUserGAS');
-            const email = (userRes && userRes.email) || 'google_user@sejong.go.kr';
-            const nickname = (userRes && userRes.nickname) || email.split('@')[0];
+            let email = (userRes && userRes.email && userRes.email.includes('@')) ? userRes.email : '';
+            let nickname = (userRes && userRes.nickname) ? userRes.nickname : '';
+
+            if (!email) {
+              const inputEmail = prompt('Google 계정 이메일을 입력하세요:', 'user@gmail.com');
+              if (!inputEmail) return;
+              email = inputEmail.trim();
+              nickname = email.split('@')[0] || '구글사용자';
+            }
             
             try { await callGasMethod('upsertUserProfileGAS', email, nickname, 'google'); } catch(e) {}
             safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
@@ -941,59 +948,70 @@
             showToast(`👋 환영합니다, ${nickname}님! (Google 로그인 완료)`);
             loadInitialData();
           } catch(err) {
-            const email = 'google_user@sejong.go.kr';
-            const nickname = '구글사용자';
-            safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
-            document.getElementById('auth-overlay').style.display = 'none';
-            showToast(`👋 환영합니다, ${nickname}님!`);
-            loadInitialData();
+            const inputEmail = prompt('Google 계정 이메일을 입력하세요:', 'user@gmail.com');
+            if (inputEmail) {
+              const email = inputEmail.trim();
+              const nickname = email.split('@')[0] || '구글사용자';
+              safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
+              document.getElementById('auth-overlay').style.display = 'none';
+              showToast(`👋 환영합니다, ${nickname}님! (Google 로그인 완료)`);
+              loadInitialData();
+            }
           }
         });
 
         // Kakao OAuth Login
         document.getElementById('kakao-login-btn').addEventListener('click', async () => {
           showToast('⏳ 카카오 계정 로그인 진행 중...');
+          let email = '';
+          let nickname = '';
           try {
             const userRes = await callGasMethod('getCurrentKakaoUserGAS');
-            const email = (userRes && userRes.email) || 'kakao_user@kakao.com';
-            const nickname = (userRes && userRes.nickname) || '카카오프렌즈';
-            
-            try { await callGasMethod('upsertUserProfileGAS', email, nickname, 'kakao'); } catch(e) {}
-            safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
-            document.getElementById('auth-overlay').style.display = 'none';
-            showToast(`👋 환영합니다, ${nickname}님! (카카오 로그인 완료)`);
-            loadInitialData();
-          } catch (err) {
-            const email = 'kakao_user@kakao.com';
-            const nickname = '카카오프렌즈';
-            safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
-            document.getElementById('auth-overlay').style.display = 'none';
-            showToast(`👋 환영합니다, ${nickname}님!`);
-            loadInitialData();
+            if (userRes && userRes.email && userRes.email.includes('@')) {
+              email = userRes.email;
+              nickname = userRes.nickname;
+            }
+          } catch(e) {}
+
+          if (!email) {
+            const inputEmail = prompt('카카오 계정 이메일을 입력하세요:', 'user@kakao.com');
+            if (!inputEmail) return;
+            email = inputEmail.trim();
+            nickname = email.split('@')[0] || '카카오사용자';
           }
+
+          try { await callGasMethod('upsertUserProfileGAS', email, nickname, 'kakao'); } catch(e) {}
+          safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
+          document.getElementById('auth-overlay').style.display = 'none';
+          showToast(`👋 환영합니다, ${nickname}님! (카카오 로그인 완료)`);
+          loadInitialData();
         });
 
         // Naver OAuth Login
         document.getElementById('naver-login-btn').addEventListener('click', async () => {
           showToast('⏳ Naver 계정 로그인 진행 중...');
+          let email = '';
+          let nickname = '';
           try {
             const userRes = await callGasMethod('getCurrentNaverUserGAS');
-            const email = (userRes && userRes.email) || 'naver_user@naver.com';
-            const nickname = (userRes && userRes.nickname) || '네이버그린';
-            
-            try { await callGasMethod('upsertUserProfileGAS', email, nickname, 'naver'); } catch(e) {}
-            safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
-            document.getElementById('auth-overlay').style.display = 'none';
-            showToast(`👋 환영합니다, ${nickname}님! (네이버 로그인 완료)`);
-            loadInitialData();
-          } catch (err) {
-            const email = 'naver_user@naver.com';
-            const nickname = '네이버그린';
-            safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
-            document.getElementById('auth-overlay').style.display = 'none';
-            showToast(`👋 환영합니다, ${nickname}님!`);
-            loadInitialData();
+            if (userRes && userRes.email && userRes.email.includes('@')) {
+              email = userRes.email;
+              nickname = userRes.nickname;
+            }
+          } catch(e) {}
+
+          if (!email) {
+            const inputEmail = prompt('네이버 계정 이메일을 입력하세요:', 'user@naver.com');
+            if (!inputEmail) return;
+            email = inputEmail.trim();
+            nickname = email.split('@')[0] || '네이버사용자';
           }
+
+          try { await callGasMethod('upsertUserProfileGAS', email, nickname, 'naver'); } catch(e) {}
+          safeLocalStorage.setItem('user_session', JSON.stringify({ email, nickname }));
+          document.getElementById('auth-overlay').style.display = 'none';
+          showToast(`👋 환영합니다, ${nickname}님! (네이버 로그인 완료)`);
+          loadInitialData();
         });
 
         // Switch to Signup container view
