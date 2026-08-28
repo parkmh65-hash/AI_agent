@@ -215,19 +215,17 @@
         border-radius: 3px;
       }
 
-      /* Main Content Drawer Expansion (Overlay over Map) */
+      /* Main Content Drawer 20% Expansion (Overlay over Map) */
       .main-content-viewport.expanded-overlay {
-        position: absolute !important;
-        top: 60px !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 56px !important;
+        position: relative !important;
+        margin-top: -120px !important;
         z-index: 500 !important;
-        background: rgba(9, 13, 22, 0.98) !important;
+        background: rgba(9, 13, 22, 0.96) !important;
         backdrop-filter: blur(20px) !important;
         -webkit-backdrop-filter: blur(20px) !important;
-        border-top: 1px solid rgba(0, 245, 212, 0.3) !important;
+        border-top: 1px solid rgba(0, 245, 212, 0.4) !important;
         box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8) !important;
+        border-radius: 16px 16px 0 0 !important;
       }
 
       /* Glassmorphic Auth Overlay */
@@ -468,7 +466,7 @@
           <!-- Expand / Overlay Toggle Button Bar -->
           <div id="main-content-expand-bar" style="display: flex; justify-content: center; align-items: center; background: rgba(15, 23, 42, 0.85); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 5px 0; cursor: pointer; user-select: none; z-index: 10;" onclick="toggleMainContentExpand()">
             <button id="main-expand-btn" type="button" style="background: rgba(0, 245, 212, 0.12); border: 1px solid rgba(0, 245, 212, 0.4); color: #00f5d4; border-radius: 12px; padding: 4px 14px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.3s ease;">
-              <span id="expand-btn-icon">▲</span> <span id="expand-btn-text">목록 전체 화면으로 확장 (지도 덮기)</span>
+              <span id="expand-btn-icon">▲</span> <span id="expand-btn-text">목록 전체 확장 (20% 위로 덮기)</span>
             </button>
           </div>
 
@@ -1075,7 +1073,7 @@
         const isExpanded = viewport.classList.toggle('expanded-overlay');
         if (isExpanded) {
           if (icon) icon.textContent = '▼';
-          if (text) text.textContent = '지도 다시 보이기 (목록 축소)';
+          if (text) text.textContent = '목록 축소 (원상 복구)';
           if (btn) {
             btn.style.background = 'rgba(239, 68, 68, 0.2)';
             btn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
@@ -1083,7 +1081,7 @@
           }
         } else {
           if (icon) icon.textContent = '▲';
-          if (text) text.textContent = '목록 전체 화면으로 확장 (지도 덮기)';
+          if (text) text.textContent = '목록 전체 확장 (20% 위로 덮기)';
           if (btn) {
             btn.style.background = 'rgba(0, 245, 212, 0.12)';
             btn.style.borderColor = 'rgba(0, 245, 212, 0.4)';
