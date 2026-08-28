@@ -678,14 +678,20 @@
                 </div>
 
                 <div>
-                  <label style="font-size: 0.75rem; color: #fff; display: block; margin-bottom: 4px;">현장 사진 외부 URL 첨부</label>
+                  <label style="font-size: 0.75rem; color: #fff; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span>현장 사진 외부 URL 첨부</span>
+                    <button type="button" onclick="fillNaverImageExampleUrl()" style="background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #4ade80; padding: 2px 8px; font-size: 0.68rem; border-radius: 4px; cursor: pointer; font-weight: 700;">
+                      📋 네이버 이미지 샘플 URL 입력
+                    </button>
+                  </label>
                   <input 
                     id="report-url-input"
                     type="text" 
-                    placeholder="외부 이미지 URL 입력 (예: http://...)"
-                    style="width: 100%; box-sizing: border-box; padding: 8px 10px; background: #111520; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; font-size: 0.8rem; outline: none; margin-bottom: 8px;"
+                    value="https://search.pstatic.net/common/?src=http%3A%2F%2Fblogfiles.naver.net%2FMjAyMzA1MDdfMTI1%2FMDAxNjgzNDMwNjA3MTcw.HeritageSample.jpg"
+                    placeholder="예: https://search.pstatic.net/common/?src=http%3A%2F%2Fblogfiles.naver.net%2FMjAyMzA1MDdfMTI1%2FMDAxNjgzNDMwNjA3MTcw.HeritageSample.jpg"
+                    style="width: 100%; box-sizing: border-box; padding: 8px 10px; background: #111520; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; font-size: 0.78rem; outline: none; margin-bottom: 8px;"
                   />
-                  <img id="report-photo-preview" alt="Preview" style="display: none; width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-top: 10px;" />
+                  <img id="report-photo-preview" src="https://search.pstatic.net/common/?src=http%3A%2F%2Fblogfiles.naver.net%2FMjAyMzA1MDdfMTI1%2FMDAxNjgzNDMwNjA3MTcw.HeritageSample.jpg" alt="Preview" style="display: block; width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-top: 10px;" />
                 </div>
 
                 <button type="submit" class="btn-primary" style="width: 100%; margin-top: 8px;">
@@ -1320,6 +1326,18 @@
           showToast('❌ 초기 로딩 오류가 발생했습니다.');
         }
       }
+
+      window.fillNaverImageExampleUrl = function() {
+        const exampleUrl = "https://search.pstatic.net/common/?src=http%3A%2F%2Fblogfiles.naver.net%2FMjAyMzA1MDdfMTI1%2FMDAxNjgzNDMwNjA3MTcw.HeritageSample.jpg";
+        const input = document.getElementById('report-url-input');
+        const preview = document.getElementById('report-photo-preview');
+        if (input) input.value = exampleUrl;
+        if (preview) {
+          preview.src = exampleUrl;
+          preview.style.display = 'block';
+        }
+        showToast('✅ 네이버 문화유산 이미지 예시 URL이 입력되었습니다.');
+      };
 
       // 8. Event Listeners Config
       function setupEventListeners() {
