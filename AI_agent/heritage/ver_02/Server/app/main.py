@@ -1442,7 +1442,7 @@ async def get_initial_db_data(role: Optional[str] = "user"):
 
 @app.get("/api/v1/db/user-courses")
 async def get_user_courses(user_id: str = "guest@sejong.go.kr"):
-    """Fetch saved course recommendations strictly isolated for individual user_id"""
+    """Fetch saved course recommendations strictly for specific user_id (case-insensitive)"""
     headers = get_supabase_headers()
     if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
         return {"status": "success", "courses": []}
@@ -1450,8 +1450,8 @@ async def get_user_courses(user_id: str = "guest@sejong.go.kr"):
     try:
         async with httpx.AsyncClient() as client:
             target_encoded = urllib.parse.quote(user_id)
-            # Query public.courses matching ONLY the specific individual user_id
-            url = f"{settings.SUPABASE_URL}/rest/v1/courses?user_id=eq.{target_encoded}&order=created_at.desc"
+            # Query public.courses with case-insensitive ilike matching on user_id
+            url = f"{settings.SUPABASE_URL}/rest/v1/courses?user_id=ilike.{target_encoded}&order=created_at.desc"
             res = await client.get(url, headers=headers, timeout=5.0)
             
             courses = []

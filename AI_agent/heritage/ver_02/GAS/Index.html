@@ -901,12 +901,16 @@
               fetch(`${BACKEND_URL}/api/v1/db/user-courses?user_id=${encodeURIComponent(userEmail)}`)
                 .then(r => r.json())
                 .then(d => {
-                  if (d.status === 'success' && Array.isArray(d.courses) && d.courses.length > 0) {
-                    resolve(d.courses);
-                  } else {
-                    const localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
-                    resolve(localSaved ? JSON.parse(localSaved) : (d.courses || []));
-                  }
+                  let dbCourses = (d.status === 'success' && Array.isArray(d.courses)) ? d.courses : [];
+                  const localRaw = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
+                  const localList = localRaw ? JSON.parse(localRaw) : [];
+                  
+                  const courseMap = new Map();
+                  localList.forEach(c => { if(c) courseMap.set(c.course_name || c.id, c); });
+                  dbCourses.forEach(c => { if(c) courseMap.set(c.course_name || c.id, c); });
+                  
+                  const mergedCourses = Array.from(courseMap.values());
+                  resolve(mergedCourses);
                 })
                 .catch(() => {
                   const localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
