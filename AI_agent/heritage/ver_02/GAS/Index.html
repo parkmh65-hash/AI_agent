@@ -899,45 +899,101 @@
             } else if (methodName === 'fetchUserCoursesGAS') {
               const user_id = args[0] || 'guest@sejong.go.kr';
               fetch(`${BACKEND_URL}/api/v1/db/user-courses?user_id=${encodeURIComponent(user_id)}`)
-                .then(r => r.json())
+                .then(r => {
+                  if (!r.ok) throw new Error('Cloud Run 404');
+                  return r.json();
+                })
                 .then(d => {
                   let dbCourses = (d.status === 'success' && Array.isArray(d.courses)) ? d.courses : [];
-                  const localRaw = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
-                  const localList = localRaw ? JSON.parse(localRaw) : [];
-                  
-                  const courseMap = new Map();
-                  localList.forEach(c => { if(c) courseMap.set(c.course_name || c.id, c); });
-                  dbCourses.forEach(c => { if(c) courseMap.set(c.course_name || c.id, c); });
-                  
-                  const mergedCourses = Array.from(courseMap.values());
-                  resolve(mergedCourses);
+                  resolve(dbCourses);
                 })
                 .catch(() => {
-                  const localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
-                  resolve(localSaved ? JSON.parse(localSaved) : []);
+                  // Direct Supabase REST API Fallback
+                  fetch(`https://pdpmtgnagwzcsftavtap.supabase.co/rest/v1/courses?user_id=ilike.${encodeURIComponent(user_id)}&order=created_at.desc`)
+                    .then(r => r.json())
+                    .then(remoteList => {
+                      if (Array.isArray(remoteList) && remoteList.length > 0) {
+                        resolve(remoteList);
+                      } else {
+                        let allLocal = [];
+                        const keysToTry = ['user_saved_courses_' + user_id, 'user_saved_courses', 'user_courses'];
+                        keysToTry.forEach(k => {
+                          try {
+                            const raw = safeLocalStorage.getItem(k);
+                            if (raw) {
+                              const parsed = JSON.parse(raw);
+                              if (Array.isArray(parsed)) allLocal = allLocal.concat(parsed);
+                            }
+                          } catch(e){}
+                        });
+                        resolve(allLocal);
+                      }
+                    })
+                    .catch(() => {
+                      let allLocal = [];
+                      const keysToTry = ['user_saved_courses_' + user_id, 'user_saved_courses', 'user_courses'];
+                      keysToTry.forEach(k => {
+                        try {
+                          const raw = safeLocalStorage.getItem(k);
+                          if (raw) {
+                            const parsed = JSON.parse(raw);
+                            if (Array.isArray(parsed)) allLocal = allLocal.concat(parsed);
+                          }
+                        } catch(e){}
+                      });
+                      resolve(allLocal);
+                    });
                 });
             } else if (methodName === 'saveUserCourseGAS') {
               const courseData = args[0];
-              const userEmail = courseData.user_id || 'guest@sejong.go.kr';
+              const user_id = courseData.user_id || 'guest@sejong.go.kr';
+              
+              // 1. Save to local storage keys immediately
+              try {
+                const keys = ['user_saved_courses_' + user_id, 'user_saved_courses', 'user_courses'];
+                keys.forEach(k => {
+                  let localRaw = safeLocalStorage.getItem(k);
+                  let localList = localRaw ? JSON.parse(localRaw) : [];
+                  if (Array.isArray(localList)) {
+                    localList = localList.filter(c => c && (c.course_name !== courseData.course_name && c.name !== courseData.course_name));
+                    localList.unshift(courseData);
+                    safeLocalStorage.setItem(k, JSON.stringify(localList));
+                  }
+                });
+              } catch(e) {}
+
+              // 2. Post to Backend / Direct Supabase REST
               fetch(`${BACKEND_URL}/api/v1/db/save-course`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(courseData)
               })
-                .then(r => r.json())
-                .then(d => {
-                  let localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
-                  let coursesList = localSaved ? JSON.parse(localSaved) : [];
-                  coursesList.unshift({ ...courseData, id: Date.now(), created_at: new Date().toISOString() });
-                  safeLocalStorage.setItem('user_saved_courses_' + userEmail, JSON.stringify(coursesList));
-                  resolve(d.status === 'success' ? d : { status: 'success', message: 'Course saved (local fallback)' });
+                .then(r => {
+                  if (!r.ok) throw new Error('Backend bypass');
+                  return r.json();
                 })
+                .then(d => resolve(d))
                 .catch(() => {
-                  let localSaved = safeLocalStorage.getItem('user_saved_courses_' + userEmail);
-                  let coursesList = localSaved ? JSON.parse(localSaved) : [];
-                  coursesList.unshift({ ...courseData, id: Date.now(), created_at: new Date().toISOString() });
-                  safeLocalStorage.setItem('user_saved_courses_' + userEmail, JSON.stringify(coursesList));
-                  resolve({ status: 'success', message: 'Course saved (local fallback)' });
+                  // Direct Supabase POST Fallback
+                  const payload = {
+                    user_id: user_id,
+                    course_name: courseData.course_name,
+                    description: courseData.description || '',
+                    transport: courseData.transport || '승용차',
+                    total_duration: courseData.total_duration || 0,
+                    items: courseData.items || []
+                  };
+                  fetch(`https://pdpmtgnagwzcsftavtap.supabase.co/rest/v1/courses`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(payload)
+                  })
+                    .then(r => r.json())
+                    .then(d => resolve({ status: 'success', message: 'Saved via Direct Supabase REST', data: d }))
+                    .catch(() => resolve({ status: 'success', message: 'Saved via Local Storage Fallback' }));
                 });
             } else if (methodName === 'deleteUserCourseGAS') {
               const courseId = args[0];

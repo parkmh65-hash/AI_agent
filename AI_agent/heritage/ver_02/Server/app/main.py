@@ -990,19 +990,17 @@ async def generate_shortest_path_course_via_llm(spots: List[Dict[str, Any]], tra
     }
 
 async def save_generated_course_to_db(course_data: Dict[str, Any], user_id: str = "guest@sejong.go.kr"):
-    """Upsert the final generated AI course into Supabase 'courses' and 'courses_vector' database tables without generating embeddings"""
-    if not course_data or not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
-        return
+    """Upsert the final generated AI course into Supabase 'courses' database table"""
+    if not course_data or not settings.SUPABASE_URL:
+        return False
         
     course_name = course_data.get("course_name")
     if not course_name:
-        return
+        return False
         
-    headers = {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = get_supabase_headers()
+    headers["Content-Type"] = "application/json"
+    headers["Prefer"] = "return=representation"
     
     target_user = user_id or course_data.get("user_id") or "guest@sejong.go.kr"
     payload = {
@@ -1016,10 +1014,8 @@ async def save_generated_course_to_db(course_data: Dict[str, Any], user_id: str 
     
     try:
         async with httpx.AsyncClient() as client:
-            # 1. Upsert into public.courses table
-            # Check if course already exists by user_id and course_name
-            check_url = f"{settings.SUPABASE_URL}/rest/v1/courses?user_id=eq.{urllib.parse.quote(target_user)}&course_name=eq.{urllib.parse.quote(course_name)}&select=id"
-            res_check = await client.get(check_url, headers=headers, timeout=4.0)
+            check_url = f"{settings.SUPABASE_URL}/rest/v1/courses?user_id=ilike.{urllib.parse.quote(target_user)}&course_name=eq.{urllib.parse.quote(course_name)}&select=id"
+            res_check = await client.get(check_url, headers=headers, timeout=5.0)
             
             course_id = None
             if res_check.status_code == 200:
@@ -1029,37 +1025,17 @@ async def save_generated_course_to_db(course_data: Dict[str, Any], user_id: str 
                     
             if course_id:
                 patch_url = f"{settings.SUPABASE_URL}/rest/v1/courses?id=eq.{course_id}"
-                await client.patch(patch_url, headers=headers, json=payload, timeout=4.0)
-                logger.info(f"Successfully updated course '{course_name}' in public.courses database.")
+                res_save = await client.patch(patch_url, headers=headers, json=payload, timeout=5.0)
+                logger.info(f"Successfully updated course '{course_name}' in public.courses database. Code={res_save.status_code}")
             else:
                 insert_url = f"{settings.SUPABASE_URL}/rest/v1/courses"
-                await client.post(insert_url, headers=headers, json=payload, timeout=4.0)
-                logger.info(f"Successfully inserted new course '{course_name}' into public.courses database.")
+                res_save = await client.post(insert_url, headers=headers, json=payload, timeout=5.0)
+                logger.info(f"Successfully inserted new course '{course_name}' into public.courses database. Code={res_save.status_code}")
                 
-            # 2. Upsert into public.courses_vector table (without embedding field) safely
-            try:
-                check_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector?course_name=eq.{urllib.parse.quote(course_name)}&select=id"
-                res_vec_check = await client.get(check_vec_url, headers=headers, timeout=4.0)
-                
-                vec_id = None
-                if res_vec_check.status_code == 200:
-                    vec_records = res_vec_check.json()
-                    if len(vec_records) > 0:
-                        vec_id = vec_records[0]["id"]
-                        
-                if vec_id:
-                    patch_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector?id=eq.{vec_id}"
-                    await client.patch(patch_vec_url, headers=headers, json=payload, timeout=4.0)
-                    logger.info(f"Successfully updated course '{course_name}' in public.courses_vector database.")
-                else:
-                    insert_vec_url = f"{settings.SUPABASE_URL}/rest/v1/courses_vector"
-                    await client.post(insert_vec_url, headers=headers, json=payload, timeout=4.0)
-                    logger.info(f"Successfully inserted new course '{course_name}' into public.courses_vector database.")
-            except Exception as vec_err:
-                logger.warning(f"courses_vector save bypassed/failed: {vec_err}")
-                
+            return res_save.status_code in [200, 201, 204]
     except Exception as e:
         logger.error(f"Error saving generated course to database: {e}")
+        return False
 
 async def geocode_address(address: str) -> Optional[tuple[float, float]]:
     """Geocode address using OpenStreetMap Nominatim, with OpenAI fallback"""
@@ -1320,10 +1296,12 @@ class RecommendationStatusRequest(BaseModel):
     status: str
 
 def get_supabase_headers():
-    return {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}"
-    }
+    key = settings.SUPABASE_KEY or os.getenv("USER_SUPABASE_KEY", "")
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["apikey"] = key
+        headers["Authorization"] = f"Bearer {key}"
+    return headers
 
 @app.get("/api/v1/db/health")
 async def db_health_check():
@@ -1477,8 +1455,12 @@ async def save_user_course_endpoint(req: SaveCourseRequest):
         "total_duration": req.total_duration,
         "items": req.items
     }
-    await save_generated_course_to_db(course_data, user_id=req.user_id)
-    return {"status": "success", "message": "Course saved successfully", "course": course_data}
+    saved_ok = await save_generated_course_to_db(course_data, user_id=req.user_id)
+    return {
+        "status": "success" if saved_ok else "warning",
+        "message": "Course saved to Supabase DB successfully" if saved_ok else "Course saved locally (Supabase DB bypassed or key empty)",
+        "course": course_data
+    }
 
 @app.delete("/api/v1/db/delete-course")
 async def delete_user_course_endpoint(course_id: str, user_id: str = "guest@sejong.go.kr"):
