@@ -1155,6 +1155,42 @@
       return bestPath;
     }
 
+    function getItemSourceInfo(item) {
+      const cat = (item && item.category) || '';
+      const idStr = String((item && item.id) || '');
+      if (cat === '시민 추천' || idStr.startsWith('cit_') || idStr.startsWith('citizen_')) {
+        return {
+          type: '시민제보',
+          icon: '🌱',
+          bgGradient: 'linear-gradient(135deg, #a855f7, #7e22ce)',
+          borderColor: '#c084fc',
+          shadowColor: 'rgba(168, 85, 247, 0.6)',
+          badgeBg: 'rgba(168, 85, 247, 0.15)',
+          badgeColor: '#c084fc'
+        };
+      }
+      if (cat === '관광지' || idStr.startsWith('tour_') || cat.includes('관광')) {
+        return {
+          type: '관광지',
+          icon: '🏕️',
+          bgGradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
+          borderColor: '#fbbf24',
+          shadowColor: 'rgba(245, 158, 11, 0.6)',
+          badgeBg: 'rgba(245, 158, 11, 0.15)',
+          badgeColor: '#fbbf24'
+        };
+      }
+      return {
+        type: '국가유산',
+        icon: '🏛️',
+        bgGradient: 'linear-gradient(135deg, #00f5d4, #059669)',
+        borderColor: '#00f5d4',
+        shadowColor: 'rgba(0, 245, 212, 0.6)',
+        badgeBg: 'rgba(0, 245, 212, 0.15)',
+        badgeColor: '#00f5d4'
+      };
+    }
+
     window.updateMap = function updateMap(listToShow, showPath = true) {
       if (!mapInstance) {
         const ok = initLeafletMap();
@@ -1185,14 +1221,14 @@
         const lng = parseFloat(item.longitude || item.lng) || 127.28;
         latlngs.push([lat, lng]);
 
-        const useSingleStyle = !showPath || targetList.length === 1;
+        const srcInfo = getItemSourceInfo(item);
         const sequenceIcon = L.divIcon({
           className: 'custom-sequence-marker-container',
           html: `
               <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; width: 120px;">
                 <div style="
-                  background: #ffffff;
-                  color: #10b981;
+                  background: ${srcInfo.bgGradient};
+                  color: #ffffff;
                   font-weight: 900;
                   width: 32px;
                   height: 32px;
@@ -1200,15 +1236,15 @@
                   display: flex;
                   align-items: center;
                   justify-content: center;
-                  border: 2px solid #10b981;
-                  font-size: 1.15rem;
-                  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.4), 0 2px 4px rgba(0,0,0,0.3);
+                  border: 2px solid ${srcInfo.borderColor};
+                  font-size: 1.05rem;
+                  box-shadow: 0 3px 10px ${srcInfo.shadowColor}, 0 2px 4px rgba(0,0,0,0.4);
                 ">
-                  <span style="color: #10b981; line-height: 1;">★</span>
+                  ${index + 1}
                 </div>
                 <div style="
                   margin-top: 4px;
-                  background: rgba(15, 23, 42, 0.85);
+                  background: rgba(15, 23, 42, 0.90);
                   backdrop-filter: blur(4px);
                   -webkit-backdrop-filter: blur(4px);
                   color: #ffffff;
@@ -1216,7 +1252,7 @@
                   font-weight: bold;
                   padding: 2px 6px;
                   border-radius: 4px;
-                  border: 1px solid rgba(255, 255, 255, 0.15);
+                  border: 1px solid ${srcInfo.borderColor};
                   white-space: nowrap;
                   text-overflow: ellipsis;
                   overflow: hidden;
@@ -1224,7 +1260,7 @@
                   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
                   pointer-events: none;
                 ">
-                  ${item.name}
+                  <span style="color: ${srcInfo.badgeColor}; font-size: 0.68rem; margin-right: 2px;">[${index + 1}]</span> ${item.name}
                 </div>
               </div>
             `,
@@ -1234,18 +1270,18 @@
 
         const popupContent = `
             <div style="font-family: sans-serif; font-size: 0.85rem; color: #0f172a; padding: 4px; min-width: 180px;">
-              <strong style="color: #7209b7; font-size: 0.95rem; display: block; margin-bottom: 4px;">
-                ${index + 1}. ${item.name}
+              <strong style="color: #0f172a; font-size: 0.95rem; display: block; margin-bottom: 4px;">
+                <span style="color: ${srcInfo.borderColor}; font-weight: 900;">[${index + 1}]</span> ${item.name}
               </strong>
               <span style="color: #64748b; font-size: 0.8rem; display: block; margin-bottom: 4px;">
-                \u1f4cd \uc8fc\uc18c: ${item.address || '\uc138\uc885\uc2dc'}
+                📍 주소: ${item.address || '세종시'}
               </span>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; gap: 8px;">
-                <span style="display: inline-block; padding: 2px 6px; background: #e0f2fe; color: #0369a1; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">
-                  \u1f3db\ufe0f ${item.category || '\uae30\ud0c0'}
+                <span style="display: inline-block; padding: 2px 6px; background: ${srcInfo.badgeBg}; color: ${srcInfo.badgeColor}; border: 1px solid ${srcInfo.borderColor}; border-radius: 4px; font-size: 0.72rem; font-weight: 800;">
+                  ${srcInfo.icon} ${srcInfo.type}
                 </span>
                 <button onclick="showDetailModalByIndex(${index})" style="background: #7209b7; border: none; color: #fff; padding: 3px 6px; font-size: 0.72rem; font-weight: bold; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
-                  \u1f50e \uc0c1\uc138 \uc815\ubcf4
+                  🔍 상세 정보
                 </button>
               </div>
             </div>
@@ -1409,22 +1445,31 @@
 
     function renderRAGCards() {
       const listContainer = document.getElementById('rag-cards-list');
-      if (!listContainer) return;
+      const headerWrapper = document.getElementById('rag-cards-header');
+      if (!listContainer || !headerWrapper) return;
+
       listContainer.innerHTML = '';
 
-      const headerWrapper = document.getElementById('rag-header-actions');
-      if (ragCards.length > 0) {
+      if (ragCards.length === 0) {
         headerWrapper.innerHTML = `
             <h4 style="margin: 0; font-size: 0.95rem; color: #fff;">🤖 AI 추천 문화유산</h4>
-            <div style="display: flex; gap: 6px; align-items: center;">
+          `;
+        listContainer.innerHTML = `
+            <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; padding: 20px 0;">
+              상단 검색창에 원하시는 문화유산 및 테마를 입력해 주세요.
+            </div>
+          `;
+        return;
+      }
+
+      if (ragCards.length > 0) {
+        headerWrapper.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <h4 style="margin: 0; font-size: 0.95rem; color: #fff;">🤖 AI 추천 문화유산 5선</h4>
               <button onclick="addAllToCourse()" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #00f5d4; font-size: 0.75rem; font-weight: 800; padding: 4px 8px; border-radius: 6px; cursor: pointer;">
                 + 전체 코스에 담기
               </button>
             </div>
-          `;
-      } else {
-        headerWrapper.innerHTML = `
-            <h4 style="margin: 0; font-size: 0.95rem; color: #fff;">🤖 AI 추천 문화유산</h4>
           `;
       }
 
@@ -1442,9 +1487,13 @@
           ? `<img src="${String(item.image_url).trim()}" alt="${item.name}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover; flex-shrink: 0;" />`
           : `<div style="width: 60px; height: 60px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 0.62rem; font-weight: 700; flex-shrink: 0;">이미지없음</div>`;
 
+        const srcInfo = getItemSourceInfo(item);
         card.innerHTML = `
             <div onclick="showRAGCardDetail(${idx})" style="display: flex; gap: 12px; align-items: center; flex: 1; cursor: pointer;">
-              ${imgMarkup}
+              <div style="position: relative; flex-shrink: 0;">
+                ${imgMarkup}
+                <span style="position: absolute; top: -4px; left: -4px; background: ${srcInfo.bgGradient}; color: #fff; font-size: 0.68rem; font-weight: 900; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.4);">${idx + 1}</span>
+              </div>
               <div style="flex: 1;">
                 <h4 style="margin: 0 0 2px 0; font-size: 0.82rem; color: #fff;">${item.name}</h4>
                 <p style="margin: 0; font-size: 0.72rem; color: var(--text-sub);">${item.address || '세종시'} | ${item.category || '문화유산'}</p>
@@ -1617,16 +1666,21 @@
       const tabContainer = document.getElementById('course-items-list');
       const wizardContainer = document.getElementById('wizard-course-items-list');
 
-      const markup = courseList.map((item, idx) => `
-          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
-            <span onclick="showCourseCardDetail(${idx})" style="font-size: 0.8rem; color: #fff; font-weight: 600; cursor: pointer; transition: color 0.2s;">
-              ${idx + 1}. ${item.name}
+      const markup = courseList.map((item, idx) => {
+        const srcInfo = getItemSourceInfo(item);
+        return `
+          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid ${srcInfo.borderColor};">
+            <span onclick="showCourseCardDetail(${idx})" style="font-size: 0.8rem; color: #fff; font-weight: 600; cursor: pointer; transition: color 0.2s; display: flex; align-items: center; gap: 6px;">
+              <span style="background: ${srcInfo.bgGradient}; color: #fff; font-size: 0.68rem; font-weight: 900; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">${idx + 1}</span>
+              ${item.name}
+              <span style="font-size: 0.65rem; color: ${srcInfo.badgeColor}; font-weight: 700;">(${srcInfo.type})</span>
             </span>
             <button onclick="removeCourseItemByIndex(${idx})" style="background: none; border: none; color: #f43f5e; cursor: pointer; font-size: 0.78rem; position: relative; z-index: 2;">
               삭제
             </button>
           </div>
-        `).join('');
+        `;
+      }).join('');
 
       if (tabContainer) {
         const listActionsWrapper = document.getElementById('course-list-actions');
