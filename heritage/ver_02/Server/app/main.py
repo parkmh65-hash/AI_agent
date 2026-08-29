@@ -409,9 +409,16 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
         except Exception as e:
             logger.warn(f"Failed to fetch heritages from Supabase for candidate enrichment: {e}")
 
-    # Ensure candidates pool is not empty; fallback to DEFAULT_SEJONG_HERITAGES if completely empty
+    # Ensure candidates pool is not empty; fallback to regional OpenAPI search if empty for non-Sejong regions
     if not matched:
-        logger.info("Candidates pool is completely empty! Using DEFAULT_SEJONG_HERITAGES as fallback pool.")
+        logger.info(f"Candidates pool is empty for area_code '{area_code}'. Attempting regional OpenAPI fallback.")
+        try:
+            matched = await fetch_national_heritage_openapi("", area_code)
+        except Exception as e:
+            logger.warn(f"Regional OpenAPI fallback failed: {e}")
+            
+    if not matched:
+        logger.info("Candidates pool is completely empty! Using DEFAULT_SEJONG_HERITAGES as final fallback pool.")
         matched = [dict(item) for item in DEFAULT_SEJONG_HERITAGES]
 
     # 2. AI selection of exactly 5 heritages based on query context from the candidates pool
@@ -1156,7 +1163,6 @@ async def geocode_address(address: str) -> Optional[tuple[float, float]]:
 
 async def fetch_national_heritage_openapi(query: str, area_code: str = "전체") -> List[Dict[str, Any]]:
     """Query cultural heritages combining SearchKindOpenapiList, SearchKindOpenapiDt, and Heritage GIS APIs"""
-    results = []
     
     # Sido code mapping for Korea
     REGIONS_MAP = {
@@ -1194,115 +1200,124 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
     if not search_word:
         search_word = query
         
-    # 1. Query List API (SearchKindOpenapiList.do)
-    list_url = f"http://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaMnm1={urllib.parse.quote(search_word)}"
-    if ctcd:
-        list_url += f"&ccbaCtcd={ctcd}"
-        
     async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
+        # 1. Query List API (SearchKindOpenapiList.do)
+        list_url = f"http://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaMnm1={urllib.parse.quote(search_word)}"
+        if ctcd:
+            list_url += f"&ccbaCtcd={ctcd}"
+            
         try:
             res_list = await client.get(list_url, timeout=6.0)
+            items = []
             if res_list.status_code == 200:
-                root = ET.fromstring(res_list.text)
-                items = root.findall(".//item")
-                for item in items[:15]:
-                    kdcd_val = item.findtext("ccbaKdcd")
-                    asno_val = item.findtext("ccbaAsno")
-                    ctcd_val = item.findtext("ccbaCtcd")
+                try:
+                    root = ET.fromstring(res_list.text.strip())
+                    items = root.findall(".//item")
+                except Exception as parse_err:
+                    logger.warn(f"XML parse error: {parse_err}")
+            
+            # If search by keyword yielded 0 items, retry fetching regional heritages without name constraint
+            if not items and ctcd:
+                fallback_list_url = f"http://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaCtcd={ctcd}&pageUnit=15"
+                try:
+                    res_fb = await client.get(fallback_list_url, timeout=6.0)
+                    if res_fb.status_code == 200:
+                        fb_root = ET.fromstring(res_fb.text.strip())
+                        items = fb_root.findall(".//item")
+                except Exception as fb_err:
+                    logger.warn(f"Fallback regional list query failed: {fb_err}")
+
+            async def process_single_item(item):
+                kdcd_val = item.findtext("ccbaKdcd")
+                asno_val = item.findtext("ccbaAsno")
+                ctcd_val = item.findtext("ccbaCtcd")
+                if not (kdcd_val and asno_val and ctcd_val):
+                    return None
+                
+                name = item.findtext("ccbaMnm1") or ""
+                addr = item.findtext("ccbaLcnc") or ""
+                list_lng = item.findtext("longitude")
+                list_lat = item.findtext("latitude")
+                desc = ""
+                img = ""
+                dt_root = None
+                
+                dt_url = f"http://www.khs.go.kr/cha/SearchKindOpenapiDt.do?ccbaKdcd={kdcd_val}&ccbaAsno={asno_val}&ccbaCtcd={ctcd_val}"
+                try:
+                    res_dt = await client.get(dt_url, timeout=3.0)
+                    if res_dt.status_code == 200:
+                        dt_root = ET.fromstring(res_dt.text.strip())
+                        dt_item = dt_root.find(".//item")
+                        if dt_item is not None:
+                            name = dt_item.findtext("ccbaMnm1") or name
+                            desc = dt_item.findtext("content") or ""
+                            img = dt_item.findtext("imageUrl") or dt_item.findtext("imageurl") or ""
+                            ccbaLcad = dt_item.find("ccbaLcad")
+                            if ccbaLcad is not None:
+                                addr = "".join(ccbaLcad.itertext()).strip()
+                except Exception as e:
+                    logger.warn(f"Detail API failed for {kdcd_val}-{asno_val}: {e}")
                     
-                    if kdcd_val and asno_val and ctcd_val:
-                        # Default values from list item
-                        name = item.findtext("ccbaMnm1") or ""
-                        addr = item.findtext("ccbaLcnc") or ""
-                        list_lng = item.findtext("longitude")
-                        list_lat = item.findtext("latitude")
-                        
-                        desc = ""
-                        img = ""
-                        
-                        # 2. Query Detail API (SearchKindOpenapiDt.do)
-                        dt_url = f"http://www.khs.go.kr/cha/SearchKindOpenapiDt.do?ccbaKdcd={kdcd_val}&ccbaAsno={asno_val}&ccbaCtcd={ctcd_val}"
-                        try:
-                            res_dt = await client.get(dt_url, timeout=5.0)
-                            if res_dt.status_code == 200:
-                                dt_root = ET.fromstring(res_dt.text)
-                                dt_item = dt_root.find(".//item")
-                                if dt_item is not None:
-                                    name = dt_item.findtext("ccbaMnm1") or name
-                                    desc = dt_item.findtext("content") or ""
-                                    img = dt_item.findtext("imageUrl") or dt_item.findtext("imageurl") or ""
-                                    
-                                    ccbaLcad = dt_item.find("ccbaLcad")
-                                    if ccbaLcad is not None:
-                                        addr = "".join(ccbaLcad.itertext()).strip()
-                        except Exception as e:
-                            logger.warn(f"Detail API failed for {kdcd_val}-{asno_val}: {e}")
-                            
-                        # Extract coordinates (Detail API priority, then List API, then GIS API fallback)
-                        lng_val = 0.0
-                        lat_val = 0.0
-                        
-                        # Try to parse detail XML coordinates first if present in root
-                        dt_lng = dt_root.findtext("longitude") if 'dt_root' in locals() else None
-                        dt_lat = dt_root.findtext("latitude") if 'dt_root' in locals() else None
-                        
-                        coord_lng = dt_lng or list_lng
-                        coord_lat = dt_lat or list_lat
-                        
-                        if coord_lng and coord_lng != "0":
-                            lng_val = float(coord_lng)
-                        if coord_lat and coord_lat != "0":
-                            lat_val = float(coord_lat)
-                            
-                        # 3. Fallback to GIS Location API (spca.do) if coordinates are zero/invalid
-                        if lng_val == 0.0 or lat_val == 0.0:
-                            gis_url = f"https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd={kdcd_val}&ccbaAsno={asno_val}&ccbaCtcd={ctcd_val}"
-                            try:
-                                res_gis = await client.get(gis_url, timeout=5.0)
-                                if res_gis.status_code == 200:
-                                    gis_root = ET.fromstring(res_gis.text)
-                                    gis_item = gis_root.find(".//item")
-                                    if gis_item is not None:
-                                        gis_lng = gis_item.findtext("longitude")
-                                        gis_lat = gis_item.findtext("latitude")
-                                        if gis_lng and gis_lng != "0":
-                                            lng_val = float(gis_lng)
-                                        if gis_lat and gis_lat != "0":
-                                            lat_val = float(gis_lat)
-                            except Exception as e:
-                                logger.warn(f"GIS API failed for {kdcd_val}-{asno_val}: {e}")
-                                
-                        # Coordinate normalization / swap check
-                        if lat_val > lng_val:
-                            latitude = lng_val
-                            longitude = lat_val
-                        else:
-                            latitude = lat_val
-                            longitude = lng_val
-                            
-                        if latitude == 0.0 or longitude == 0.0 or (latitude == 36.48 and longitude == 127.28):
-                            geocoded = await geocode_address(addr)
-                            if geocoded:
-                                latitude, longitude = geocoded
-                            else:
-                                latitude = 36.48
-                                longitude = 127.28
-                            
-                        results.append({
-                            "id": f"cha_{kdcd_val}_{asno_val}_{ctcd_val}",
-                            "name": name,
-                            "address": addr,
-                            "category": "문화유산",
-                            "era_normalized": "국가유산청",
-                            "latitude": latitude,
-                            "longitude": longitude,
-                            "description": desc[:300] + "..." if len(desc) > 300 else desc,
-                            "image_url": img if img and img.startswith("http") else "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
-                        })
+                lng_val = 0.0
+                lat_val = 0.0
+                dt_lng = dt_root.findtext("longitude") if dt_root is not None else None
+                dt_lat = dt_root.findtext("latitude") if dt_root is not None else None
+                coord_lng = dt_lng or list_lng
+                coord_lat = dt_lat or list_lat
+                if coord_lng and coord_lng != "0":
+                    try: lng_val = float(coord_lng)
+                    except: pass
+                if coord_lat and coord_lat != "0":
+                    try: lat_val = float(coord_lat)
+                    except: pass
+                    
+                if lng_val == 0.0 or lat_val == 0.0:
+                    gis_url = f"https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd={kdcd_val}&ccbaAsno={asno_val}&ccbaCtcd={ctcd_val}"
+                    try:
+                        res_gis = await client.get(gis_url, timeout=3.0)
+                        if res_gis.status_code == 200:
+                            gis_root = ET.fromstring(res_gis.text.strip())
+                            gis_item = gis_root.find(".//item")
+                            if gis_item is not None:
+                                gis_lng = gis_item.findtext("longitude")
+                                gis_lat = gis_item.findtext("latitude")
+                                if gis_lng and gis_lng != "0":
+                                    try: lng_val = float(gis_lng)
+                                    except: pass
+                                if gis_lat and gis_lat != "0":
+                                    try: lat_val = float(gis_lat)
+                                    except: pass
+                    except Exception as e:
+                        logger.warn(f"GIS API failed for {kdcd_val}-{asno_val}: {e}")
+
+                if lat_val > lng_val:
+                    latitude = lng_val
+                    longitude = lat_val
+                else:
+                    latitude = lat_val
+                    longitude = lng_val
+                    
+                if latitude == 0.0 or longitude == 0.0:
+                    latitude = 36.5
+                    longitude = 127.2
+                    
+                return {
+                    "id": f"khs_{kdcd_val}_{asno_val}",
+                    "name": name,
+                    "address": addr or "대한민국 문화유산",
+                    "category": item.findtext("ccmaName") or "문화유산",
+                    "era_normalized": item.findtext("ccceName") or "조선시대",
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "description": desc or f"{name} 문화유산입니다.",
+                    "image_url": img or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                }
+
+            tasks = [process_single_item(item) for item in items[:15]]
+            item_results = await asyncio.gather(*tasks)
+            results = [r for r in item_results if r is not None]
         except Exception as e:
-            import traceback
-            tb_str = traceback.format_exc()
-            logger.error(f"Combined Heritage APIs call failed for {search_word}: {e}\n{tb_str}")
+            logger.error(f"Combined Heritage APIs call failed for {search_word}: {e}")
             
     return results
 
