@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     
     # Read Supabase Credentials dynamically from Google Cloud Run Environment Variables / Properties
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://pdpmtgnagwzcsftavtap.supabase.co")
-    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
+    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcG10Z25hZ3d6Y3NmdGF2dGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTA4NjYsImV4cCI6MjA5NDQyNjg2Nn0.eA_TDXZ8GRR4HbDCkX5A-rvWPx3Bz_KEyxSev1MF2qM")
     
     # LLM Settings (OpenAI / Gemini API keys)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
