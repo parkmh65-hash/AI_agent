@@ -1508,8 +1508,11 @@
       searchBtn.disabled = true;
       searchBtn.innerHTML = '추천 중 <span class="hourglass-spinner" style="font-size: 0.9rem; margin-left: 6px;">⏳</span>';
 
+      // Clear previous recommendations, course list, and route map before new recommendation
       ragCards = [];
+      courseList = [];
       renderRAGCards();
+      renderCourseList();
       updateMap([], false);
 
       try {
@@ -1524,19 +1527,13 @@
         if (!dataHeritages) throw new Error("서버로부터 유효하지 않은 응답을 받았습니다.");
 
         ragCards = dataHeritages.output_heritages || [];
-
-        const seenNames = new Set(courseList.map(c => c.name));
-        ragCards.forEach(item => {
-          if (!seenNames.has(item.name)) {
-            courseList.push(item);
-          }
-        });
+        courseList = [...ragCards];
 
         renderRAGCards();
         renderCourseList();
         updateMap(courseList, true);
 
-        showToast('✅ 추천 완료: 추천 문화유산 5선이 지도 화면에 노드로 표시되고 코스에 추가되었습니다!');
+        showToast('✅ 추천 완료: 이전 코스가 초기화되고 새로 추천된 문화유산이 지도와 코스에 반영되었습니다!');
 
       } catch (e) {
         showToast(`❌ 1단계 에러: ${e.message}`);
