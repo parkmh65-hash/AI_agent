@@ -2011,6 +2011,10 @@
         imgEl.src = String(item.image_url).trim();
         imgEl.style.display = 'block';
         if (noImgEl) noImgEl.style.display = 'none';
+        imgEl.onerror = function() {
+          imgEl.style.display = 'none';
+          if (noImgEl) noImgEl.style.display = 'flex';
+        };
       } else {
         imgEl.style.display = 'none';
         if (noImgEl) noImgEl.style.display = 'flex';
