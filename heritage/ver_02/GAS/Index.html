@@ -622,6 +622,9 @@
             <p style="font-size: 0.8rem; color: var(--text-sub); margin: 0 0 16px 0;">세종시의 숨겨진 보물이나 훼손 위험이 있는 문화유산을 실시간
               제보해 주세요.</p>
 
+            <!-- Inline Report Status Alert Banner -->
+            <div id="report-status-alert" style="display: none; padding: 12px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; margin-bottom: 12px;"></div>
+
             <form id="report-form" class="glass-card"
               style="padding: 18px; display: flex; flex-direction: column; gap: 12px;">
               <div>
@@ -1944,8 +1947,18 @@
 
       try {
         const res = await callGasMethod('submitCitizenRecommendationGAS', payload);
+        const statusAlert = document.getElementById('report-status-alert');
+
         if (res.status === 'success') {
           showToast('🌱 시민 제보가 성공적으로 등록되었습니다.');
+
+          if (statusAlert) {
+            statusAlert.style.display = 'block';
+            statusAlert.style.background = 'rgba(16, 185, 129, 0.15)';
+            statusAlert.style.border = '1px solid #10b981';
+            statusAlert.style.color = '#34d399';
+            statusAlert.innerHTML = '✅ 시민 제보가 성공적으로 접수 및 등록되었습니다! (상태: 신청중)';
+          }
 
           document.getElementById('report-name-input').value = '';
           document.getElementById('report-address-input').value = '';
@@ -1955,12 +1968,27 @@
           if (typeof reportPhotoBase64 !== 'undefined') reportPhotoBase64 = '';
 
           loadInitialData();
-          switchTab('home');
+          // Stay on citizen report tab as requested by user
         } else {
-          showToast('❌ 제보 등록 중 에러가 발생했습니다.');
+          showToast(`❌ 제보 등록 실패: ${res.message || '오류 발생'}`);
+          if (statusAlert) {
+            statusAlert.style.display = 'block';
+            statusAlert.style.background = 'rgba(239, 68, 68, 0.15)';
+            statusAlert.style.border = '1px solid #ef4444';
+            statusAlert.style.color = '#f87171';
+            statusAlert.innerHTML = `❌ 제보 등록 실패: ${res.message || '등록 중 오류가 발생했습니다.'}`;
+          }
         }
       } catch (err) {
         showToast('❌ 제보 제출 실패.');
+        const statusAlert = document.getElementById('report-status-alert');
+        if (statusAlert) {
+          statusAlert.style.display = 'block';
+          statusAlert.style.background = 'rgba(239, 68, 68, 0.15)';
+          statusAlert.style.border = '1px solid #ef4444';
+          statusAlert.style.color = '#f87171';
+          statusAlert.innerHTML = `❌ 제보 제출 실패: ${err.message || '네트워크 연결 오류'}`;
+        }
       } finally {
         if (submitBtn) {
           submitBtn.disabled = false;
