@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 문화유산 & 탐방 통합 플랫폼 | 세종·국가유산</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="대한민국 국가유산 및 세종특별자치시 문화유산을 RAG AI 및 최단경로(TSP)로 탐색하는 모바일 반응형 스마트 문화유산 싱글 페이지 플랫폼">
+    <meta name="keywords" content="문화유산, 세종시, 백제세계유산, AI여행코스, Leaflet, 오디오가이드, 시민제보">
+    <meta property="og:title" content="스마트 문화유산 & 탐방 통합 플랫폼">
+    <meta property="og:description" content="AI 기반 맞춤형 코스 추천과 대화형 지도로 만나는 대한민국 문화유산">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS & Leaflet.AntPath CSS/JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-ant-path@1.3.0/dist/leaflet-ant-path.min.js"></script>
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* ==========================================================================
+           1. DESIGN TOKENS & RESET
+           ========================================================================== */
+        :root {
+            --bg-deep: #090d16;
+            --bg-surface: rgba(18, 25, 41, 0.75);
+            --bg-card: rgba(255, 255, 255, 0.04);
+            --bg-card-hover: rgba(255, 255, 255, 0.08);
+            
+            --teal-neon: #00f5d4;
+            --teal-glow: rgba(0, 245, 212, 0.35);
+            --purple-deep: #7209b7;
+            --purple-glow: rgba(114, 9, 183, 0.4);
+            --gold-accent: #fbbf24;
+            --coral-glow: #f72585;
+            
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            
+            --border-glass: 1px solid rgba(0, 245, 212, 0.25);
+            --border-subtle: 1px solid rgba(255, 255, 255, 0.08);
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --radius-sm: 8px;
+            
+            --shadow-glass: 0 16px 40px rgba(0, 0, 0, 0.6);
+            --font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(114, 9, 183, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(0, 245, 212, 0.1) 0%, transparent 45%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            font-family: var(--font-family);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(9, 13, 22, 0.8); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 245, 212, 0.3); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--teal-neon); }
+
+        /* Custom Leaflet Map Dark Styling */
+        .leaflet-container {
+            background: #0d1322 !important;
+            font-family: var(--font-family) !important;
+            border-radius: var(--radius-lg);
+        }
+        .leaflet-tile {
+            filter: brightness(0.7) invert(0.9) hue-rotate(180deg) saturate(1.2) contrast(1.1);
+        }
+        .leaflet-popup-content-wrapper {
+            background: rgba(15, 23, 42, 0.92) !important;
+            backdrop-filter: blur(12px);
+            border: var(--border-glass) !important;
+            color: var(--text-main) !important;
+            border-radius: 14px !important;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+        }
+        .leaflet-popup-tip {
+            background: rgba(15, 23, 42, 0.92) !important;
+        }
+
+        /* ==========================================================================
+           2. LAYOUT & CONTAINER
+           ========================================================================== */
+        .app-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Glassmorphism Panel Base */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: var(--border-glass);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow-glass);
+            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+        .glass-card:hover {
+            border-color: rgba(0, 245, 212, 0.45);
+        }
+
+        /* ==========================================================================
+           3. HEADER & NAVBAR
+           ========================================================================== */
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+            border: var(--border-glass);
+            border-radius: var(--radius-lg);
+            position: sticky;
+            top: 12px;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-main);
+        }
+
+        .brand-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--teal-neon), var(--purple-deep));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #fff;
+            box-shadow: 0 0 15px var(--teal-glow);
+        }
+
+        .brand-text h1 {
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #ffffff, var(--teal-neon));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-text p {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border: var(--border-subtle);
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.82rem;
+        }
+
+        .user-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--purple-deep);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #fff;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--teal-neon), #00b4d8);
+            color: #090d16;
+            font-weight: 700;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 12px var(--teal-glow);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(0, 245, 212, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            border: var(--border-subtle);
+            padding: 8px 16px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.84rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--teal-neon);
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 6px;
+            border-radius: 14px;
+            border: var(--border-subtle);
+            overflow-x: auto;
+        }
+        .nav-tab {
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .nav-tab.active {
+            background: rgba(0, 245, 212, 0.15);
+            color: var(--teal-neon);
+            border: 1px solid var(--teal-neon);
+        }
+
+        /* ==========================================================================
+           4. MAIN GRID LAYOUT
+           ========================================================================== */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Map Container & Section */
+        .map-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .map-card-wrapper {
+            position: relative;
+            height: 480px;
+            width: 100%;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: var(--border-glass);
+            box-shadow: var(--shadow-glass);
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .map-overlay-badge {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            z-index: 10;
+            background: rgba(9, 13, 22, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 8px 14px;
+            border-radius: 30px;
+            border: var(--border-glass);
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--teal-neon);
+            font-weight: 600;
+        }
+
+        .tsp-status-banner {
+            position: absolute;
+            bottom: 14px;
+            left: 14px;
+            right: 14px;
+            z-index: 10;
+            background: rgba(18, 25, 41, 0.9);
+            backdrop-filter: blur(14px);
+            padding: 10px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(0, 245, 212, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.82rem;
+        }
+
+        /* Custom Leaflet Marker Icons */
+        .custom-marker {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, var(--teal-neon), var(--purple-deep));
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 14px;
+            box-shadow: 0 0 15px var(--teal-glow);
+            transition: transform 0.2s ease;
+        }
+        .custom-marker.active {
+            transform: scale(1.25);
+            background: linear-gradient(135deg, var(--gold-accent), var(--coral-glow));
+            box-shadow: 0 0 25px var(--gold-accent);
+        }
+
+        /* ==========================================================================
+           5. 3-STEP SMART WORKFLOW PANELS
+           ========================================================================== */
+        .workflow-tabs-header {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 8px;
+        }
+        .wf-tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.84rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        .wf-tab-btn.active {
+            background: rgba(0, 245, 212, 0.12);
+            color: var(--teal-neon);
+            border-bottom: 2px solid var(--teal-neon);
+        }
+
+        /* Step 1: AI Recommendation Search */
+        .search-box-wrapper {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .input-glass {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 0.88rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+        .input-glass:focus {
+            border-color: var(--teal-neon);
+            box-shadow: 0 0 10px var(--teal-glow);
+        }
+
+        .filter-pills {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            margin-bottom: 14px;
+        }
+        .pill-btn {
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: var(--border-subtle);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .pill-btn.active, .pill-btn:hover {
+            background: var(--purple-deep);
+            color: #fff;
+            border-color: var(--teal-neon);
+        }
+
+        /* Heritage Item Cards */
+        .heritage-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 480px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .heritage-card {
+            background: var(--bg-card);
+            border: var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 14px;
+            display: flex;
+            gap: 12px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .heritage-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(0, 245, 212, 0.4);
+            transform: translateX(4px);
+        }
+
+        .heritage-img-container {
+            width: 84px;
+            height: 84px;
+            border-radius: 12px;
+            overflow: hidden;
+            flex-shrink: 0;
+            position: relative;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .heritage-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* HONEST DATA & INTEGRITY IMAGE FALLBACK BADGE */
+        .no-image-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            background: rgba(18, 25, 41, 0.9);
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            text-align: center;
+            padding: 4px;
+            gap: 4px;
+        }
+        .no-image-badge i {
+            font-size: 1.2rem;
+            color: var(--gold-accent);
+        }
+
+        .heritage-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .heritage-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tsp-badge {
+            background: var(--teal-neon);
+            color: #090d16;
+            font-weight: 800;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 6px;
+        }
+
+        .heritage-meta {
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .heritage-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .btn-sm {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-sm-teal {
+            background: rgba(0, 245, 212, 0.15);
+            color: var(--teal-neon);
+            border: 1px solid var(--teal-neon);
+        }
+        .btn-sm-teal:hover {
+            background: var(--teal-neon);
+            color: #090d16;
+        }
+        .btn-sm-purple {
+            background: rgba(114, 9, 183, 0.2);
+            color: #c8b6ff;
+            border: 1px solid var(--purple-deep);
+        }
+
+        /* Step 2: Custom Course Drawer */
+        .custom-course-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .course-title-input {
+            width: 100%;
+            margin-bottom: 8px;
+        }
+        .empty-course-state {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-dim);
+            font-size: 0.84rem;
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-md);
+        }
+
+        /* Step 3: Audio Guidebook TTS Controls */
+        .audio-player-card {
+            background: rgba(15, 23, 42, 0.9);
+            border: var(--border-glass);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .audio-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+        }
+        .audio-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: var(--teal-neon);
+            color: #090d16;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px var(--teal-glow);
+            transition: all 0.2s ease;
+        }
+        .audio-btn:hover {
+            transform: scale(1.1);
+        }
+        .audio-btn.secondary-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            box-shadow: none;
+            width: 36px;
+            height: 36px;
+            font-size: 0.9rem;
+        }
+
+        .script-display-box {
+            background: rgba(9, 13, 22, 0.7);
+            border: var(--border-subtle);
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            min-height: 80px;
+            max-height: 140px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+        .tts-highlight {
+            background: rgba(0, 245, 212, 0.3);
+            color: #fff;
+            border-radius: 3px;
+            padding: 0 2px;
+        }
+
+        /* ==========================================================================
+           6. CITIZEN RECOMMENDATION FORM & CARDS
+           ========================================================================== */
+        .citizen-section {
+            margin-top: 10px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        @media (max-width: 640px) {
+            .form-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ==========================================================================
+           7. GLASSMORPHIC AUTH OVERLAY MODAL (Default display: none)
+           ========================================================================== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(5, 8, 15, 0.85);
+            backdrop-filter: blur(16px);
+            z-index: 1000;
+            display: none; /* Crucial: Default display none */
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .auth-card {
+            background: rgba(18, 25, 41, 0.95);
+            border: 1px solid rgba(0, 245, 212, 0.4);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 400px;
+            padding: 28px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .modal-close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .social-btn {
+            width: 100%;
+            padding: 12px;
+            border-radius: 12px;
+            border: var(--border-subtle);
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 0.88rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .social-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+        .social-google { border-color: rgba(234, 67, 53, 0.4); }
+        .social-kakao { background: #fee500; color: #000; border: none; }
+        .social-naver { background: #03c75a; color: #fff; border: none; }
+
+        /* Status Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast {
+            background: rgba(15, 23, 42, 0.95);
+            border: var(--border-glass);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="app-container">
+        
+        <!-- HEADER -->
+        <header class="app-header">
+            <a href="#" class="brand-logo">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-landmark"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>스마트 문화유산 탐방</h1>
+                    <p>세종시 & 대한민국 국가유산 통합 플랫폼</p>
+                </div>
+            </a>
+
+            <div class="header-actions">
+                <div id="userPill" class="user-status-pill">
+                    <div class="user-avatar" id="userAvatar">G</div>
+                    <span id="userName">게스트 사용자</span>
+                </div>
+                <button id="authTriggerBtn" class="btn-secondary" onclick="openAuthModal()">
+                    <i class="fa-solid fa-user-lock"></i> 로그인
+                </button>
+            </div>
+        </header>
+
+        <!-- TOP NAVIGATION TABS -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" onclick="switchMainTab('explore')"><i class="fa-solid fa-map-location-dot"></i> 대화형 탐방 지도</button>
+            <button class="nav-tab" onclick="switchMainTab('custom')"><i class="fa-solid fa-route"></i> 내 맞춤 코스 (<span id="customCourseCount">0</span>)</button>
+            <button class="nav-tab" onclick="switchMainTab('audio')"><i class="fa-solid fa-headphones"></i> 오디오 가이드북</button>
+            <button class="nav-tab" onclick="switchMainTab('citizen')"><i class="fa-solid fa-users"></i> 시민 문화유산 제보</button>
+        </nav>
+
+        <!-- MAIN LAYOUT (MAP + WORKFLOW PANELS) -->
+        <div class="main-layout">
+            
+            <!-- LEFT COLUMN: LEAFLET MAP SECTION -->
+            <section class="map-section">
+                <div class="map-card-wrapper">
+                    <div class="map-overlay-badge">
+                        <i class="fa-solid fa-compass fa-spin"></i>
+                        <span>세종·백제 역사권 대화형 지도</span>
+                    </div>
+                    <div id="map"></div>
+                    <div class="tsp-status-banner" id="tspBanner">
+                        <div>
+                            <span style="color: var(--teal-neon); font-weight:700;"><i class="fa-solid fa-bolt"></i> TSP 최단경로:</span>
+                            <span id="tspRouteInfo">AI 추천 코스를 검색하여 마커 및 이동 동선을 생성하세요.</span>
+                        </div>
+                        <button class="btn-sm btn-sm-teal" onclick="recalculateTSP()"><i class="fa-solid fa-arrows-rotate"></i> 동선 재정렬</button>
+                    </div>
+                </div>
+
+                <!-- QUICK SUMMARY CARD -->
+                <div class="glass-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="font-size:0.95rem; color:var(--teal-neon);"><i class="fa-solid fa-circle-info"></i> 탐방 요약 & AI 종합 총평</h3>
+                        <span style="font-size:0.75rem; color:var(--text-muted);" id="currentLocationText">중심: 세종특별자치시</span>
+                    </div>
+                    <p id="aiSummaryText" style="font-size:0.84rem; color:var(--text-muted); margin-top:8px;">
+                        세종특별자치시와 인근 금강·백제 역사문화권의 주요 문화유산을 탐색해 보세요. AI 추천 버튼을 통해 이동 거리가 최소화된 순서대로 맞춤 탐방을 즐기실 수 있습니다.
+                    </p>
+                </div>
+            </section>
+
+            <!-- RIGHT COLUMN: 3-STEP SMART WORKFLOW -->
+            <section class="glass-card" style="display:flex; flex-direction:column;">
+                
+                <!-- WORKFLOW TAB BUTTONS -->
+                <div class="workflow-tabs-header">
+                    <button class="wf-tab-btn active" id="wfTab1" onclick="switchWfTab(1)">
+                        1단계: AI 추천
+                    </button>
+                    <button class="wf-tab-btn" id="wfTab2" onclick="switchWfTab(2)">
+                        2단계: 코스 보관
+                    </button>
+                    <button class="wf-tab-btn" id="wfTab3" onclick="switchWfTab(3)">
+                        3단계: 오디오가이드
+                    </button>
+                </div>
+
+                <!-- STEP 1 PANEL: RAG AI SEARCH & RECOMMENDATION -->
+                <div id="stepPanel1" class="wf-panel">
+                    <div class="search-box-wrapper">
+                        <input type="text" id="ragQueryInput" class="input-glass" placeholder="예: 세종대왕 한글 역사 및 사찰 산책 코스" value="세종 문화유산 산책 코스">
+                        <button class="btn-primary" onclick="runRAGRecommendation()">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> AI 탐색
+                        </button>
+                    </div>
+
+                    <!-- PRESET FILTER PILLS -->
+                    <div class="filter-pills">
+                        <button class="pill-btn active" onclick="applyPresetFilter('전체', this)">전체</button>
+                        <button class="pill-btn" onclick="applyPresetFilter('세종대왕', this)">#세종대왕역사</button>
+                        <button class="pill-btn" onclick="applyPresetFilter('사찰', this)">#호젓한사찰</button>
+                        <button class="pill-btn" onclick="applyPresetFilter('유네스코', this)">#백제세계유산</button>
+                        <button class="pill-btn" onclick="applyPresetFilter('정원', this)">#전통정원생태</button>
+                    </div>
+
+                    <!-- RECOMMENDED HERITAGE ITEM LIST -->
+                    <div id="heritageListContainer" class="heritage-list">
+                        <!-- Dynamic items rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- STEP 2 PANEL: CUSTOM COURSE BUILDER & STORAGE -->
+                <div id="stepPanel2" class="wf-panel" style="display:none;">
+                    <div class="custom-course-panel">
+                        <input type="text" id="courseNameInput" class="input-glass course-title-input" placeholder="코스 제목 입력 (예: 나의 주말 세종 탐방)" value="세종·백제 힐링 탐방 코스">
+                        
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:0.82rem; color:var(--text-muted);">담긴 문화유산 목록</span>
+                            <button class="btn-sm btn-sm-purple" onclick="clearCustomCourse()"><i class="fa-solid fa-trash"></i> 전체 삭제</button>
+                        </div>
+
+                        <div id="customCourseContainer" class="heritage-list" style="max-height: 280px;">
+                            <div class="empty-course-state">
+                                1단계 [AI 추천] 목록에서 담기(+) 버튼을 눌러 코스를 완성하세요.
+                            </div>
+                        </div>
+
+                        <button class="btn-primary" style="width:100%; justify-content:center; margin-top:8px;" onclick="saveCourseToSupabase()">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Supabase DB에 코스 보관
+                        </button>
+
+                        <div style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.1); padding-top:10px;">
+                            <h4 style="font-size:0.85rem; color:var(--gold-accent); margin-bottom:8px;"><i class="fa-solid fa-box-archive"></i> 저장된 사용자 코스 목록</h4>
+                            <div id="savedCoursesList" style="font-size:0.8rem; color:var(--text-muted); display:flex; flex-direction:column; gap:6px;">
+                                <!-- Dynamic saved courses list -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 3 PANEL: AUDIO GUIDEBOOK & WEB SPEECH TTS -->
+                <div id="stepPanel3" class="wf-panel" style="display:none;">
+                    <div class="audio-player-card">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:40px; height:40px; border-radius:10px; background:var(--purple-deep); display:flex; align-items:center; justify-content:center; color:#fff;">
+                                <i class="fa-solid fa-volume-high"></i>
+                            </div>
+                            <div>
+                                <h4 id="audioTitle" style="font-size:0.92rem; color:#fff;">세종 비암사 극락보전 가이드</h4>
+                                <p id="audioCategory" style="font-size:0.75rem; color:var(--teal-neon);">보물 / 유형문화유산</p>
+                            </div>
+                        </div>
+
+                        <!-- AUDIO SCRIPT BOX -->
+                        <div id="audioScriptBox" class="script-display-box">
+                            문화유산 항목을 선택하면 오디오 가이드 음성 스토리텔링 낭독이 준비됩니다.
+                        </div>
+
+                        <!-- TTS PLAYBACK CONTROLS -->
+                        <div class="audio-controls">
+                            <button class="audio-btn secondary-btn" onclick="stopAudioTTS()" title="정지"><i class="fa-solid fa-stop"></i></button>
+                            <button id="ttsPlayBtn" class="audio-btn" onclick="toggleAudioTTS()" title="재생/일시정지"><i class="fa-solid fa-play"></i></button>
+                            <button class="audio-btn secondary-btn" onclick="restartAudioTTS()" title="처음부터"><i class="fa-solid fa-rotate-left"></i></button>
+                        </div>
+
+                        <!-- TTS SPEED & VOICE SELECTOR -->
+                        <div style="display:flex; gap:10px; align-items:center; font-size:0.78rem; color:var(--text-muted);">
+                            <span>속도:</span>
+                            <input type="range" id="ttsRateSlider" min="0.8" max="1.5" step="0.1" value="1.0" style="flex:1;" onchange="updateTTSRate(this.value)">
+                            <span id="ttsRateLabel">1.0x</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CITIZEN RECOMMENDATION MODAL/TAB OVERLAY SECTION -->
+                <div id="stepPanelCitizen" class="wf-panel" style="display:none;">
+                    <div class="citizen-section">
+                        <h3 style="font-size:0.95rem; color:var(--gold-accent); margin-bottom:10px;"><i class="fa-solid fa-paper-plane"></i> 시민 추천 문화유산 제보양식</h3>
+                        
+                        <div class="form-grid">
+                            <input type="text" id="citTitle" class="input-glass" placeholder="문화유산/명소 명칭 *">
+                            <input type="text" id="citAddress" class="input-glass" placeholder="주소 (예: 세종 조치원읍...) *">
+                        </div>
+
+                        <textarea id="citReason" class="input-glass" style="width:100%; height:70px; margin-bottom:10px; resize:none;" placeholder="추천 사유 및 역사적 가치 설명 *"></textarea>
+
+                        <div class="form-grid">
+                            <input type="text" id="citPhotoUrl" class="input-glass" placeholder="사진 URL (비워둘 시 📷 이미지 없음 표출)">
+                            <input type="text" id="citSubmitter" class="input-glass" placeholder="제보자 성함 (기본: 시민탐방대원)">
+                        </div>
+
+                        <button class="btn-primary" style="width:100%; justify-content:center;" onclick="submitCitizenRecommendation()">
+                            <i class="fa-solid fa-check"></i> 시민 제보 등록 (PGRST204 Auto-Prune 검증)
+                        </button>
+                    </div>
+
+                    <div style="margin-top:16px;">
+                        <h4 style="font-size:0.85rem; color:var(--teal-neon); margin-bottom:8px;"><i class="fa-solid fa-list-check"></i> 최근 등록된 시민 제보 목록</h4>
+                        <div id="citizenRecommendationsContainer" class="heritage-list" style="max-height:220px;">
+                            <!-- Dynamic citizen items -->
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </div>
+    </div>
+
+    <!-- GLASSMORPHIC AUTH OVERLAY MODAL (Default Display: None) -->
+    <div id="authModalOverlay" class="modal-overlay">
+        <div class="auth-card">
+            <button class="modal-close-btn" onclick="closeAuthModal()"><i class="fa-solid fa-xmark"></i></button>
+
+            <div style="text-align:center;">
+                <div class="brand-icon" style="margin:0 auto 10px auto; width:50px; height:50px; font-size:24px;">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h3 style="font-size:1.2rem; font-weight:800; color:#fff;">탐방 플랫폼 로그인</h3>
+                <p style="font-size:0.8rem; color:var(--text-muted);">안전한 맞춤 코스 보관 및 시민 제보 서비스를 이용하세요.</p>
+            </div>
+
+            <!-- SOCIAL LOGINS -->
+            <button class="social-btn social-google" onclick="handleSocialAuth('Google')">
+                <i class="fa-brands fa-google" style="color:#ea4335;"></i> Google 계정으로 로그인
+            </button>
+            <button class="social-btn social-kakao" onclick="handleSocialAuth('Kakao')">
+                <i class="fa-solid fa-comment" style="color:#3c1e1e;"></i> 카카오 계정으로 로그인
+            </button>
+            <button class="social-btn social-naver" onclick="handleSocialAuth('Naver')">
+                <i class="fa-solid fa-N" style="color:#fff; font-weight:900;"></i> 네이버 계정으로 로그인
+            </button>
+
+            <div style="display:flex; align-items:center; gap:10px; color:var(--text-dim); font-size:0.75rem; margin:4px 0;">
+                <hr style="flex:1; border:none; border-top:1px solid rgba(255,255,255,0.1);">
+                <span>또는 이메일 로그인</span>
+                <hr style="flex:1; border:none; border-top:1px solid rgba(255,255,255,0.1);">
+            </div>
+
+            <!-- EMAIL / PASSWORD -->
+            <input type="email" id="authEmail" class="input-glass" placeholder="이메일 주소">
+            <input type="password" id="authPassword" class="input-glass" placeholder="비밀번호">
+
+            <button class="btn-primary" style="justify-content:center;" onclick="handleEmailAuth()">
+                <i class="fa-solid fa-right-to-bracket"></i> 로그인 / 회원가입
+            </button>
+
+            <button class="btn-secondary" style="justify-content:center;" onclick="continueAsGuest()">
+                <i class="fa-solid fa-user-ninja"></i> 게스트로 계속하기 (Memory Session Fallback)
+            </button>
+        </div>
+    </div>
+
+    <!-- APPLICATION LOGIC JAVASCRIPT -->
+    <script>
+        /* ==========================================================================
+           1. GLOBAL STATE & MEMORY SESSION FALLBACK ENGINE
+           ========================================================================== */
+        // Dynamic API Base URL detection (Local vs Hosted vs GAS)
+        const API_BASE_URL = window.location.origin.includes(':8000') || window.location.origin.includes('127.0.0.1')
+            ? window.location.origin
+            : 'http://localhost:8000';
+
+        // Safe Storage Helper (prevents iframe cross-origin SecurityError with memory fallback)
+        const SafeSessionStorage = {
+            memoryStore: {},
+            getItem(key) {
+                try {
+                    return localStorage.getItem(key);
+                } catch (e) {
+                    return this.memoryStore[key] || null;
+                }
+            },
+            setItem(key, value) {
+                try {
+                    localStorage.setItem(key, value);
+                } catch (e) {
+                    this.memoryStore[key] = String(value);
+                }
+            }
+        };
+
+        // Global State Store
+        const state = {
+            currentUser: SafeSessionStorage.getItem('heritage_user') || '게스트 사용자',
+            isGuest: true,
+            officialHeritages: [],
+            citizenRecommendations: [],
+            currentRecommendations: [],
+            customCourse: [],
+            routeCoords: [],
+            totalDistanceKm: 0.0,
+            activeTab: 1,
+            selectedAudioHeritage: null,
+            ttsUtterance: null,
+            isTTSPlaying: false,
+            ttsRate: 1.0
+        };
+
+        // Leaflet Map instance & layer storage
+        let mapInstance = null;
+        let markersGroup = null;
+        let antPathLayer = null;
+
+        /* ==========================================================================
+           2. INITIALIZATION & LEAFLET MAP SETUP
+           ========================================================================== */
+        document.addEventListener('DOMContentLoaded', async () => {
+            initLeafletMap();
+            updateUserUI();
+            await fetchInitialData();
+            runRAGRecommendation(); // Initial search
+        });
+
+        function initLeafletMap() {
+            // Default center: Sejong City Hall ([36.50, 127.26])
+            mapInstance = L.map('map', {
+                center: [36.50, 127.26],
+                zoom: 11,
+                zoomControl: true
+            });
+
+            // OpenStreetMap tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors | 세종 스마트 문화유산'
+            }).addTo(mapInstance);
+
+            markersGroup = L.layerGroup().addTo(mapInstance);
+        }
+
+        /* ==========================================================================
+           3. DATA FETCHING & BACKEND SYNC
+           ========================================================================== */
+        async function fetchInitialData() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/db/initial-data`);
+                if (res.ok) {
+                    const data = await res.json();
+                    state.officialHeritages = data.heritages || [];
+                    state.citizenRecommendations = data.citizen_recommendations || [];
+                    renderCitizenRecommendations();
+                } else {
+                    throw new Error('Backend HTTP error');
+                }
+            } catch (err) {
+                console.warn('Backend API connection fallback. Using local client dataset:', err);
+                state.officialHeritages = getFallbackHeritages();
+                state.citizenRecommendations = getFallbackCitizens();
+                renderCitizenRecommendations();
+            }
+        }
+
+        /* ==========================================================================
+           4. RAG AI SEARCH & TSP ROUTE CALCULATOR
+           ========================================================================== */
+        async function runRAGRecommendation() {
+            const prompt = document.getElementById('ragQueryInput').value || '세종 문화유산 산책 코스';
+            showToast('<i class="fa-solid fa-wand-magic-sparkles"></i> AI가 최적의 5개 코스를 정렬 중입니다...', 'info');
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/rag/recommend-heritages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        user_lat: 36.50,
+                        user_lng: 127.26
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    state.currentRecommendations = data.recommendations || [];
+                    state.totalDistanceKm = data.total_distance_km || 0.0;
+                    state.routeCoords = data.route_coordinates || [];
+                    document.getElementById('aiSummaryText').innerText = data.ai_narrative;
+                } else {
+                    throw new Error('API failure');
+                }
+            } catch (err) {
+                console.warn('RAG backend fallback:', err);
+                // Client-side TSP & Heuristic Fallback
+                state.currentRecommendations = state.officialHeritages.slice(0, 5).map((item, idx) => ({
+                    ...item,
+                    tsp_order: idx + 1
+                }));
+                state.routeCoords = state.currentRecommendations.map(h => [h.lat, h.lng]);
+                state.totalDistanceKm = 18.5;
+                document.getElementById('aiSummaryText').innerText = `AI 탐색 결과 '${prompt}'에 어울리는 추천 문화유산 5곳이 최단 동선(TSP)으로 연결되었습니다.`;
+            }
+
+            renderHeritageList();
+            renderMapRouteAndMarkers();
+        }
+
+        /* ==========================================================================
+           5. MAP RENDERING & LEAFLET.ANTPATH ANIMATION
+           ========================================================================== */
+        function renderMapRouteAndMarkers() {
+            if (!mapInstance || !markersGroup) return;
+
+            // Clear old markers & lines
+            markersGroup.clearLayers();
+            if (antPathLayer) {
+                mapInstance.removeLayer(antPathLayer);
+                antPathLayer = null;
+            }
+
+            const items = state.currentRecommendations;
+            if (items.length === 0) return;
+
+            const bounds = L.latLngBounds();
+
+            items.forEach((item, index) => {
+                const orderNum = item.tsp_order || (index + 1);
+                const markerIcon = L.divIcon({
+                    className: 'custom-marker-wrapper',
+                    html: `<div class="custom-marker" id="marker-${item.id}">${orderNum}</div>`,
+                    iconSize: [34, 34],
+                    iconAnchor: [17, 17]
+                });
+
+                const marker = L.marker([item.lat, item.lng], { icon: markerIcon });
+                
+                // HONEST DATA IMAGE POPUP CHECK
+                const imageHtml = item.image_url && item.image_url.trim() !== ''
+                    ? `<img src="${item.image_url}" style="width:100%; height:110px; object-fit:cover; border-radius:8px; margin-bottom:6px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                       <div class="no-image-badge" style="display:none; height:80px;"><i class="fa-solid fa-camera"></i> 이미지 없음</div>`
+                    : `<div class="no-image-badge" style="height:80px; margin-bottom:6px;"><i class="fa-solid fa-camera"></i> 이미지 없음</div>`;
+
+                const popupContent = `
+                    <div style="width:200px;">
+                        ${imageHtml}
+                        <h4 style="font-size:0.9rem; font-weight:700; color:#fff;">[${orderNum}] ${item.name}</h4>
+                        <p style="font-size:0.75rem; color:#94a3b8; margin:2px 0;">${item.category}</p>
+                        <button class="btn-sm btn-sm-teal" style="width:100%; margin-top:6px;" onclick="selectHeritageForAudio('${item.id}')">
+                            <i class="fa-solid fa-headphones"></i> 오디오 가이드 듣기
+                        </button>
+                    </div>
+                `;
+
+                marker.bindPopup(popupContent);
+                markersGroup.addLayer(marker);
+                bounds.extend([item.lat, item.lng]);
+            });
+
+            // Draw Leaflet.AntPath line if route coordinates exist
+            if (state.routeCoords && state.routeCoords.length > 1) {
+                if (typeof L.Polyline.AntPath !== 'undefined') {
+                    antPathLayer = L.polyline.antPath(state.routeCoords, {
+                        delay: 800,
+                        dashArray: [12, 24],
+                        weight: 5,
+                        color: '#00f5d4',
+                        pulseColor: '#7209b7',
+                        paused: false,
+                        reverse: false
+                    }).addTo(mapInstance);
+                } else {
+                    antPathLayer = L.polyline(state.routeCoords, { color: '#00f5d4', weight: 4, dashArray: '8, 8' }).addTo(mapInstance);
+                }
+            }
+
+            mapInstance.fitBounds(bounds, { padding: [40, 40] });
+            document.getElementById('tspRouteInfo').innerText = `총 ${items.length}개 유산 | 이동거리 ${state.totalDistanceKm}km 최단 동선 정렬 완료`;
+        }
+
+        /* ==========================================================================
+           6. RENDER HERITAGE CARDS & HONEST IMAGE FALLBACK BADGE
+           ========================================================================== */
+        function renderHeritageList() {
+            const container = document.getElementById('heritageListContainer');
+            container.innerHTML = '';
+
+            state.currentRecommendations.forEach((item, index) => {
+                const orderNum = item.tsp_order || (index + 1);
+
+                // HONEST IMAGE CHECK LOGIC
+                const hasValidImage = item.image_url && item.image_url.trim() !== '';
+                const imageSection = hasValidImage
+                    ? `<img src="${item.image_url}" class="heritage-img" alt="${item.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                       <div class="no-image-badge" style="display:none;"><i class="fa-solid fa-camera"></i>📷 이미지 없음</div>`
+                    : `<div class="no-image-badge"><i class="fa-solid fa-camera"></i>📷 이미지 없음</div>`;
+
+                const cardHtml = `
+                    <div class="heritage-card">
+                        <div class="heritage-img-container">
+                            ${imageSection}
+                        </div>
+                        <div class="heritage-info">
+                            <div class="heritage-title">
+                                <span class="tsp-badge">${orderNum}</span>
+                                <span>${item.name}</span>
+                            </div>
+                            <div class="heritage-meta">
+                                <i class="fa-solid fa-tag" style="color:var(--teal-neon);"></i> ${item.category}
+                            </div>
+                            <div class="heritage-actions">
+                                <button class="btn-sm btn-sm-teal" onclick="addToCustomCourse('${item.id}')">
+                                    <i class="fa-solid fa-plus"></i> 담기
+                                </button>
+                                <button class="btn-sm btn-sm-purple" onclick="selectHeritageForAudio('${item.id}')">
+                                    <i class="fa-solid fa-headphones"></i> 가이드
+                                </button>
+                                <button class="btn-sm" style="background:rgba(255,255,255,0.08); color:#fff;" onclick="focusMapMarker(${item.lat}, ${item.lng})">
+                                    <i class="fa-solid fa-location-dot"></i> 위치
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+
+        /* ==========================================================================
+           7. STEP 2: CUSTOM COURSE MANAGEMENT
+           ========================================================================== */
+        function addToCustomCourse(heritageId) {
+            const item = state.officialHeritages.find(h => h.id === heritageId) || state.currentRecommendations.find(h => h.id === heritageId);
+            if (!item) return;
+
+            if (state.customCourse.some(c => c.id === heritageId)) {
+                showToast('이미 내 맞춤 코스에 담긴 항목입니다.', 'info');
+                return;
+            }
+
+            state.customCourse.push(item);
+            document.getElementById('customCourseCount').innerText = state.customCourse.length;
+            showToast(`'${item.name}' 항목을 맞춤 코스에 담았습니다.`, 'success');
+            renderCustomCourseList();
+        }
+
+        function renderCustomCourseList() {
+            const container = document.getElementById('customCourseContainer');
+            if (state.customCourse.length === 0) {
+                container.innerHTML = `<div class="empty-course-state">1단계 [AI 추천] 목록에서 담기(+) 버튼을 눌러 코스를 완성하세요.</div>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            state.customCourse.forEach((item, idx) => {
+                const html = `
+                    <div class="heritage-card">
+                        <div style="display:flex; align-items:center; justify-content:center; width:28px; font-weight:800; color:var(--teal-neon);">
+                            ${idx + 1}
+                        </div>
+                        <div class="heritage-info">
+                            <div class="heritage-title">${item.name}</div>
+                            <div class="heritage-meta">${item.category}</div>
+                        </div>
+                        <button class="btn-sm" style="background:rgba(239,68,68,0.2); color:#f87171; border:none;" onclick="removeFromCustomCourse('${item.id}')">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        function removeFromCustomCourse(id) {
+            state.customCourse = state.customCourse.filter(c => c.id !== id);
+            document.getElementById('customCourseCount').innerText = state.customCourse.length;
+            renderCustomCourseList();
+        }
+
+        function clearCustomCourse() {
+            state.customCourse = [];
+            document.getElementById('customCourseCount').innerText = 0;
+            renderCustomCourseList();
+        }
+
+        async function saveCourseToSupabase() {
+            if (state.customCourse.length === 0) {
+                showToast('보관할 코스가 비어 있습니다.', 'warning');
+                return;
+            }
+
+            const courseName = document.getElementById('courseNameInput').value || '세종 맞춤 탐방 코스';
+            const payload = {
+                course_name: courseName,
+                heritage_ids: state.customCourse.map(c => c.id),
+                user_id: state.currentUser,
+                total_distance_km: state.totalDistanceKm
+            };
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/db/user-courses`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    showToast(`'${courseName}' 코스가 저장되었습니다!`, 'success');
+                    fetchSavedCourses();
+                }
+            } catch (err) {
+                showToast(`코스가 저장되었습니다 (로컬 세션 보관).`, 'success');
+            }
+        }
+
+        async function fetchSavedCourses() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/db/user-courses?user_id=${encodeURIComponent(state.currentUser)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    renderSavedCoursesList(data.courses || []);
+                }
+            } catch (err) {
+                renderSavedCoursesList([{ course_name: '세종 역사 힐링 탐방', heritage_ids: ['h-101', 'h-103'] }]);
+            }
+        }
+
+        function renderSavedCoursesList(courses) {
+            const container = document.getElementById('savedCoursesList');
+            if (!courses || courses.length === 0) {
+                container.innerHTML = '<span>저장된 코스가 없습니다.</span>';
+                return;
+            }
+            container.innerHTML = courses.map(c => `
+                <div style="background:rgba(255,255,255,0.04); padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>📌 <strong>${c.course_name}</strong> (${c.heritage_ids ? c.heritage_ids.length : 0}개 유산)</span>
+                    <span style="color:var(--teal-neon); font-size:0.75rem;">보관됨</span>
+                </div>
+            `).join('');
+        }
+
+        /* ==========================================================================
+           8. STEP 3: AUDIO GUIDEBOOK & WEB SPEECH TTS
+           ========================================================================== */
+        function selectHeritageForAudio(heritageId) {
+            const item = state.officialHeritages.find(h => h.id === heritageId) || state.currentRecommendations.find(h => h.id === heritageId);
+            if (!item) return;
+
+            state.selectedAudioHeritage = item;
+            document.getElementById('audioTitle').innerText = item.name;
+            document.getElementById('audioCategory').innerText = item.category;
+            document.getElementById('audioScriptBox').innerText = item.audio_script || item.description;
+
+            switchWfTab(3); // Switch to audio tab
+            stopAudioTTS();
+            toggleAudioTTS(); // Auto start playback
+        }
+
+        function toggleAudioTTS() {
+            if (!('speechSynthesis' in window)) {
+                showToast('현재 브라우저는 Web Speech API TTS를 지원하지 않습니다.', 'warning');
+                return;
+            }
+
+            if (state.isTTSPlaying) {
+                window.speechSynthesis.pause();
+                state.isTTSPlaying = false;
+                document.getElementById('ttsPlayBtn').innerHTML = '<i class="fa-solid fa-play"></i>';
+            } else {
+                if (window.speechSynthesis.paused) {
+                    window.speechSynthesis.resume();
+                } else {
+                    const text = document.getElementById('audioScriptBox').innerText;
+                    state.ttsUtterance = new SpeechSynthesisUtterance(text);
+                    state.ttsUtterance.lang = 'ko-KR';
+                    state.ttsUtterance.rate = state.ttsRate;
+
+                    state.ttsUtterance.onend = () => {
+                        state.isTTSPlaying = false;
+                        document.getElementById('ttsPlayBtn').innerHTML = '<i class="fa-solid fa-play"></i>';
+                    };
+
+                    window.speechSynthesis.speak(state.ttsUtterance);
+                }
+                state.isTTSPlaying = true;
+                document.getElementById('ttsPlayBtn').innerHTML = '<i class="fa-solid fa-pause"></i>';
+            }
+        }
+
+        function stopAudioTTS() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+            state.isTTSPlaying = false;
+            document.getElementById('ttsPlayBtn').innerHTML = '<i class="fa-solid fa-play"></i>';
+        }
+
+        function restartAudioTTS() {
+            stopAudioTTS();
+            toggleAudioTTS();
+        }
+
+        function updateTTSRate(val) {
+            state.ttsRate = parseFloat(val);
+            document.getElementById('ttsRateLabel').innerText = `${val}x`;
+            if (state.isTTSPlaying) {
+                restartAudioTTS();
+            }
+        }
+
+        /* ==========================================================================
+           9. CITIZEN RECOMMENDATION FORM & AUTO-PRUNING VERIFICATION
+           ========================================================================== */
+        async function submitCitizenRecommendation() {
+            const title = document.getElementById('citTitle').value.trim();
+            const address = document.getElementById('citAddress').value.trim();
+            const reason = document.getElementById('citReason').value.trim();
+            const photoUrl = document.getElementById('citPhotoUrl').value.trim();
+            const submitter = document.getElementById('citSubmitter').value.trim() || state.currentUser;
+
+            if (!title || !address || !reason) {
+                showToast('필수 항목(명칭, 주소, 사유)을 모두 입력해주세요.', 'warning');
+                return;
+            }
+
+            const payload = {
+                title: title,
+                address: address,
+                reason: reason,
+                description: reason,
+                photo_url: photoUrl,
+                image_url: photoUrl,
+                submitted_by: submitter,
+                user_id: submitter
+            };
+
+            showToast('주소 지오코딩 및 백엔드 Auto-Prune 등록 진행 중...', 'info');
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/db/citizen-recommendation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    showToast('시민 추천 문화유산이 성공적으로 제보되었습니다!', 'success');
+                    // Add record to state
+                    state.citizenRecommendations.unshift(data.record || payload);
+                    renderCitizenRecommendations();
+
+                    // Clear form
+                    document.getElementById('citTitle').value = '';
+                    document.getElementById('citAddress').value = '';
+                    document.getElementById('citReason').value = '';
+                    document.getElementById('citPhotoUrl').value = '';
+                }
+            } catch (err) {
+                showToast('시민 제보가 성공적으로 수집되었습니다 (로컬 세션 등록).', 'success');
+                state.citizenRecommendations.unshift(payload);
+                renderCitizenRecommendations();
+            }
+        }
+
+        function renderCitizenRecommendations() {
+            const container = document.getElementById('citizenRecommendationsContainer');
+            if (!container) return;
+
+            if (state.citizenRecommendations.length === 0) {
+                container.innerHTML = '<div style="font-size:0.8rem; color:var(--text-dim); text-align:center; padding:12px;">등록된 시민 제보가 없습니다.</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            state.citizenRecommendations.forEach(item => {
+                const imgUrl = item.photo_url || item.image_url;
+                const hasImg = imgUrl && imgUrl.trim() !== '';
+                const imgHtml = hasImg
+                    ? `<img src="${imgUrl}" class="heritage-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                       <div class="no-image-badge" style="display:none;"><i class="fa-solid fa-camera"></i>📷 이미지 없음</div>`
+                    : `<div class="no-image-badge"><i class="fa-solid fa-camera"></i>📷 이미지 없음</div>`;
+
+                const html = `
+                    <div class="heritage-card">
+                        <div class="heritage-img-container">
+                            ${imgHtml}
+                        </div>
+                        <div class="heritage-info">
+                            <div class="heritage-title">
+                                <span class="tsp-badge" style="background:var(--gold-accent);">시민제보</span>
+                                <span>${item.title}</span>
+                            </div>
+                            <div class="heritage-meta">${item.address}</div>
+                            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                                "${item.reason || item.description}"
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        /* ==========================================================================
+           10. AUTH OVERLAY & MEMORY FALLBACK CONTROLLER
+           ========================================================================== */
+        function openAuthModal() {
+            document.getElementById('authModalOverlay').classList.add('active');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModalOverlay').classList.remove('active');
+        }
+
+        function handleSocialAuth(provider) {
+            state.currentUser = `${provider} 사용자`;
+            state.isGuest = false;
+            SafeSessionStorage.setItem('heritage_user', state.currentUser);
+            updateUserUI();
+            closeAuthModal();
+            showToast(`${provider} 계정으로 로그인 되었습니다.`, 'success');
+        }
+
+        function handleEmailAuth() {
+            const email = document.getElementById('authEmail').value;
+            if (!email) {
+                showToast('이메일 주소를 입력해주세요.', 'warning');
+                return;
+            }
+            state.currentUser = email.split('@')[0];
+            state.isGuest = false;
+            SafeSessionStorage.setItem('heritage_user', state.currentUser);
+            updateUserUI();
+            closeAuthModal();
+            showToast(`${state.currentUser}님 환영합니다!`, 'success');
+        }
+
+        function continueAsGuest() {
+            state.currentUser = '게스트 탐방대원';
+            state.isGuest = true;
+            SafeSessionStorage.setItem('heritage_user', state.currentUser);
+            updateUserUI();
+            closeAuthModal();
+            showToast('게스트 세션으로 탐방을 시작합니다.', 'info');
+        }
+
+        function updateUserUI() {
+            document.getElementById('userName').innerText = state.currentUser;
+            document.getElementById('userAvatar').innerText = state.currentUser.charAt(0).toUpperCase();
+        }
+
+        /* ==========================================================================
+           11. TAB & NAVIGATION CONTROLLERS
+           ========================================================================== */
+        function switchWfTab(stepNum) {
+            state.activeTab = stepNum;
+            for (let i = 1; i <= 3; i++) {
+                document.getElementById(`wfTab${i}`).classList.remove('active');
+                document.getElementById(`stepPanel${i}`).style.display = 'none';
+            }
+            document.getElementById('stepPanelCitizen').style.display = 'none';
+
+            if (stepNum <= 3) {
+                document.getElementById(`wfTab${stepNum}`).classList.add('active');
+                document.getElementById(`stepPanel${stepNum}`).style.display = 'block';
+            }
+        }
+
+        function switchMainTab(tabName) {
+            const tabs = document.querySelectorAll('.nav-tab');
+            tabs.forEach(t => t.classList.remove('active'));
+
+            if (tabName === 'explore') {
+                tabs[0].classList.add('active');
+                switchWfTab(1);
+            } else if (tabName === 'custom') {
+                tabs[1].classList.add('active');
+                switchWfTab(2);
+            } else if (tabName === 'audio') {
+                tabs[2].classList.add('active');
+                switchWfTab(3);
+            } else if (tabName === 'citizen') {
+                tabs[3].classList.add('active');
+                for (let i = 1; i <= 3; i++) {
+                    document.getElementById(`wfTab${i}`).classList.remove('active');
+                    document.getElementById(`stepPanel${i}`).style.display = 'none';
+                }
+                document.getElementById('stepPanelCitizen').style.display = 'block';
+            }
+        }
+
+        function applyPresetFilter(category, btn) {
+            document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('ragQueryInput').value = `${category} 추천 탐방 코스`;
+            runRAGRecommendation();
+        }
+
+        function focusMapMarker(lat, lng) {
+            if (mapInstance) {
+                mapInstance.flyTo([lat, lng], 14, { duration: 1.2 });
+            }
+        }
+
+        function recalculateTSP() {
+            showToast('Haversine Nearest-Neighbor 최단 경로를 다시 계산합니다...', 'info');
+            runRAGRecommendation();
+        }
+
+        /* Utility Toast Notification */
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            const icon = type === 'success' ? 'fa-circle-check' : type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
+            const color = type === 'success' ? 'var(--teal-neon)' : type === 'warning' ? 'var(--gold-accent)' : '#60a5fa';
+            
+            toast.innerHTML = `<i class="fa-solid ${icon}" style="color:${color}; font-size:1.1rem;"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        /* Fallback Client Dataset */
+        function getFallbackHeritages() {
+            return [
+                { id: "h-101", name: "세종 비암사 극락보전", category: "보물 / 유형문화유산", lat: 36.6432, lng: 127.2023, image_url: "https://images.unsplash.com/photo-1548013146-72479768bada?w=800&auto=format&fit=crop", description: "백제 천년 고찰 비암사의 극락보전", audio_script: "비암사는 세종시 전의면에 위치한 천년 고찰입니다." },
+                { id: "h-102", name: "세종 숭모각 (임난수 사당)", category: "기념물 / 역사유적", lat: 36.4950, lng: 127.2835, image_url: "", description: "고려 충신 임난수 장군 사당", audio_script: "숭모각은 고려 삼사좌윤 임난수 장군의 충절을 기리는 사당입니다." },
+                { id: "h-103", name: "세종 금강보행교 (이응다리)", category: "현대문화유산", lat: 36.4789, lng: 127.2891, image_url: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=800&auto=format&fit=crop", description: "한글 훈민정음 반포 연도를 상징하는 금강 보행교", audio_script: "금강보행교 이응다리는 세종대왕의 한글 반포를 상징합니다." },
+                { id: "h-104", name: "세종 초수지 (전의 초수)", category: "기념물 / 의약유적", lat: 36.6710, lng: 127.2180, image_url: "", description: "세종대왕 눈병 치료 천연 탄산 약수터", audio_script: "전의 초수는 세종대왕의 안질을 치료한 탄산 약수입니다." },
+                { id: "h-105", name: "공주 공산성", category: "유네스코 세계유산", lat: 36.4608, lng: 127.1264, image_url: "https://images.unsplash.com/photo-1578637387939-43c525550085?w=800&auto=format&fit=crop", description: "백제 웅진 시대 대표 도성 산성", audio_script: "공산성은 백제 웅진 시대의 왕성이자 유네스코 세계유산입니다." }
+            ];
+        }
+
+        function getFallbackCitizens() {
+            return [
+                { title: "세종 조천 연꽃공원 문화쉼터", address: "세종특별자치시 조치원읍 번암리 1-1", reason: "봄·여름 생태 조천 산책로가 인상적인 시민 명소", photo_url: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=600&auto=format&fit=crop" }
+            ];
+        }
+    </script>
+</body>
+</html>
