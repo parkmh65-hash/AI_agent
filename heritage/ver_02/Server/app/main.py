@@ -1540,6 +1540,35 @@ async def delete_user_course_endpoint(course_id: str, user_id: str = "guest@sejo
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@app.post("/api/v1/db/clear-all-data")
+async def clear_all_supabase_data():
+    """Admin endpoint to delete all rows from courses, heritages, citizen_recommendations, and guidebook_cache tables in Supabase"""
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        return {"status": "error", "message": "Supabase credentials not configured."}
+    
+    headers = get_supabase_headers()
+    deleted_summary = {}
+    tables_to_clear = ["courses", "citizen_recommendations", "heritages", "heritage", "guidebook_cache"]
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            for tbl in tables_to_clear:
+                delete_url = f"{settings.SUPABASE_URL}/rest/v1/{tbl}?id=neq.00000000-0000-0000-0000-000000000000"
+                res = await client.delete(delete_url, headers=headers, timeout=8.0)
+                if res.status_code in [200, 204]:
+                    deleted_summary[tbl] = "Cleared successfully"
+                else:
+                    delete_url_gt = f"{settings.SUPABASE_URL}/rest/v1/{tbl}?id=gt.0"
+                    res_gt = await client.delete(delete_url_gt, headers=headers, timeout=8.0)
+                    if res_gt.status_code in [200, 204]:
+                        deleted_summary[tbl] = "Cleared successfully"
+                    else:
+                        deleted_summary[tbl] = f"Status {res.status_code}"
+        return {"status": "success", "summary": deleted_summary}
+    except Exception as e:
+        logger.error(f"Failed to clear Supabase tables: {e}")
+        return {"status": "error", "message": str(e)}
+
 @app.post("/api/v1/db/user-profile")
 async def upsert_user_profile(req: UserProfileRequest):
     """Upsert user profile configuration in Supabase users_profile table"""
