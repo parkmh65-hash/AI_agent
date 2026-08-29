@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <!-- Google Fonts for modern typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- Material Symbols for sleek UI icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    
+    <!-- Include Style Template -->
+    <?!= HtmlService.createHtmlOutputFromFile('style').getContent(); ?>
+  </head>
+  <body>
+    <div class="app-container">
+      <header class="app-header">
+        <div class="logo-area">
+          <span class="material-symbols-outlined logo-icon">smart_toy</span>
+          <h1>RAG AI Assistant</h1>
+        </div>
+        <p class="subtitle">FastAPI + LangGraph + Supabase Vector Store RAG System</p>
+      </header>
+      
+      <main class="app-main">
+        <!-- Input Area (My Question) -->
+        <section class="card input-section">
+          <label for="my-question" class="input-label">
+            <span class="material-symbols-outlined label-icon">forum</span>
+            나의 질문
+          </label>
+          <div class="input-wrapper">
+            <textarea 
+              id="my-question" 
+              placeholder="여기에 AI 에이전트에게 물어볼 질문을 입력하세요..." 
+              rows="3"
+            ></textarea>
+          </div>
+          
+          <button id="btn-ask" class="btn-primary">
+            <span class="material-symbols-outlined btn-icon">send</span>
+            AI 질문하기
+          </button>
+        </section>
+        
+        <!-- Output Area (AI Answer) -->
+        <section class="card output-section">
+          <h2 class="output-title">
+            <span class="material-symbols-outlined title-icon">psychology</span>
+            AI 답변
+          </h2>
+          <div id="ai-answer" class="ai-answer-box empty-state">
+            <span class="material-symbols-outlined default-state-icon">chat_bubble</span>
+            <p class="placeholder-text">질문을 입력하고 'AI 질문하기' 버튼을 누르면 여기에 답변이 나타납니다.</p>
+          </div>
+        </section>
+
+        <!-- Book Outline Area -->
+        <section class="card outline-section">
+          <h2 class="output-title">
+            <span class="material-symbols-outlined title-icon">menu_book</span>
+            생성된 책 목차 (Outline)
+          </h2>
+          <div id="book-outline" class="outline-box empty-state">
+            <span class="material-symbols-outlined default-state-icon">receipt_long</span>
+            <p class="placeholder-text">목차 에이전트가 작동하여 작성된 목차가 여기에 표시됩니다.</p>
+          </div>
+        </section>
+      </main>
+      
+      <footer class="app-footer">
+        <p>© 2026 RAG Agent Workspace. Running on Google Sites & Cloud Run.</p>
+      </footer>
+    </div>
+
+    <!-- Include Script Template -->
+    <?!= HtmlService.createHtmlOutputFromFile('script').getContent(); ?>
+  </body>
+</html>

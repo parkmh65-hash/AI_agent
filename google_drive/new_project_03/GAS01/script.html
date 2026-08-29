@@ -1,0 +1,207 @@
+<script>
+  /**
+   * Google Apps Script Frontend Javascript Logic (script.html)
+   *
+   * Handles user interaction, form validation, calling server-side Apps Script,
+   * and updating the UI based on execution results.
+   */
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const btnAsk = document.getElementById('btn-ask');
+    const txtQuestion = document.getElementById('my-question');
+    const boxAnswer = document.getElementById('ai-answer');
+
+    // Attach Event Listeners
+    btnAsk.addEventListener('click', handleAskQuestion);
+
+    // Support submitting on Ctrl+Enter
+    txtQuestion.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleAskQuestion();
+      }
+    });
+
+    let currentTurnDiv = null;
+
+    /**
+     * Handles the Ask Question button click event.
+     */
+    function handleAskQuestion() {
+      const questionText = txtQuestion.value.trim();
+
+      // Validation
+      if (!questionText) {
+        alert("질문을 입력해 주세요!");
+        txtQuestion.focus();
+        return;
+      }
+
+      // Remove empty state if present
+      if (boxAnswer.classList.contains("empty-state")) {
+        boxAnswer.innerHTML = "";
+        boxAnswer.className = "ai-answer-box result-state";
+      }
+
+      // Create and append the new chat turn element
+      currentTurnDiv = document.createElement("div");
+      currentTurnDiv.className = "chat-turn";
+      currentTurnDiv.innerHTML = `
+        <div class="chat-question">
+          <span class="material-symbols-outlined chat-icon">person</span>
+          <div class="chat-bubble-user">${formatResponse(questionText)}</div>
+        </div>
+        <div class="chat-answer loading-active">
+          <span class="material-symbols-outlined chat-icon spin-icon">smart_toy</span>
+          <div class="chat-bubble-ai">
+            <div class="spinner-small"></div>
+            <span>AI 답변을 생성하고 있습니다...</span>
+          </div>
+        </div>
+      `;
+      boxAnswer.appendChild(currentTurnDiv);
+
+      // Scroll to bottom
+      boxAnswer.scrollTop = boxAnswer.scrollHeight;
+
+      // Clear input and disable elements to prevent multiple submissions
+      txtQuestion.value = "";
+      btnAsk.disabled = true;
+      txtQuestion.disabled = true;
+
+      // Call Google Apps Script backend function (askAI)
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onFailure)
+        .askAI(questionText);
+    }
+
+    /**
+     * Success callback from Code.gs askAI call.
+     */
+    function onSuccess(response) {
+      // Re-enable inputs
+      btnAsk.disabled = false;
+      txtQuestion.disabled = false;
+
+      if (!currentTurnDiv) return;
+
+      const answerDiv = currentTurnDiv.querySelector(".chat-answer");
+      if (!answerDiv) return;
+
+      answerDiv.className = "chat-answer"; // remove loading-active
+
+      if (response && response.error) {
+        answerDiv.innerHTML = `
+          <span class="material-symbols-outlined chat-icon" style="color: var(--error-color);">warning</span>
+          <div class="chat-bubble-ai error-bubble">
+            <strong>오류가 발생했습니다:</strong><br>${formatResponse(response.reply)}
+          </div>
+        `;
+        currentTurnDiv = null;
+        boxAnswer.scrollTop = boxAnswer.scrollHeight;
+        return;
+      }
+
+      const reply = response.reply || response;
+      const dbRowCount = response.db_row_count || 0;
+      const lastAddedTime = response.last_added_time || "최근 추가 이력 없음";
+      const executionTimeSec = response.execution_time_sec || 0.0;
+      const outline = response.outline || "";
+
+      answerDiv.innerHTML = `
+        <span class="material-symbols-outlined chat-icon">smart_toy</span>
+        <div class="chat-bubble-ai">
+          <div class="ai-reply">${formatResponse(reply)}</div>
+          <div class="ai-metadata">
+            <div class="metadata-item">
+              <span class="material-symbols-outlined meta-icon">database</span>
+              <span>행 수: <strong>${dbRowCount}</strong>개</span>
+            </div>
+            <div class="metadata-item">
+              <span class="material-symbols-outlined meta-icon">history</span>
+              <span>추가 시간: <strong>${lastAddedTime}</strong></span>
+            </div>
+            <div class="metadata-item">
+              <span class="material-symbols-outlined meta-icon">timer</span>
+              <span>사용 시간: <strong>${executionTimeSec}</strong>초</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Update book outline if present
+      const boxOutline = document.getElementById('book-outline');
+      if (boxOutline && outline) {
+        boxOutline.className = "outline-box result-state";
+        boxOutline.innerHTML = formatResponse(outline);
+      }
+
+      // Reset current reference
+      currentTurnDiv = null;
+      boxAnswer.scrollTop = boxAnswer.scrollHeight;
+    }
+
+    /**
+     * Failure callback from Code.gs askAI call.
+     */
+    function onFailure(error) {
+      // Re-enable inputs
+      btnAsk.disabled = false;
+      txtQuestion.disabled = false;
+
+      if (!currentTurnDiv) return;
+
+      const answerDiv = currentTurnDiv.querySelector(".chat-answer");
+      if (!answerDiv) return;
+
+      answerDiv.className = "chat-answer";
+      answerDiv.innerHTML = `
+        <span class="material-symbols-outlined chat-icon" style="color: var(--error-color);">warning</span>
+        <div class="chat-bubble-ai error-bubble">
+          <strong>서버 통신 오류가 발생했습니다:</strong><br>${error.message || error.toString()}
+        </div>
+      `;
+
+      currentTurnDiv = null;
+      boxAnswer.scrollTop = boxAnswer.scrollHeight;
+    }
+
+    /**
+     * Helper to safely format backticks/newlines in text to simple HTML elements.
+     */
+    function formatResponse(text) {
+      if (!text) return "";
+      
+      // Escape HTML entities to prevent XSS
+      let escaped = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+      // Format markdown bold (**text**) to HTML strong
+      escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+      // Format markdown backticks (`code`) to HTML code
+      escaped = escaped.replace(/`(.*?)`/g, '<code>$1</code>');
+
+      // Format bullet points (- item or * item)
+      escaped = escaped.replace(/^\s*[-*]\s+(.*?)$/gm, '• $1');
+
+      return escaped;
+    }
+
+    // Fetch initial data (like current book outline) on page load
+    google.script.run
+      .withSuccessHandler((data) => {
+        if (data && data.outline) {
+          const boxOutline = document.getElementById('book-outline');
+          if (boxOutline) {
+            boxOutline.className = "outline-box result-state";
+            boxOutline.innerHTML = formatResponse(data.outline);
+          }
+        }
+      })
+      .getInitialData();
+  });
+</script>

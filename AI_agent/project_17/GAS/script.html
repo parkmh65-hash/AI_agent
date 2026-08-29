@@ -1,0 +1,332 @@
+<script type="text/babel">
+  const { useState, useEffect } = React;
+
+  // Safe localStorage helper to prevent SecurityError inside GAS iframe sandbox
+  const safeLocalStorage = {
+    getItem: (key) => {
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        console.warn("localStorage read blocked:", e);
+        return null;
+      }
+    },
+    setItem: (key, value) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {
+        console.warn("localStorage write blocked:", e);
+      }
+    }
+  };
+
+  function App() {
+    // API URL 설정 (기본값: http://localhost:8000)
+    const [apiBaseUrl, setApiBaseUrl] = useState(
+      safeLocalStorage.getItem("tool_agent_api_url") || "http://localhost:8000"
+    );
+    const [showSettings, setShowSettings] = useState(false);
+    
+    // UI 입력 상태
+    const [query, setQuery] = useState("");
+    const [selectedModel, setSelectedModel] = useState("openai");
+    const [useWikipedia, setUseWikipedia] = useState(true);
+    const [useArxiv, setUseArxiv] = useState(true);
+    const [useNaverNews, setUseNaverNews] = useState(true);
+    
+    // 로딩 및 결과 상태
+    const [isLoading, setIsLoading] = useState(false);
+    const [responses, setResponses] = useState(null); // { wikipedia?: "...", arxiv?: "...", naver_news?: "..." }
+    const [errorMsg, setErrorMsg] = useState("");
+
+    // API URL 변경 핸들러
+    const handleApiUrlChange = (e) => {
+      const url = e.target.value.trim().replace(/\/$/, "");
+      setApiBaseUrl(url);
+      safeLocalStorage.setItem("tool_agent_api_url", url);
+    };
+
+    // 요청 보내기
+    const handleRequest = async () => {
+      if (!query.trim()) {
+        alert("질문을 입력해 주세요.");
+        return;
+      }
+      if (!useWikipedia && !useArxiv && !useNaverNews) {
+        alert("수행할 도구(Wikipedia, arXiv, Naver News)를 최소 하나 이상 선택해 주세요.");
+        return;
+      }
+
+      const currentQuery = query.trim();
+      
+      // 3단계 요구사항: 입력 UI의 질의하기 영역 내용 지우기
+      setQuery("");
+      setIsLoading(true);
+      setErrorMsg("");
+      setResponses(null);
+
+      // 선택된 도구 배열 만들기
+      const activeTools = [];
+      if (useWikipedia) activeTools.push("wikipedia");
+      if (useArxiv) activeTools.push("arxiv");
+      if (useNaverNews) activeTools.push("naver_news");
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/agent/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: currentQuery,
+            model: selectedModel,
+            tools: activeTools
+          })
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || "에이전트 실행 실패");
+        }
+
+        const data = await response.json();
+        setResponses(data.results || {});
+      } catch (err) {
+        console.error(err);
+        setErrorMsg(`⚠️ 에이전트 실행 중 오류가 발생했습니다: ${err.message}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    return (
+      <div className="app-container">
+        {/* Header Section */}
+        <header>
+          <div className="header-logo">
+            <i className="fa-solid fa-robot"></i>
+            <div>
+              <h1>Tool AI 에이전트</h1>
+              <div className="subtitle">LangChain Multi-Tool Agent Platform (Wikipedia, arXiv, Naver News)</div>
+            </div>
+          </div>
+          <div className="header-actions">
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setShowSettings(!showSettings)}
+              style={{ padding: '8px 12px' }}
+            >
+              <i className="fa-solid fa-gear"></i> 백엔드 주소 설정
+            </button>
+          </div>
+        </header>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <div className="card settings-card">
+            <div className="card-title" style={{ fontSize: '0.95rem', borderBottom: 'none', paddingBottom: 0 }}>
+              <i className="fa-solid fa-network-wired"></i> API 주소 설정
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <input 
+                type="text" 
+                className="input-field" 
+                value={apiBaseUrl}
+                onChange={handleApiUrlChange}
+                placeholder="예: http://localhost:8000"
+              />
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              * 로컬 테스트 시 <code>http://localhost:8000</code>을 사용하고, Google Cloud Run 배포 시 해당 배포 주소를 지정하세요.
+            </p>
+          </div>
+        )}
+
+        {/* Main Interface Grid */}
+        <div className="main-grid">
+          {/* Left Column: Controls */}
+          <div className="card">
+            <div className="card-title">
+              <i className="fa-solid fa-sliders"></i> 설정 및 입력
+            </div>
+
+            {/* 수행 모델 선택하기 */}
+            <div className="input-group">
+              <label className="input-label">수행 모델 선택하기</label>
+              <select 
+                className="input-field"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+              >
+                <option value="openai">OpenAI GPT-4o-mini</option>
+                <option value="gemini">Google Gemini 1.5 Flash</option>
+              </select>
+            </div>
+
+            {/* 작성을 원하는 항목 선택하기 */}
+            <div className="input-group">
+              <label className="input-label">작성을 원하는 항목 선택하기 (도구 활성화)</label>
+              
+              {/* Wikipedia */}
+              <div className="switch-container">
+                <div className="switch-label">
+                  <i className="fa-solid fa-book-open"></i>
+                  <span>백과사전 (Wikipedia)</span>
+                </div>
+                <label className="switch">
+                  <input 
+                    type="checkbox" 
+                    checked={useWikipedia} 
+                    onChange={(e) => setUseWikipedia(e.target.checked)}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+
+              {/* arXiv */}
+              <div className="switch-container">
+                <div className="switch-label">
+                  <i className="fa-solid fa-graduation-cap"></i>
+                  <span>학술논문 (arXiv)</span>
+                </div>
+                <label className="switch">
+                  <input 
+                    type="checkbox" 
+                    checked={useArxiv} 
+                    onChange={(e) => setUseArxiv(e.target.checked)}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+
+              {/* Naver News */}
+              <div className="switch-container">
+                <div className="switch-label">
+                  <i className="fa-solid fa-newspaper"></i>
+                  <span>네이버 뉴스 (Vector DB)</span>
+                </div>
+                <label className="switch">
+                  <input 
+                    type="checkbox" 
+                    checked={useNaverNews} 
+                    onChange={(e) => setUseNaverNews(e.target.checked)}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            {/* 질의하기 입력 */}
+            <div className="input-group">
+              <label className="input-label">질의하기</label>
+              <textarea 
+                className="textarea-field"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="질문을 입력하세요. (예: 인공지능 분야의 최신 논문 트렌드와 관련 뉴스를 검색해줘)"
+                disabled={isLoading}
+              />
+            </div>
+
+            {/* 요청 보내기 버튼 */}
+            <button 
+              className="btn btn-primary"
+              onClick={handleRequest}
+              disabled={isLoading || !query.trim()}
+            >
+              {isLoading ? (
+                <>
+                  <div className="spinner"></div> 실행 중...
+                </>
+              ) : (
+                <>
+                  <i className="fa-solid fa-paper-plane"></i> 요청 보내기
+                </>
+              )}
+            </button>
+
+            {errorMsg && (
+              <div style={{ color: 'var(--danger)', fontSize: '0.8rem', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <i className="fa-solid fa-triangle-exclamation"></i>
+                <span>{errorMsg}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Output Board */}
+          <div className="card chat-panel">
+            <div className="card-title">
+              <i className="fa-solid fa-receipt"></i> 실행 및 응답 영역
+            </div>
+
+            <div className="chat-history">
+              {/* 3단계 요구사항: 로딩 중 "AI 질문중입니다" 표시 */}
+              {isLoading && (
+                <div className="loading-container">
+                  <div className="spinner"></div>
+                  <h3>AI 질문중입니다</h3>
+                  <p style={{ fontSize: '0.85rem' }}>선택하신 도구들을 활용하여 AI가 데이터를 수집 및 분석하고 있습니다.</p>
+                </div>
+              )}
+
+              {!isLoading && !responses && (
+                <div className="empty-chat">
+                  <div className="empty-icon">
+                    <i className="fa-solid fa-brain"></i>
+                  </div>
+                  <h3>도구 검색 결과가 여기에 표시됩니다</h3>
+                  <p>
+                    왼쪽 패널에서 수행할 모델, 활성화할 검색 도구, 그리고 질문을 입력하신 후<br />
+                    <strong>[요청 보내기]</strong> 버튼을 클릭하여 다차원 데이터를 확인해 보세요.
+                  </p>
+                </div>
+              )}
+
+              {!isLoading && responses && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* Wikipedia 결과 */}
+                  {useWikipedia && responses.wikipedia !== undefined && (
+                    <div className="response-card active">
+                      <div className="response-title">
+                        <i className="fa-solid fa-book-open"></i> 백과사전 (Wikipedia) 검색 결과
+                      </div>
+                      <div className="response-body">
+                        {responses.wikipedia || "검색 결과가 없습니다."}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* arXiv 결과 */}
+                  {useArxiv && responses.arxiv !== undefined && (
+                    <div className="response-card active">
+                      <div className="response-title">
+                        <i className="fa-solid fa-graduation-cap"></i> 학술논문 (arXiv) 검색 결과
+                      </div>
+                      <div className="response-body">
+                        {responses.arxiv || "검색 결과가 없습니다."}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Naver News & Vector DB 결과 */}
+                  {useNaverNews && responses.naver_news !== undefined && (
+                    <div className="response-card active">
+                      <div className="response-title">
+                        <i className="fa-solid fa-newspaper"></i> 네이버 뉴스 (Vector DB) 검색 결과
+                      </div>
+                      <div className="response-body">
+                        {responses.naver_news || "검색 결과가 없습니다."}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mount React App
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(<App />);
+</script>

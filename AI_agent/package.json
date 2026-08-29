@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "uglify-js": "^3.19.3"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  }
+}

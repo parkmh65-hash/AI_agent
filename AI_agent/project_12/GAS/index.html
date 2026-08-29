@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>ChatPDF With Multiquery+HybridSearch+RagFusion</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <?!= include('style'); ?>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <i data-lucide="file-text" class="logo-icon"></i>
+        <h1>ChatPDF <span>RAG Fusion QA</span></h1>
+      </div>
+      <div class="server-config">
+        <label for="backend-url"><i data-lucide="link-2"></i> Backend URL:</label>
+        <input type="text" id="backend-url" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
+        <button id="btn-check-server" class="btn-secondary">Check Connection</button>
+      </div>
+    </header>
+
+    <main class="app-content">
+      <!-- Left Column: Settings and File Ingestion -->
+      <section class="left-panel">
+        <div class="card card-upload">
+          <div class="card-header">
+            <i data-lucide="upload-cloud"></i>
+            <h2>PDF파일 불러오기</h2>
+          </div>
+          <p class="card-description">벡터 DB(Supabase)에 문서를 등록합니다. 업로드 즉시 분할(Parent-Child) 및 임베딩 처리됩니다.</p>
+          
+          <div class="upload-dropzone" id="dropzone">
+            <i data-lucide="file-up" class="dropzone-icon"></i>
+            <p>PDF 파일을 여기에 드래그하거나 클릭하여 선택하세요</p>
+            <input type="file" id="pdf-input" accept="application/pdf" style="display: none;">
+            <button class="btn-primary" id="btn-select-file">파일 찾기</button>
+          </div>
+          
+          <div id="file-info" class="file-info-container" style="display: none;">
+            <div class="file-details">
+              <i data-lucide="file" class="file-icon"></i>
+              <span id="selected-filename">document.pdf</span>
+            </div>
+            <button id="btn-upload" class="btn-accent">벡터 DB에 추가하기</button>
+          </div>
+          
+          <div id="upload-status" class="status-msg"></div>
+        </div>
+
+        <div class="card card-status">
+          <div class="card-header">
+            <i data-lucide="database"></i>
+            <h2>Supabase DB 상태</h2>
+          </div>
+          <div class="status-grid">
+            <div class="status-item">
+              <span class="status-label">전체 문서 행 수 (DB Chunks)</span>
+              <span class="status-value" id="db-chunk-count">0</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">서버 상태</span>
+              <span class="status-value status-offline" id="server-status">OFFLINE</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Chat and RAG Details -->
+      <section class="right-panel">
+        <div class="card card-chat">
+          <div class="card-header">
+            <i data-lucide="message-square"></i>
+            <h2>AI 질의응답 (RAG Pipeline)</h2>
+          </div>
+
+          <!-- Input Area -->
+          <div class="chat-input-area">
+            <label for="question-input">나의 질문</label>
+            <textarea id="question-input" rows="3" placeholder="PDF 문서에 대해 궁금한 점을 입력해 주세요..."></textarea>
+            <div class="chat-actions">
+              <button id="btn-ask" class="btn-primary">
+                <i data-lucide="send"></i> AI 질문하기
+              </button>
+            </div>
+          </div>
+
+          <!-- Output Area -->
+          <div class="chat-output-area">
+            <div class="output-header">
+              <span>AI 답변</span>
+              <span id="response-timestamp" class="timestamp"></span>
+            </div>
+            <div id="answer-box" class="answer-box placeholder">
+              질문을 작성하고 [AI 질문하기] 버튼을 누르면 AI가 RAG 파이프라인을 가동하여 답변을 생성합니다.
+            </div>
+          </div>
+        </div>
+
+        <!-- RAG Diagnostic Board -->
+        <div class="card card-diagnostics" id="diagnostics-panel" style="display: none;">
+          <div class="card-header">
+            <i data-lucide="activity"></i>
+            <h2>RAG 파이프라인 분석 진단 보드</h2>
+          </div>
+          
+          <div class="diagnostics-summary">
+            <div class="metric-box">
+              <i data-lucide="timer" class="metric-icon"></i>
+              <div class="metric-data">
+                <span class="metric-value" id="val-total-time">-</span>
+                <span class="metric-label">총 응답 시간</span>
+              </div>
+            </div>
+            <div class="metric-box">
+              <i data-lucide="search" class="metric-icon"></i>
+              <div class="metric-data">
+                <span class="metric-value" id="val-search-time">-</span>
+                <span class="metric-label">RAG 검색 속도</span>
+              </div>
+            </div>
+            <div class="metric-box">
+              <i data-lucide="split" class="metric-icon"></i>
+              <div class="metric-data">
+                <span class="metric-value" id="val-route">-</span>
+                <span class="metric-label">라우팅 판단</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pipeline-flow">
+            <h3>파이프라인 실행 경로</h3>
+            <div class="flow-steps">
+              <div class="flow-step active" title="사용자의 질문 입력">Question</div>
+              <div class="flow-arrow"><i data-lucide="arrow-right"></i></div>
+              <div class="flow-step" id="step-hyde" title="Hypothetical Document Embeddings 생성">HyDE</div>
+              <div class="flow-arrow"><i data-lucide="arrow-right"></i></div>
+              <div class="flow-step" id="step-mq" title="5가지 관점의 다중 쿼리 생성">Multi Query</div>
+              <div class="flow-arrow"><i data-lucide="arrow-right"></i></div>
+              <div class="flow-step" id="step-ensemble" title="FAISS + BM25 융합 검색">Ensemble Retriever</div>
+              <div class="flow-arrow"><i data-lucide="arrow-right"></i></div>
+              <div class="flow-step" id="step-fusion" title="Reciprocal Rank Fusion 재정렬">RAG Fusion</div>
+              <div class="flow-arrow"><i data-lucide="arrow-right"></i></div>
+              <div class="flow-step" id="step-parent" title="Child 청크를 Parent 본문으로 맵핑">Parent Document</div>
+              <div class="flow-arrow"><i data-lucide="arrow-right"></i></div>
+              <div class="flow-step" id="step-llm" title="최종 컨텍스트 반영 답변 생성">LLM Response</div>
+            </div>
+          </div>
+
+          <div class="queries-detail" id="mq-details-section" style="display: none;">
+            <h4><i data-lucide="git-branch"></i> 생성된 다중 쿼리 (Multi-Query)</h4>
+            <ul id="multi-queries-list"></ul>
+          </div>
+          
+          <div class="hyde-detail" id="hyde-details-section" style="display: none;">
+            <h4><i data-lucide="sparkles"></i> 생성된 가상 답변 (HyDE Hypothetical Document)</h4>
+            <div class="hyde-doc-box" id="hyde-doc-content"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <?!= include('script'); ?>
+</body>
+</html>

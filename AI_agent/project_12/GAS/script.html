@@ -1,0 +1,273 @@
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Initialize Lucide Icons
+  lucide.createIcons();
+
+  // Load saved backend URL
+  const savedUrl = localStorage.getItem("chatpdf_backend_url");
+  const backendInput = document.getElementById("backend-url");
+  if (savedUrl) {
+    backendInput.value = savedUrl;
+  }
+
+  // Elements
+  const btnCheckServer = document.getElementById("btn-check-server");
+  const dropzone = document.getElementById("dropzone");
+  const pdfInput = document.getElementById("pdf-input");
+  const btnSelectFile = document.getElementById("btn-select-file");
+  const fileInfo = document.getElementById("file-info");
+  const selectedFilename = document.getElementById("selected-filename");
+  const btnUpload = document.getElementById("btn-upload");
+  const uploadStatus = document.getElementById("upload-status");
+  const dbChunkCount = document.getElementById("db-chunk-count");
+  const serverStatus = document.getElementById("server-status");
+  const questionInput = document.getElementById("question-input");
+  const btnAsk = document.getElementById("btn-ask");
+  const answerBox = document.getElementById("answer-box");
+  const responseTimestamp = document.getElementById("response-timestamp");
+  
+  // Diagnostics Elements
+  const diagnosticsPanel = document.getElementById("diagnostics-panel");
+  const valTotalTime = document.getElementById("val-total-time");
+  const valSearchTime = document.getElementById("val-search-time");
+  const valRoute = document.getElementById("val-route");
+  const mqDetailsSection = document.getElementById("mq-details-section");
+  const multiQueriesList = document.getElementById("multi-queries-list");
+  const hydeDetailsSection = document.getElementById("hyde-details-section");
+  const hydeDocContent = document.getElementById("hyde-doc-content");
+
+  // RAG pipeline steps
+  const steps = {
+    hyde: document.getElementById("step-hyde"),
+    mq: document.getElementById("step-mq"),
+    ensemble: document.getElementById("step-ensemble"),
+    fusion: document.getElementById("step-fusion"),
+    parent: document.getElementById("step-parent"),
+    llm: document.getElementById("step-llm")
+  };
+
+  let selectedFile = null;
+
+  // Retrieve backend URL helper
+  function getBackendUrl() {
+    let url = backendInput.value.trim();
+    if (!url) return "http://127.0.0.1:8000";
+    if (url.endsWith("/")) {
+      url = url.slice(0, -1);
+    }
+    return url;
+  }
+
+  // Save backend URL on change
+  backendInput.addEventListener("change", function() {
+    localStorage.setItem("chatpdf_backend_url", getBackendUrl());
+  });
+
+  // Check Server Connection
+  async function checkServerConnection() {
+    const url = getBackendUrl();
+    serverStatus.textContent = "CHECKING...";
+    serverStatus.className = "status-value";
+    
+    try {
+      const response = await fetch(`${url}/`, { method: "GET" });
+      if (!response.ok) throw new Error("Server returned non-200 status");
+      const data = await response.json();
+      
+      serverStatus.textContent = "ONLINE";
+      serverStatus.className = "status-value status-online";
+      dbChunkCount.textContent = data.db_row_count;
+      return true;
+    } catch (e) {
+      console.error(e);
+      serverStatus.textContent = "OFFLINE";
+      serverStatus.className = "status-value status-offline";
+      return false;
+    }
+  }
+
+  btnCheckServer.addEventListener("click", checkServerConnection);
+  
+  // Initial check
+  checkServerConnection();
+
+  // Dropzone drag-and-drop actions
+  btnSelectFile.addEventListener("click", () => pdfInput.click());
+  
+  dropzone.addEventListener("click", (e) => {
+    if (e.target !== btnSelectFile) {
+      pdfInput.click();
+    }
+  });
+
+  pdfInput.addEventListener("change", handleFileSelect);
+
+  dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+  });
+
+  dropzone.addEventListener("dragleave", () => {
+    dropzone.classList.remove("dragover");
+  });
+
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    if (e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+        setFile(file);
+      } else {
+        showUploadStatus("PDF 파일만 업로드할 수 있습니다.", "error");
+      }
+    }
+  });
+
+  function handleFileSelect(e) {
+    if (e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+    }
+  }
+
+  function setFile(file) {
+    selectedFile = file;
+    selectedFilename.textContent = file.name;
+    fileInfo.style.display = "flex";
+    uploadStatus.textContent = "";
+  }
+
+  function showUploadStatus(msg, type) {
+    uploadStatus.textContent = msg;
+    uploadStatus.className = `status-msg ${type}`;
+  }
+
+  // Upload file to Backend Supabase DB
+  btnUpload.addEventListener("click", async () => {
+    if (!selectedFile) return;
+    
+    const url = getBackendUrl();
+    btnUpload.disabled = true;
+    showUploadStatus("분할 청킹 및 임베딩 변환 중입니다. 잠시만 기다려 주세요...", "success");
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    try {
+      const response = await fetch(`${url}/upload`, {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || "Upload failed");
+      }
+
+      const data = await response.json();
+      showUploadStatus(`성공! 문서가 분할 저장되었습니다. (추가된 청크: ${data.chunks_added}개, 소요 시간: ${data.execution_time_sec.toFixed(2)}초)`, "success");
+      
+      // Reset file select
+      selectedFile = null;
+      fileInfo.style.display = "none";
+      pdfInput.value = "";
+      
+      // Update DB count
+      checkServerConnection();
+    } catch (e) {
+      console.error(e);
+      showUploadStatus(`업로드 실패: ${e.message}`, "error");
+    } finally {
+      btnUpload.disabled = false;
+    }
+  });
+
+  // Ask AI Action
+  btnAsk.addEventListener("click", async () => {
+    const question = questionInput.value.trim();
+    if (!question) {
+      alert("질문을 입력해 주세요.");
+      return;
+    }
+
+    const url = getBackendUrl();
+    
+    // Clear answer box and show loading
+    answerBox.className = "answer-box loading";
+    answerBox.textContent = "AI 질문중입니다... RAG 파이프라인 가동 및 답변 추론 중입니다.";
+    responseTimestamp.textContent = "";
+    diagnosticsPanel.style.display = "none";
+
+    // Clear input area immediately as requested
+    questionInput.value = "";
+
+    try {
+      const response = await fetch(`${url}/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message: question })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || "Query failed");
+      }
+
+      const data = await response.json();
+
+      // Show answer
+      answerBox.className = "answer-box";
+      answerBox.textContent = data.reply;
+      responseTimestamp.textContent = data.timestamp;
+
+      // Update DB metrics
+      dbChunkCount.textContent = data.db_row_count;
+
+      // Diagnostics Panel logic
+      diagnosticsPanel.style.display = "block";
+      valTotalTime.textContent = `${data.execution_time_sec.toFixed(2)}초`;
+      valSearchTime.textContent = data.is_rag ? `${data.search_speed_sec.toFixed(2)}초` : "N/A (검색 미실행)";
+      valRoute.textContent = data.is_rag ? "문서 RAG 필요" : "일반 대화 / 상식";
+
+      if (data.is_rag) {
+        // Activate steps in flow visualizer
+        Object.values(steps).forEach(step => step.classList.add("active"));
+        
+        // Multi query detail list
+        if (data.generated_queries && data.generated_queries.length > 0) {
+          multiQueriesList.innerHTML = "";
+          data.generated_queries.forEach(q => {
+            const li = document.createElement("li");
+            li.textContent = q;
+            multiQueriesList.appendChild(li);
+          });
+          mqDetailsSection.style.display = "block";
+        } else {
+          mqDetailsSection.style.display = "none";
+        }
+
+        // HyDE document detail
+        if (data.hyde_document) {
+          hydeDocContent.textContent = data.hyde_document;
+          hydeDetailsSection.style.display = "block";
+        } else {
+          hydeDetailsSection.style.display = "none";
+        }
+
+      } else {
+        // Deactivate steps (except the basic route) for general chats
+        Object.values(steps).forEach(step => step.classList.remove("active"));
+        mqDetailsSection.style.display = "none";
+        hydeDetailsSection.style.display = "none";
+      }
+
+    } catch (e) {
+      console.error(e);
+      answerBox.className = "answer-box";
+      answerBox.innerHTML = `<span style="color: var(--accent-danger); font-weight: 600;">에러 발생:</span> ${e.message}<br><br>FastAPI 백엔드가 실행 중인지, 혹은 C:\\Anti-project\\.env 파일에 API 키가 올바르게 세팅되었는지 확인하십시오.`;
+    }
+  });
+});
+</script>

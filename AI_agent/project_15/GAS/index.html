@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FashionRAG - AI 패션 스타일링 조언기</title>
+  
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts Outfit & Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Include custom styles template evaluated by GAS -->
+  <?!= include('style'); ?>
+  
+  <!-- Local fallback placeholder (safely ignored in GAS environment) -->
+  <style id="local-style-placeholder"></style>
+</head>
+<body>
+  <!-- React Mount Point -->
+  <div id="root"></div>
+
+  <!-- React & ReactDOM (Production UMD) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel Standalone to compile JSX on the fly in the browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Include javascript logic template evaluated by GAS -->
+  <?!= include('script'); ?>
+</body>
+</html>
