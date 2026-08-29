@@ -901,7 +901,14 @@
       if (ws3) ws3.style.display = 'none';
 
       const wsActive = document.getElementById(`wizard-step-${step}`);
-      if (wsActive) wsActive.style.display = 'block';
+      if (wsActive) {
+        wsActive.style.display = 'block';
+        setTimeout(() => {
+          try {
+            wsActive.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } catch (e) { }
+        }, 150);
+      }
       if (step === 2 && courseList && courseList.length > 0) {
         const step2Wrapper = document.getElementById('step-2-course-wrapper');
         if (step2Wrapper) step2Wrapper.style.display = 'flex';
