@@ -17,13 +17,7 @@ function getBackendUrl() {
  * Get current Google User Email from Active Session
  */
 function getCurrentGoogleUserGAS() {
-  try {
-    var email = Session.getActiveUser().getEmail();
-    if (email) {
-      return { status: 'success', email: email, nickname: email.split('@')[0] };
-    }
-  } catch(e) {}
-  return { status: 'fallback', email: 'guest@sejong.go.kr', nickname: '게스트' };
+  return { status: 'success', email: 'guest@sejong.go.kr', nickname: '게스트' };
 }
 
 /**
@@ -125,9 +119,9 @@ function fetchSavedCoursesGAS() {
 /**
  * Fetch saved courses for specific user email from database
  */
-function fetchUserCoursesGAS(userEmail) {
+function fetchUserCoursesGAS(user_id) {
   var backendUrl = getBackendUrl();
-  var targetUser = userEmail || "guest@sejong.go.kr";
+  var targetUser = user_id || "guest@sejong.go.kr";
   try {
     var response = UrlFetchApp.fetch(backendUrl + "/api/v1/db/user-courses?user_id=" + encodeURIComponent(targetUser), {
       method: "GET",

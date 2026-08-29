@@ -87,11 +87,8 @@
             font-family: var(--font-family) !important;
             border-radius: var(--radius-lg);
         }
-        .leaflet-tile {
-            filter: brightness(0.7) invert(0.9) hue-rotate(180deg) saturate(1.2) contrast(1.1);
-        }
         .leaflet-popup-content-wrapper {
-            background: rgba(15, 23, 42, 0.92) !important;
+            background: rgba(15, 23, 42, 0.95) !important;
             backdrop-filter: blur(12px);
             border: var(--border-glass) !important;
             color: var(--text-main) !important;
@@ -1082,6 +1079,8 @@
         });
 
         function initLeafletMap() {
+            if (mapInstance) return;
+
             // Default center: Sejong City Hall ([36.50, 127.26])
             mapInstance = L.map('map', {
                 center: [36.50, 127.26],
@@ -1089,13 +1088,31 @@
                 zoomControl: true
             });
 
-            // OpenStreetMap tile layer
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            // Native Dark Mode CartoDB Tile Layer with OpenStreetMap Fallback
+            const darkTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                subdomains: 'abcd',
                 maxZoom: 19,
-                attribution: '&copy; OpenStreetMap contributors | 세종 스마트 문화유산'
-            }).addTo(mapInstance);
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO | 세종 스마트 문화유산'
+            });
+
+            darkTileLayer.on('tileerror', function() {
+                // Fallback to standard OpenStreetMap tiles if CartoDB tile server is blocked
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(mapInstance);
+            });
+
+            darkTileLayer.addTo(mapInstance);
 
             markersGroup = L.layerGroup().addTo(mapInstance);
+
+            // Force recalculate map container size
+            setTimeout(() => {
+                if (mapInstance) {
+                    mapInstance.invalidateSize();
+                }
+            }, 250);
         }
 
         /* ==========================================================================
@@ -1231,7 +1248,10 @@
                 }
             }
 
-            mapInstance.fitBounds(bounds, { padding: [40, 40] });
+            if (mapInstance) {
+                mapInstance.invalidateSize();
+                mapInstance.fitBounds(bounds, { padding: [40, 40] });
+            }
             document.getElementById('tspRouteInfo').innerText = `총 ${items.length}개 유산 | 이동거리 ${state.totalDistanceKm}km 최단 동선 정렬 완료`;
         }
 
@@ -1630,6 +1650,7 @@
             if (tabName === 'explore') {
                 tabs[0].classList.add('active');
                 switchWfTab(1);
+                setTimeout(() => { if (mapInstance) mapInstance.invalidateSize(); }, 150);
             } else if (tabName === 'custom') {
                 tabs[1].classList.add('active');
                 switchWfTab(2);

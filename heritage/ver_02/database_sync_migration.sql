@@ -88,6 +88,8 @@ BEGIN
           AND column_name = 'longitude'
     ) THEN
         ALTER TABLE public.citizen_recommendations ADD COLUMN longitude NUMERIC(10,6);
+    END IF;
+
     -- Check if user_id is missing in courses
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
@@ -161,3 +163,14 @@ CREATE TABLE IF NOT EXISTS public.users_profile (
     last_login TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- 9. Create view aliases for table compatibility
+CREATE OR REPLACE VIEW public.saved_courses AS SELECT * FROM public.courses;
+CREATE OR REPLACE VIEW public.user_courses AS SELECT * FROM public.courses;
+
+-- 10. Enable public permissions for Supabase REST API
+GRANT ALL ON TABLE public.heritages TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.citizen_recommendations TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.courses TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.users_profile TO anon, authenticated, service_role;
+
