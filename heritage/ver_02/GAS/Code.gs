@@ -10,7 +10,7 @@ function doGet(e) {
 // Config variables fallback (Users should configure BACKEND_URL in Script Properties)
 function getBackendUrl() {
   var props = PropertiesService.getScriptProperties();
-  return props.getProperty("BACKEND_URL") || "https://ver02-backend-538192513096.asia-northeast3.run.app";
+  return props.getProperty("BACKEND_URL") || "https://ver02-backend-538192513096.us-central1.run.app";
 }
 
 
