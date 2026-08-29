@@ -117,7 +117,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.6083,
         "longitude": 127.2131,
         "description": "삼국시대 백제 유민들이 건립한 역사 깊은 전통 사찰의 본전으로 목조 아미타여래좌상이 봉안되어 있습니다.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/99/2673599_image2_1.jpg"
     },
     {
         "id": "h_2",
@@ -128,7 +128,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.6111,
         "longitude": 127.2917,
         "description": "조선시대 강화최씨 문중의 제단 옆에 심겨져 400여 년의 수령을 간직한 아름다운 우산 모양의 향나무.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/11/2673611_image2_1.jpg"
     },
     {
         "id": "h_3",
@@ -139,7 +139,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.5312,
         "longitude": 127.2721,
         "description": "조선시대 연기현 관아 터 근처에 심겨진 보호수로, 오랜 세월 마을의 수호신이자 안식처가 되어 온 큰 거목.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/35/2673635_image2_1.jpg"
     },
     {
         "id": "h_4",
@@ -150,7 +150,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.4851,
         "longitude": 127.2625,
         "description": "고려 말 충신인 임난수 장군의 절의를 기려 조선 세종 때 지어진 유서 깊은 전통 목조 정자.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/20/2673620_image2_1.jpg"
     },
     {
         "id": "h_5",
@@ -161,7 +161,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.5623,
         "longitude": 127.2341,
         "description": "학림사 대웅전에 보존된 불화로 조선 후기 신중 신앙의 흐름과 뛰어난 불교 채색 화풍을 보여줍니다.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/82/2673682_image2_1.jpg"
     },
     {
         "id": "h_6",
@@ -172,7 +172,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.4952,
         "longitude": 127.2871,
         "description": "고려 말 무신 임난수 장군이 은거하며 심은 거대한 한 쌍의 은행나무로 세종시 출범의 역사적 상징물.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/50/2673650_image2_1.jpg"
     },
     {
         "id": "h_7",
@@ -183,7 +183,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.4908,
         "longitude": 127.2023,
         "description": "영평사에 소장된 불교 미술품으로, 아미타불을 중심으로 좌우 협시보살을 묘사한 정교한 조선 후기 탱화.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/18/2673718_image2_1.jpg"
     },
     {
         "id": "h_8",
@@ -194,7 +194,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.6083,
         "longitude": 127.2131,
         "description": "비암사 대웅전 앞에 기단 위에 정갈하게 우뚝 솟은 고려 시대 양식의 화강암 삼층석탑.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/66/2673666_image2_1.jpg"
     },
     {
         "id": "h_9",
@@ -205,7 +205,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.5050,
         "longitude": 127.3683,
         "description": "조선 고종 때 병조판서를 지낸 임헌회 선생의 고택으로 마당을 중심으로 배치된 고풍스러운 한옥 주택.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/02/2673702_image2_1.jpg"
     },
     {
         "id": "h_10",
@@ -216,7 +216,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.5015,
         "longitude": 127.2589,
         "description": "조선 17세기 대표적 산림 학자 초려 이유태 선생의 학문적 정신을 계승하고 묘소를 모신 전통 문화 역사 공원.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/41/2673741_image2_1.jpg"
     },
     {
         "id": "h_11",
@@ -227,7 +227,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.5180,
         "longitude": 127.2750,
         "description": "원수산 자락에 자리하여 기호학파의 대표적 선현들을 배향하며 성리학 연구와 교육을 담당했던 전통 서원.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/55/2673755_image2_1.jpg"
     },
     {
         "id": "h_12",
@@ -238,7 +238,7 @@ DEFAULT_SEJONG_HERITAGES = [
         "latitude": 36.6210,
         "longitude": 127.2550,
         "description": "백제와 고구려 등 삼국이 치열하게 영토 투쟁을 벌였던 세종시 북쪽 원수산 인근의 석축 테뫼식 성곽 유적.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        "image_url": "https://tong.visitkorea.or.kr/cms/resource/79/2673779_image2_1.jpg"
     },
     {
         "id": "h_13",
@@ -458,15 +458,57 @@ async def update_db_heritage_image(name: str, image_url: str):
     except Exception as e:
         logger.warn(f"Failed to update database photo_url for '{name}': {e}")
 
+async def fetch_real_heritage_image_search(name: str) -> Optional[str]:
+    """Perform real-time HTTP search on Naver Terms / Wikimedia for authentic heritage image URL"""
+    if not name:
+        return None
+    encoded_name = urllib.parse.quote(name)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=4.0) as client:
+            # 1. Live search Naver Terms (Encyclopedia)
+            url = f"https://terms.naver.com/search.naver?query={encoded_name}"
+            r = await client.get(url, headers=headers)
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, 'html.parser')
+                first_img = soup.select_one("ul.content_list > li .thumb_area img")
+                if first_img:
+                    raw_src = first_img.get("data-src") or first_img.get("src")
+                    if raw_src and raw_src.startswith("http"):
+                        return raw_src
+            
+            # 2. Live search Wikimedia Commons API
+            wiki_url = f"https://commons.wikimedia.org/w/api.php?action=query&generator=search&gteqsearch={encoded_name}&prop=pageimages&pithumbsize=600&format=json"
+            res_wiki = await client.get(wiki_url, headers=headers)
+            if res_wiki.status_code == 200:
+                pages = res_wiki.json().get("query", {}).get("pages", {})
+                for page_id, page_data in pages.items():
+                    thumbnail = page_data.get("thumbnail", {}).get("source")
+                    if thumbnail and thumbnail.startswith("http"):
+                        return thumbnail
+    except Exception as e:
+        logger.warn(f"Live heritage image search failed for '{name}': {e}")
+    return None
+
 async def get_or_create_heritage_image(name: str, current_img: Optional[str] = None) -> str:
-    """Ensure a valid HTTP photo exists for the spot; generates via DALL-E if missing, returning the external DALL-E URL directly without storing to Supabase Storage"""
-    if current_img and current_img.startswith("http") and "placeholder" not in current_img and "svg" not in current_img:
-        if "supabase.co/storage" in current_img:
-            return "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    """Ensure authentic heritage photo URL exists by live scraping Naver/Wikimedia or reusing valid non-fallback image"""
+    default_fallback = "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    
+    # Re-use existing valid image URL if not the duplicate fallback
+    if current_img and current_img.startswith("http") and "photo-1548115184" not in current_img and "placeholder" not in current_img:
         return current_img
-        
+
+    # Real-time live search for authentic heritage photo URL
+    live_img = await fetch_real_heritage_image_search(name)
+    if live_img:
+        logger.info(f"Retrieved live authentic image URL for '{name}': {live_img}")
+        await update_db_heritage_image(name, live_img)
+        return live_img
+
     if not settings.OPENAI_API_KEY:
-        return current_img or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        return current_img or default_fallback
 
     try:
         logger.info(f"Generating DALL-E image for heritage: '{name}'")
@@ -481,17 +523,17 @@ async def get_or_create_heritage_image(name: str, current_img: Optional[str] = N
                 "https://api.openai.com/v1/images/generations",
                 headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
                 json=dalle_payload,
-                timeout=20.0
+                timeout=15.0
             )
             if res_dalle.status_code == 200:
                 dalle_url = res_dalle.json()["data"][0]["url"]
-                logger.info(f"Using external DALL-E image URL directly for '{name}': {dalle_url}")
+                logger.info(f"Using DALL-E image URL for '{name}': {dalle_url}")
                 await update_db_heritage_image(name, dalle_url)
                 return dalle_url
     except Exception as e:
         logger.error(f"Failed to generate DALL-E image for '{name}': {e}")
 
-    return current_img or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+    return current_img or default_fallback
 
 async def resolve_heritage_image(item: Dict[str, Any]) -> str:
     """Ensure a valid image URL exists by either reusing current or generating via DALL-E directly (without storing to Supabase / Vectorizing)"""
