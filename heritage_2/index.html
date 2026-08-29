@@ -275,6 +275,78 @@
             border: 1px solid var(--teal-neon);
         }
 
+        /* MOBILE APP BOTTOM NAVIGATION BAR */
+        .mobile-bottom-nav {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding-bottom: 74px; /* Space for fixed bottom bar */
+            }
+            .app-container {
+                padding: 10px;
+                gap: 12px;
+            }
+            .app-header {
+                padding: 10px 14px;
+            }
+            .brand-text p {
+                display: none;
+            }
+            .brand-text h1 {
+                font-size: 1.0rem;
+            }
+            .nav-tabs {
+                display: none; /* Hide top tabs on mobile, use bottom app bar instead */
+            }
+            .mobile-bottom-nav {
+                display: flex;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 64px;
+                background: rgba(15, 23, 42, 0.96);
+                backdrop-filter: blur(20px);
+                border-top: 1px solid rgba(0, 245, 212, 0.35);
+                z-index: 9999;
+                justify-content: space-around;
+                align-items: center;
+                box-shadow: 0 -8px 25px rgba(0,0,0,0.6);
+            }
+            .mob-nav-item {
+                background: transparent;
+                border: none;
+                color: var(--text-muted);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 3px;
+                font-size: 0.7rem;
+                font-weight: 600;
+                cursor: pointer;
+                padding: 6px 10px;
+                border-radius: 12px;
+                transition: all 0.2s ease;
+            }
+            .mob-nav-item.active {
+                color: var(--teal-neon);
+                background: rgba(0, 245, 212, 0.1);
+            }
+            .mob-nav-item i {
+                font-size: 1.1rem;
+            }
+            .map-card-wrapper {
+                height: 350px !important;
+            }
+            .tsp-status-banner {
+                flex-direction: column;
+                gap: 6px;
+                align-items: flex-start;
+            }
+        }
+
         /* ==========================================================================
            4. MAIN GRID LAYOUT
            ========================================================================== */
@@ -796,13 +868,33 @@
             </div>
         </header>
 
-        <!-- TOP NAVIGATION TABS -->
+        <!-- TOP NAVIGATION TABS (DESKTOP) -->
         <nav class="nav-tabs">
             <button class="nav-tab active" onclick="switchMainTab('explore')"><i class="fa-solid fa-map-location-dot"></i> 대화형 탐방 지도</button>
             <button class="nav-tab" onclick="switchMainTab('custom')"><i class="fa-solid fa-route"></i> 내 맞춤 코스 (<span id="customCourseCount">0</span>)</button>
             <button class="nav-tab" onclick="switchMainTab('audio')"><i class="fa-solid fa-headphones"></i> 오디오 가이드북</button>
             <button class="nav-tab" onclick="switchMainTab('citizen')"><i class="fa-solid fa-users"></i> 시민 문화유산 제보</button>
         </nav>
+
+        <!-- MOBILE BOTTOM APP NAVIGATION BAR -->
+        <div class="mobile-bottom-nav">
+            <button class="mob-nav-item active" onclick="switchMainTab('explore')">
+                <i class="fa-solid fa-map-location-dot"></i>
+                <span>지도 탐방</span>
+            </button>
+            <button class="mob-nav-item" onclick="switchMainTab('custom')">
+                <i class="fa-solid fa-route"></i>
+                <span>내 코스 (<span id="mobCustomCourseCount">0</span>)</span>
+            </button>
+            <button class="mob-nav-item" onclick="switchMainTab('audio')">
+                <i class="fa-solid fa-headphones"></i>
+                <span>가이드</span>
+            </button>
+            <button class="mob-nav-item" onclick="switchMainTab('citizen')">
+                <i class="fa-solid fa-users"></i>
+                <span>시민 제보</span>
+            </button>
+        </div>
 
         <!-- MAIN LAYOUT (MAP + WORKFLOW PANELS) -->
         <div class="main-layout">
@@ -1088,22 +1180,44 @@
                 zoomControl: true
             });
 
-            // Native Dark Mode CartoDB Tile Layer with OpenStreetMap Fallback
-            const darkTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            // 1. VWorld Korean Dark Midnight Map (국토교통부 브이월드 한글 야간지도)
+            const vworldMidnight = L.tileLayer('https://xdworld.vworld.kr/2d/midnight/service/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                minZoom: 6,
+                attribution: '&copy; 국토교통부 VWorld 한글 공간정보'
+            });
+
+            // 2. VWorld Korean Standard Base Map (국토교통부 브이월드 한글 표준지도)
+            const vworldBase = L.tileLayer('https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                minZoom: 6,
+                attribution: '&copy; 국토교통부 VWorld 한글지도'
+            });
+
+            // 3. CartoDB Dark Matter Layer
+            const cartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                 subdomains: 'abcd',
                 maxZoom: 19,
-                attribution: '&copy; OpenStreetMap contributors &copy; CARTO | 세종 스마트 문화유산'
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
             });
 
-            darkTileLayer.on('tileerror', function() {
-                // Fallback to standard OpenStreetMap tiles if CartoDB tile server is blocked
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '&copy; OpenStreetMap contributors'
-                }).addTo(mapInstance);
+            // Fallback handler if VWorld tile server fails
+            vworldMidnight.on('tileerror', function() {
+                if (!mapInstance.hasLayer(vworldBase)) {
+                    vworldBase.addTo(mapInstance);
+                }
             });
 
-            darkTileLayer.addTo(mapInstance);
+            // Default: VWorld Midnight Korean Dark Tile Layer
+            vworldMidnight.addTo(mapInstance);
+
+            // Layer Control widget for dynamic map tile selection
+            const baseMaps = {
+                "🇰🇷 VWorld 한글 야간지도": vworldMidnight,
+                "🇰🇷 VWorld 한글 표준지도": vworldBase,
+                "🌐 다크 테마 지도": cartoDark
+            };
+            L.control.layers(baseMaps, null, { position: 'topright' }).addTo(mapInstance);
 
             markersGroup = L.layerGroup().addTo(mapInstance);
 
@@ -1306,6 +1420,14 @@
         /* ==========================================================================
            7. STEP 2: CUSTOM COURSE MANAGEMENT
            ========================================================================== */
+        function updateCustomCourseCount() {
+            const count = state.customCourse.length;
+            const desktopCount = document.getElementById('customCourseCount');
+            const mobCount = document.getElementById('mobCustomCourseCount');
+            if (desktopCount) desktopCount.innerText = count;
+            if (mobCount) mobCount.innerText = count;
+        }
+
         function addToCustomCourse(heritageId) {
             const item = state.officialHeritages.find(h => h.id === heritageId) || state.currentRecommendations.find(h => h.id === heritageId);
             if (!item) return;
@@ -1316,7 +1438,7 @@
             }
 
             state.customCourse.push(item);
-            document.getElementById('customCourseCount').innerText = state.customCourse.length;
+            updateCustomCourseCount();
             showToast(`'${item.name}' 항목을 맞춤 코스에 담았습니다.`, 'success');
             renderCustomCourseList();
         }
@@ -1350,13 +1472,13 @@
 
         function removeFromCustomCourse(id) {
             state.customCourse = state.customCourse.filter(c => c.id !== id);
-            document.getElementById('customCourseCount').innerText = state.customCourse.length;
+            updateCustomCourseCount();
             renderCustomCourseList();
         }
 
         function clearCustomCourse() {
             state.customCourse = [];
-            document.getElementById('customCourseCount').innerText = 0;
+            updateCustomCourseCount();
             renderCustomCourseList();
         }
 
@@ -1644,27 +1766,34 @@
         }
 
         function switchMainTab(tabName) {
-            const tabs = document.querySelectorAll('.nav-tab');
-            tabs.forEach(t => t.classList.remove('active'));
+            const desktopTabs = document.querySelectorAll('.nav-tab');
+            const mobTabs = document.querySelectorAll('.mob-nav-item');
 
+            desktopTabs.forEach(t => t.classList.remove('active'));
+            mobTabs.forEach(t => t.classList.remove('active'));
+
+            let idx = 0;
             if (tabName === 'explore') {
-                tabs[0].classList.add('active');
+                idx = 0;
                 switchWfTab(1);
                 setTimeout(() => { if (mapInstance) mapInstance.invalidateSize(); }, 150);
             } else if (tabName === 'custom') {
-                tabs[1].classList.add('active');
+                idx = 1;
                 switchWfTab(2);
             } else if (tabName === 'audio') {
-                tabs[2].classList.add('active');
+                idx = 2;
                 switchWfTab(3);
             } else if (tabName === 'citizen') {
-                tabs[3].classList.add('active');
+                idx = 3;
                 for (let i = 1; i <= 3; i++) {
                     document.getElementById(`wfTab${i}`).classList.remove('active');
                     document.getElementById(`stepPanel${i}`).style.display = 'none';
                 }
                 document.getElementById('stepPanelCitizen').style.display = 'block';
             }
+
+            if (desktopTabs[idx]) desktopTabs[idx].classList.add('active');
+            if (mobTabs[idx]) mobTabs[idx].classList.add('active');
         }
 
         function applyPresetFilter(category, btn) {
