@@ -1498,8 +1498,8 @@
       }
 
       const regionSelect = document.getElementById('region-select');
-      const region = regionSelect ? regionSelect.value : '\uc138\uc885\uc2dc';
-      const combinedQuery = `${region} ${query}`;
+      const selectedRegion = (regionSelect && regionSelect.value) ? regionSelect.value.trim() : '세종시';
+      const combinedQuery = `${selectedRegion} ${query}`;
 
       const searchBtn = document.getElementById('rag-search-btn');
       searchBtn.disabled = true;
@@ -1513,7 +1513,7 @@
         const resHeritages = await fetch(`${CLOUD_RUN_URL}/api/v1/agentic-rag`, {
           method: "POST",
           headers: { "Content-Type": "application/json; charset=utf-8" },
-          body: JSON.stringify({ query: combinedQuery, area_code: region })
+          body: JSON.stringify({ query: combinedQuery, area_code: selectedRegion })
         });
 
         if (!resHeritages.ok) throw new Error("1단계 문화유산 RAG 추천 오류");
