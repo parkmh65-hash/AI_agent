@@ -1683,8 +1683,11 @@ async def submit_citizen_recommendation(item: Dict[str, Any]):
         geocoded = await geocode_address(address)
         if geocoded:
             item["latitude"] = geocoded[0]
-            item["longitude"] = geocoded[1]
-            
+    # Ensure status satisfies Supabase check constraint ('신청중', '승인', '반려')
+    valid_statuses = ["신청중", "승인", "반려"]
+    if item.get("status") not in valid_statuses:
+        item["status"] = "신청중"
+        
     try:
         async with httpx.AsyncClient() as client:
             res = await client.post(
