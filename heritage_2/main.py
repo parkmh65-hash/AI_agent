@@ -4,6 +4,7 @@ import math
 import logging
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Query, Header, Request
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import httpx
@@ -316,6 +317,11 @@ class UserCourseInput(BaseModel):
     total_distance_km: Optional[float] = 0.0
 
 # --- API Endpoints ---
+
+@app.get("/")
+async def serve_index():
+    """Serves the Single Page Application HTML frontend."""
+    return FileResponse("index.html")
 
 @app.get("/api/v1/db/initial-data")
 async def get_initial_data():
