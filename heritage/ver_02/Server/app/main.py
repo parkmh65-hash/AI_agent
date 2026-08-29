@@ -466,25 +466,25 @@ async def update_db_heritage_image(name: str, image_url: str):
         logger.warn(f"Failed to update database photo_url for '{name}': {e}")
 
 async def fetch_real_heritage_image_search(name: str) -> Optional[str]:
-    """Perform real-time HTTP search on Naver Terms / Wikimedia for authentic heritage image URL"""
+    """Perform real-time HTTP search on Naver Terms Mobile / Wikimedia for authentic heritage photo URL"""
     if not name:
         return None
     encoded_name = urllib.parse.quote(name)
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
     }
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=4.0) as client:
-            # 1. Live search Naver Terms (Encyclopedia)
-            url = f"https://terms.naver.com/search.naver?query={encoded_name}"
+            # 1. Live search Naver Terms Mobile (Encyclopedia)
+            url = f"https://m.terms.naver.com/search.naver?query={encoded_name}"
             r = await client.get(url, headers=headers)
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, 'html.parser')
-                first_img = soup.select_one("ul.content_list > li .thumb_area img")
-                if first_img:
-                    raw_src = first_img.get("data-src") or first_img.get("src")
-                    if raw_src and raw_src.startswith("http"):
-                        return raw_src
+                for img in soup.find_all('img'):
+                    src = img.get("data-src") or img.get("src")
+                    if src and ("nterms-phinf" in src or "dbscthumb" in src or "phinf.pstatic.net" in src):
+                        if "ssl.pstatic.net" not in src and "static" not in src:
+                            return src
             
             # 2. Live search Wikimedia Commons API
             wiki_url = f"https://commons.wikimedia.org/w/api.php?action=query&generator=search&gteqsearch={encoded_name}&prop=pageimages&pithumbsize=600&format=json"
