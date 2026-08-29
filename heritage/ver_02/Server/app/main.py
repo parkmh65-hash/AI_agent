@@ -5,8 +5,10 @@ import json
 import httpx
 import re
 import asyncio
+import uuid
 import xml.etree.ElementTree as ET
 import urllib.parse
+from bs4 import BeautifulSoup
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -107,207 +109,7 @@ def health_check():
         "llm_configured": bool(settings.OPENAI_API_KEY or settings.GEMINI_API_KEY)
     }
 
-DEFAULT_SEJONG_HERITAGES = [
-    {
-        "id": "h_1",
-        "name": "세종 비암사 극락보전",
-        "address": "세종특별자치시 전의면 비암사길 137",
-        "category": "보물",
-        "era_normalized": "조선시대",
-        "latitude": 36.6083,
-        "longitude": 127.2131,
-        "description": "삼국시대 백제 유민들이 건립한 역사 깊은 전통 사찰의 본전으로 목조 아미타여래좌상이 봉안되어 있습니다.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/99/2673599_image2_1.jpg"
-    },
-    {
-        "id": "h_2",
-        "name": "세종 봉산동 향나무",
-        "address": "세종특별자치시 조치원읍 봉산길 16",
-        "category": "천연기념물",
-        "era_normalized": "조선시대",
-        "latitude": 36.6111,
-        "longitude": 127.2917,
-        "description": "조선시대 강화최씨 문중의 제단 옆에 심겨져 400여 년의 수령을 간직한 아름다운 우산 모양의 향나무.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/11/2673611_image2_1.jpg"
-    },
-    {
-        "id": "h_3",
-        "name": "세종 연기리 은행나무",
-        "address": "세종특별자치시 연기면 연기길 33-14",
-        "category": "기념물",
-        "era_normalized": "조선시대",
-        "latitude": 36.5312,
-        "longitude": 127.2721,
-        "description": "조선시대 연기현 관아 터 근처에 심겨진 보호수로, 오랜 세월 마을의 수호신이자 안식처가 되어 온 큰 거목.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/35/2673635_image2_1.jpg"
-    },
-    {
-        "id": "h_4",
-        "name": "독락정",
-        "address": "세종특별자치시 나성동 101-1",
-        "category": "문화재자료",
-        "era_normalized": "조선시대",
-        "latitude": 36.4851,
-        "longitude": 127.2625,
-        "description": "고려 말 충신인 임난수 장군의 절의를 기려 조선 세종 때 지어진 유서 깊은 전통 목조 정자.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/20/2673620_image2_1.jpg"
-    },
-    {
-        "id": "h_5",
-        "name": "학림사 신중도",
-        "address": "세종특별자치시 연서면 도신고개길 341",
-        "category": "문화재자료",
-        "era_normalized": "조선시대",
-        "latitude": 36.5623,
-        "longitude": 127.2341,
-        "description": "학림사 대웅전에 보존된 불화로 조선 후기 신중 신앙의 흐름과 뛰어난 불교 채색 화풍을 보여줍니다.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/82/2673682_image2_1.jpg"
-    },
-    {
-        "id": "h_6",
-        "name": "세종리 은행나무",
-        "address": "세종특별자치시 세종동 88-4",
-        "category": "기념물",
-        "era_normalized": "고려시대",
-        "latitude": 36.4952,
-        "longitude": 127.2871,
-        "description": "고려 말 무신 임난수 장군이 은거하며 심은 거대한 한 쌍의 은행나무로 세종시 출범의 역사적 상징물.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/50/2673650_image2_1.jpg"
-    },
-    {
-        "id": "h_7",
-        "name": "연서 영평사 아미타삼존도",
-        "address": "세종특별자치시 장군면 영평사길 124",
-        "category": "유형문화재",
-        "era_normalized": "조선시대",
-        "latitude": 36.4908,
-        "longitude": 127.2023,
-        "description": "영평사에 소장된 불교 미술품으로, 아미타불을 중심으로 좌우 협시보살을 묘사한 정교한 조선 후기 탱화.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/18/2673718_image2_1.jpg"
-    },
-    {
-        "id": "h_8",
-        "name": "비암사 삼층석탑",
-        "address": "세종특별자치시 전의면 비암사길 137",
-        "category": "유형문화재",
-        "era_normalized": "고려시대",
-        "latitude": 36.6083,
-        "longitude": 127.2131,
-        "description": "비암사 대웅전 앞에 기단 위에 정갈하게 우뚝 솟은 고려 시대 양식의 화강암 삼층석탑.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/66/2673666_image2_1.jpg"
-    },
-    {
-        "id": "h_9",
-        "name": "홍판서댁",
-        "address": "세종특별자치시 부강면 부강유하길 37",
-        "category": "민속문화재",
-        "era_normalized": "조선시대",
-        "latitude": 36.5050,
-        "longitude": 127.3683,
-        "description": "조선 고종 때 병조판서를 지낸 임헌회 선생의 고택으로 마당을 중심으로 배치된 고풍스러운 한옥 주택.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/02/2673702_image2_1.jpg"
-    },
-    {
-        "id": "h_10",
-        "name": "초려이유태유적지",
-        "address": "세종특별자치시 어진동 도움1로 116",
-        "category": "기념물",
-        "era_normalized": "조선시대",
-        "latitude": 36.5015,
-        "longitude": 127.2589,
-        "description": "조선 17세기 대표적 산림 학자 초려 이유태 선생의 학문적 정신을 계승하고 묘소를 모신 전통 문화 역사 공원.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/41/2673741_image2_1.jpg"
-    },
-    {
-        "id": "h_11",
-        "name": "덕성서원",
-        "address": "세종특별자치시 연기면 원수산로 38-1",
-        "category": "향토유적",
-        "era_normalized": "조선시대",
-        "latitude": 36.5180,
-        "longitude": 127.2750,
-        "description": "원수산 자락에 자리하여 기호학파의 대표적 선현들을 배향하며 성리학 연구와 교육을 담당했던 전통 서원.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/55/2673755_image2_1.jpg"
-    },
-    {
-        "id": "h_12",
-        "name": "이성 산성",
-        "address": "세종특별자치시 전동면 송곡리 산12",
-        "category": "기념물",
-        "era_normalized": "삼국시대",
-        "latitude": 36.6210,
-        "longitude": 127.2550,
-        "description": "백제와 고구려 등 삼국이 치열하게 영토 투쟁을 벌였던 세종시 북쪽 원수산 인근의 석축 테뫼식 성곽 유적.",
-        "image_url": "https://tong.visitkorea.or.kr/cms/resource/79/2673779_image2_1.jpg"
-    },
-    {
-        "id": "h_13",
-        "name": "숭덕사",
-        "address": "세종특별자치시 세종동 88-4",
-        "category": "향토유적",
-        "era_normalized": "조선시대",
-        "latitude": 36.4952,
-        "longitude": 127.2871,
-        "description": "고려 말기 은거하며 끝까지 충절을 지킨 임난수 장군을 배향하여 기리는 사당으로 세종리 역사공원에 위치합니다.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
-    },
-    {
-        "id": "h_14",
-        "name": "합호서원",
-        "address": "세종특별자치시 연동면 청연로 531-15",
-        "category": "향토유적",
-        "era_normalized": "조선시대",
-        "latitude": 36.5410,
-        "longitude": 127.3290,
-        "description": "연동면 금강 유역에 세워져 지방 사림들의 성리학 토론회 및 청소년 유학 교육의 중심지가 된 아름다운 서원.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
-    },
-    {
-        "id": "h_15",
-        "name": "비암사 범종",
-        "address": "세종특별자치시 전의면 비암사길 137",
-        "category": "문화재자료",
-        "era_normalized": "조선시대",
-        "latitude": 36.6083,
-        "longitude": 127.2131,
-        "description": "조선 후기 비암사 종각에 주조되어 걸린 전통 종으로 표면의 보살 비천상 문양이 섬세하게 조각되어 있습니다.",
-        "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
-    }
-]
 
-async def seed_default_heritages_to_supabase_if_empty(table_name: str, headers: Dict[str, str]):
-    """Self-healing helper to seed initial 15 heritages to database if completely empty"""
-    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
-        return
-    try:
-        async with httpx.AsyncClient() as client:
-            res = await client.get(f"{settings.SUPABASE_URL}/rest/v1/{table_name}?select=id&limit=1", headers=headers, timeout=5.0)
-            if res.status_code == 200 and len(res.json()) == 0:
-                logger.info(f"Supabase Table '{table_name}' is completely empty! Triggering automatic self-healing database seeding...")
-                payload = []
-                for item in DEFAULT_SEJONG_HERITAGES:
-                    payload.append({
-                        "name": item["name"],
-                        "address": item["address"],
-                        "category": item["category"],
-                        "era_normalized": item["era_normalized"],
-                        "latitude": item["latitude"],
-                        "longitude": item["longitude"],
-                        "description": item["description"],
-                        "photo_url": item["image_url"]
-                    })
-                res_seed = await client.post(
-                    f"{settings.SUPABASE_URL}/rest/v1/{table_name}",
-                    headers=headers,
-                    json=payload,
-                    timeout=8.0
-                )
-                if res_seed.status_code in [200, 201]:
-                    logger.info(f"Database self-healing seeding successfully inserted {len(payload)} heritages into Supabase!")
-                else:
-                    logger.error(f"Failed database self-healing seeding: {res_seed.status_code} - {res_seed.text}")
-    except Exception as e:
-        logger.error(f"Error during self-healing database seeding: {e}")
 
 async def extract_search_keyword_via_llm(query: str) -> str:
     """Extract a single heritage noun keyword (e.g. '비암사', '사찰', '탑') suitable for national heritage open API search"""
@@ -341,9 +143,53 @@ async def extract_search_keyword_via_llm(query: str) -> str:
         logger.warn(f"LLM API keyword extraction failed: {e}")
     return query
 
+def expand_region_keywords(region_input: str) -> List[str]:
+    """Map abbreviated or full region inputs to all possible database address keywords"""
+    if not region_input:
+        return []
+    reg = region_input.strip()
+    mapping = {
+        "충남": ["충청남도", "충남", "부여", "공주", "아산", "천안", "청양"],
+        "충청남도": ["충청남도", "충남", "부여", "공주", "아산", "천안", "청양"],
+        "충북": ["충청북도", "충북", "청주", "충주", "제천"],
+        "충청북도": ["충청북도", "충북", "청주", "충주", "제천"],
+        "경북": ["경상북도", "경북", "경주", "안동", "포항", "구미"],
+        "경상북도": ["경상북도", "경북", "경주", "안동", "포항"],
+        "경남": ["경상남도", "경남", "합천", "밀양", "김해", "창원"],
+        "경상남도": ["경상남도", "경남", "합천", "밀양", "김해"],
+        "전북": ["전북특별자치도", "전라북도", "전북", "익산", "전주", "군산"],
+        "전라북도": ["전북특별자치도", "전라북도", "전북", "익산", "전주"],
+        "전북특별자치도": ["전북특별자치도", "전라북도", "전북", "익산", "전주"],
+        "전남": ["전라남도", "전남", "순천", "구례", "여수", "목포"],
+        "전라남도": ["전라남도", "전남", "순천", "구례", "여수"],
+        "강원": ["강원특별자치도", "강원도", "강원", "강릉", "평창", "춘천"],
+        "강원도": ["강원특별자치도", "강원도", "강원", "강릉", "평창"],
+        "강원특별자치도": ["강원특별자치도", "강원도", "강원", "강릉", "평창"],
+        "경기": ["경기도", "경기", "수원", "광주", "파주", "용인"],
+        "경기도": ["경기도", "경기", "수원", "광주", "파주"],
+        "서울": ["서울특별시", "서울", "종로"],
+        "서울특별시": ["서울특별시", "서울", "종로"],
+        "제주": ["제주특별자치도", "제주", "서귀포"],
+        "제주도": ["제주특별자치도", "제주", "서귀포"],
+        "제주특별자치도": ["제주특별자치도", "제주", "서귀포"],
+        "세종": ["세종특별자치시", "세종"],
+        "세종시": ["세종특별자치시", "세종"],
+        "세종특별자치시": ["세종특별자치시", "세종"],
+        "대전": ["대전광역시", "대전"],
+        "대구": ["대구광역시", "대구"],
+        "부산": ["부산광역시", "부산"],
+        "광주": ["광주광역시", "광주"],
+        "인천": ["인천광역시", "인천", "강화"],
+        "울산": ["울산광역시", "울산"]
+    }
+    for key, keywords in mapping.items():
+        if key in reg or reg in key:
+            return keywords
+    return [reg]
+
 @app.post("/api/v1/agentic-rag")
 async def handle_agentic_rag_query(req: RagQueryRequest):
-    """Provide RAG optimized recommended cards for Sejong official heritages"""
+    """Provide RAG optimized recommended cards for target region and national heritages"""
     query = req.query.strip().lower()
     area_code = req.area_code
     logger.info(f"Received Agentic RAG Query: {query} (area: {req.area_code})")
@@ -351,50 +197,62 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
-    # 1. RAG Candidates Pool Generation (Merge OpenAPI search and DB heritages)
+    # 0. Detect target region from query string or area_code
+    target_region = area_code if area_code and area_code != "전체" else ""
+    if not target_region:
+        korea_regions = ["서울", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주", "세종", "대전", "대구", "부산", "광주", "인천", "울산", "부여", "공주", "경주", "안동", "수원", "강릉", "전주", "익산", "순천", "여수"]
+        for r in korea_regions:
+            if r in query:
+                target_region = r
+                break
+
+    search_keywords = expand_region_keywords(target_region)
+    logger.info(f"Target region: '{target_region}', expanded search_keywords: {search_keywords}")
+
+    # 1. RAG Candidates Pool Generation (Priority: Supabase DB Regional Heritages -> National Heritage OpenAPI)
     matched = []
     
-    # Pre-process search query to get clean keyword for open API
-    search_keyword = await extract_search_keyword_via_llm(query)
-    try:
-        matched = await fetch_national_heritage_openapi(search_keyword, area_code)
-        logger.info(f"fetch_national_heritage_openapi count: {len(matched)} using search_keyword '{search_keyword}'")
-    except Exception as e:
-        logger.error(f"Failed to query official National Heritage API using keyword '{search_keyword}': {e}")
-
-    # Fetch up to 15 existing heritages from database to enrich the candidates pool
+    # 1-a. Query Supabase citizen_recommendations table FIRST for region-matched items
     if settings.SUPABASE_URL and settings.SUPABASE_KEY:
+        headers = get_supabase_headers()
         try:
-            headers = get_supabase_headers()
             async with httpx.AsyncClient() as client:
-                table = await get_heritage_table_name(client, headers)
-                
-                # Normalize area code query parameter to prevent empty results for '세종시' -> '세종'
-                db_area = area_code
-                if area_code and area_code != "전체":
-                    if area_code in ["세종시", "세종"]:
-                        db_area = "세종"
-                    elif len(area_code) > 2 and (area_code.endswith("시") or area_code.endswith("도")):
-                        db_area = area_code[:-1]
+                cit_url = f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?limit=30"
+                if search_keywords:
+                    or_cond = ",".join([f"address.ilike.*{k}*" for k in search_keywords])
+                    cit_url = f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?or=({or_cond})&limit=30"
+                res_cit = await client.get(cit_url, headers=headers, timeout=4.0)
+                if res_cit.status_code == 200:
+                    raw_cit = res_cit.json()
+                    logger.info(f"Supabase citizen_recommendations matched count: {len(raw_cit)} for region '{target_region}'")
+                    for item in raw_cit:
+                        matched.append({
+                            "id": f"cit_{item.get('id')}",
+                            "name": item.get("name"),
+                            "address": item.get("address") or target_region or "대한민국 문화유산",
+                            "category": "시민 추천",
+                            "era_normalized": "전통문화유산",
+                            "latitude": float(item.get("latitude") or 36.48),
+                            "longitude": float(item.get("longitude") or 127.28),
+                            "description": item.get("description") or "",
+                            "image_url": item.get("image_url") or item.get("photo_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                        })
                         
-                # Filter by region if specified and not "전체"
-                if db_area and db_area != "전체":
-                    url = f"{settings.SUPABASE_URL}/rest/v1/{table}?address=ilike.*{urllib.parse.quote(db_area)}*&limit=15"
-                else:
-                    url = f"{settings.SUPABASE_URL}/rest/v1/{table}?limit=15"
-                    
-                res = await client.get(url, headers=headers, timeout=5.0)
-                if res.status_code == 200:
-                    raw_list = res.json()
-                    logger.info(f"Supabase heritages raw query count: {len(raw_list)} using url '{url}'")
-                    added_db_count = 0
-                    for item in raw_list:
-                        # Deduplicate by name to prevent duplicate LLM candidates
-                        if not any(m["name"].strip() == item.get("name").strip() for m in matched):
+                # 1-b. Query Supabase heritages table for region-matched items
+                table = await get_heritage_table_name(client, headers)
+                her_url = f"{settings.SUPABASE_URL}/rest/v1/{table}?limit=20"
+                if search_keywords:
+                    or_cond = ",".join([f"address.ilike.*{k}*" for k in search_keywords])
+                    her_url = f"{settings.SUPABASE_URL}/rest/v1/{table}?or=({or_cond})&limit=20"
+                res_her = await client.get(her_url, headers=headers, timeout=4.0)
+                if res_her.status_code == 200:
+                    raw_her = res_her.json()
+                    for item in raw_her:
+                        if not any(m["name"].strip() == item.get("name", "").strip() for m in matched):
                             matched.append({
                                 "id": item.get("id") or item.get("h_id") or f"h_{item.get('id')}",
                                 "name": item.get("name"),
-                                "address": item.get("address") or "세종특별자치시",
+                                "address": item.get("address") or target_region or "대한민국",
                                 "category": item.get("category") or item.get("era_normalized") or "문화유산",
                                 "era_normalized": item.get("era_normalized") or "조선시대",
                                 "latitude": float(item.get("latitude") or 36.48),
@@ -402,26 +260,52 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
                                 "description": item.get("description") or "",
                                 "image_url": item.get("photo_url") or item.get("image_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
                             })
-                            added_db_count += 1
-                    logger.info(f"Added from DB to candidates pool: {added_db_count} items. Total pool: {len(matched)}")
-                else:
-                    logger.warn(f"Supabase heritages query failed with status: {res.status_code}, response: {res.text}")
         except Exception as e:
-            logger.warn(f"Failed to fetch heritages from Supabase for candidate enrichment: {e}")
+            logger.warn(f"Failed to fetch candidates from Supabase DB: {e}")
 
-    # Ensure candidates pool is not empty; fallback to regional OpenAPI search if empty for non-Sejong regions
-    if not matched:
-        logger.info(f"Candidates pool is empty for area_code '{area_code}'. Attempting regional OpenAPI fallback.")
+    # 1-c. Query National Heritage OpenAPI if DB candidate pool has fewer than 5 items
+    if len(matched) < 5:
+        search_keyword = await extract_search_keyword_via_llm(query)
         try:
-            matched = await fetch_national_heritage_openapi("", area_code)
+            api_items = await fetch_national_heritage_openapi(search_keyword, target_region or area_code)
+            logger.info(f"fetch_national_heritage_openapi count: {len(api_items)} for '{search_keyword}'")
+            for item in api_items:
+                if not any(m["name"].strip() == item["name"].strip() for m in matched):
+                    matched.append(item)
         except Exception as e:
-            logger.warn(f"Regional OpenAPI fallback failed: {e}")
-            
-    if not matched:
-        logger.info("Candidates pool is completely empty! Using DEFAULT_SEJONG_HERITAGES as final fallback pool.")
-        matched = [dict(item) for item in DEFAULT_SEJONG_HERITAGES]
+            logger.error(f"Failed to query official National Heritage API: {e}")
 
-    # 2. AI selection of exactly 5 heritages based on query context from the candidates pool
+    # 1-d. Strictly filter candidate pool by target_region if specified to prevent Sejong fallback leaks
+    if target_region and search_keywords:
+        filtered_matched = [c for c in matched if any(k in c.get("address", "") or k in c.get("name", "") for k in search_keywords)]
+        if filtered_matched:
+            matched = filtered_matched
+            logger.info(f"Strictly filtered candidates by region '{target_region}': {len(matched)} items remaining")
+
+    if not matched:
+        logger.info("Candidates pool is empty! Fetching dynamic regional heritages from Supabase DB.")
+        if settings.SUPABASE_URL and settings.SUPABASE_KEY:
+            try:
+                headers = get_supabase_headers()
+                async with httpx.AsyncClient() as client:
+                    res_all = await client.get(f"{settings.SUPABASE_URL}/rest/v1/citizen_recommendations?limit=15", headers=headers, timeout=4.0)
+                    if res_all.status_code == 200:
+                        for item in res_all.json():
+                            matched.append({
+                                "id": f"cit_{item.get('id')}",
+                                "name": item.get("name"),
+                                "address": item.get("address") or "대한민국 문화유산",
+                                "category": "시민 추천",
+                                "era_normalized": "전통문화유산",
+                                "latitude": float(item.get("latitude") or 36.48),
+                                "longitude": float(item.get("longitude") or 127.28),
+                                "description": item.get("description") or "",
+                                "image_url": item.get("image_url") or item.get("photo_url") or "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+                            })
+            except Exception as e:
+                logger.warn(f"Fallback full DB query failed: {e}")
+
+    # 2. AI selection of top heritages based on query context from the candidates pool
     try:
         matched = await select_top_heritages_via_llm(query, matched)
         logger.info(f"AI filtered top selected heritages count: {len(matched)}")
@@ -429,7 +313,7 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
         logger.error(f"Failed to perform LLM heritage selection: {e}")
         matched = matched[:5]
     
-    # 3. Resolve image URLs for the final selected 5 heritages
+    # 3. Resolve image URLs for the final selected heritages
     try:
         tasks = [resolve_heritage_image(item) for item in matched]
         resolved_images = await asyncio.gather(*tasks)
@@ -438,15 +322,15 @@ async def handle_agentic_rag_query(req: RagQueryRequest):
     except Exception as e:
         logger.error(f"Failed to secure matched heritages images: {e}")
 
-    # 4. Store the selected 5 heritages to database
+    # 4. Store the selected heritages to database
     try:
         await save_selected_heritages_to_db(matched)
     except Exception as e:
         logger.error(f"Failed to save selected heritages to database: {e}")
-    # Return final selected 5 heritages as RAG output for client UI
+
     return {
         "output_heritages": matched,
-        "final_output": "AI 분석 결과: 사용자의 요청 의도에 부합하는 최고의 문화유산 5선을 추천합니다."
+        "final_output": f"AI 분석 결과: '{query}' 요청에 부합하는 최고의 문화유산 코스를 추천합니다."
     }
 
 async def update_db_heritage_image(name: str, image_url: str):
@@ -701,6 +585,7 @@ async def save_selected_heritages_to_db(items: List[Dict[str, Any]]):
                         lng_val = lng_val or 127.28
                         
                 payload = {
+                    "h_id": h_id or str(uuid.uuid4()),
                     "name": name,
                     "address": address,
                     "dong": dong,
@@ -708,7 +593,7 @@ async def save_selected_heritages_to_db(items: List[Dict[str, Any]]):
                     "longitude": lng_val,
                     "description": item.get("description") or "",
                     "photo_url": photo_url,
-                    "source": "api_crawler",
+                    "source": "national_heritage",
                     "status": "approved",
                     "era_normalized": item.get("era_normalized") or item.get("category") or "문화유산"
                 }
@@ -1164,7 +1049,7 @@ async def geocode_address(address: str) -> Optional[tuple[float, float]]:
 async def fetch_national_heritage_openapi(query: str, area_code: str = "전체") -> List[Dict[str, Any]]:
     """Query cultural heritages combining SearchKindOpenapiList, SearchKindOpenapiDt, and Heritage GIS APIs"""
     
-    # Sido code mapping for Korea
+    # Sido code mapping for Korea National Heritage Open API (ccbaCtcd)
     REGIONS_MAP = {
         "서울": "11", "서울특별시": "11",
         "부산": "21", "부산광역시": "21",
@@ -1173,16 +1058,16 @@ async def fetch_national_heritage_openapi(query: str, area_code: str = "전체")
         "광주": "24", "광주광역시": "24",
         "대전": "25", "대전광역시": "25",
         "울산": "26", "울산광역시": "26",
-        "세종": "45", "세종특별자치시": "45",
+        "세종": "34", "세종특별자치시": "34", "세종시": "34",
         "경기": "31", "경기도": "31",
-        "강원": "32", "강원특별자치도": "32",
+        "강원": "32", "강원도": "32", "강원특별자치도": "32",
         "충북": "33", "충청북도": "33",
-        "충남": "34", "충청남도": "34",
-        "전북": "35", "전라북도": "35", "전북특별자치도": "35",
-        "전남": "36", "전라남도": "36",
-        "경북": "37", "경상북도": "37",
-        "경남": "38", "경상남도": "38",
-        "제주": "50", "제주특별자치도": "50"
+        "충남": "35", "충청남도": "35",
+        "전북": "36", "전라북도": "36", "전북특별자치도": "36",
+        "전남": "37", "전라남도": "37",
+        "경북": "38", "경상북도": "38",
+        "경남": "39", "경상남도": "39",
+        "제주": "50", "제주도": "50", "제주특별자치도": "50"
     }
     
     ctcd = ""
@@ -1413,10 +1298,8 @@ async def get_initial_db_data(role: Optional[str] = "user"):
             if res_official.status_code == 200:
                 raw_official = res_official.json()
                 if not raw_official:
-                    logger.info("Supabase heritages table is empty. Using DEFAULT_SEJONG_HERITAGES as fallback and triggering self-healing seed.")
-                    raw_official = [dict(item) for item in DEFAULT_SEJONG_HERITAGES]
-                    # Trigger async database seeding
-                    asyncio.create_task(seed_default_heritages_to_supabase_if_empty(table, headers))
+                    logger.info("Supabase heritages table is empty.")
+                    raw_official = []
                     
                 for row in raw_official:
                     row.pop("embedding", None)
