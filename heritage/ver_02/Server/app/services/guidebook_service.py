@@ -3,9 +3,12 @@
 import re
 import json
 import urllib.parse
+import logging
 from typing import List, Dict, Any, Optional
 import httpx
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger("guidebook_service")
 
 # LangChain / LangGraph imports
 from langchain_core.prompts import ChatPromptTemplate
@@ -474,6 +477,35 @@ def build_guidebook_graph():
     
     return workflow.compile()
 
+def generate_fallback_guidebook(heritages: List[str], transport: str, knowledge: str) -> Dict[str, Any]:
+    """Generate a rich, structured fallback guidebook when OpenAI API key is unavailable or fails"""
+    storyboard_cards = []
+    for idx, h in enumerate(heritages):
+        storyboard_cards.append({
+            "name": h,
+            "address": "대한민국 역사 문화유산",
+            "scene_title": f"장면 {idx + 1}: {h}의 탐방 이야기",
+            "guide_tip": f"AI 추천 팁: {h}에 도착하면 해설판을 조용히 읽어보며 역사적 가치를 느껴보렴. {transport} 이동 시 안전운전 잊지 마렴!",
+            "image_url": "https://images.unsplash.com/photo-1548115184-bc6544d06a58?auto=format&fit=crop&w=600&q=80"
+        })
+        
+    article = f"사랑하는 얘야, 오늘 엄마와 함께 탐방할 멋진 문화유산 이야기를 들려줄게!\n\n"
+    for idx, h in enumerate(heritages):
+        article += f"### {idx+1}. {h}\n"
+        article += f"우리 오늘 {h}에 찾아갈 거란다. {transport}(을)를 타고 이동하면서 조상들의 깊은 지혜와 역사의 숨결을 느껴보자꾸나!\n\n"
+    article += "엄마와 함께 떠나는 이번 유산 여행이 너에게 잊지 못할 소중하고 따뜻한 추억이 되었으면 좋겠구나."
+    
+    final_output = f"사랑하는 얘야 오늘 엄마와 함께 탐방할 멋진 문화유산 이야기를 들려줄게. "
+    for idx, h in enumerate(heritages):
+        final_output += f"{idx+1}번째 장소는 {h}란다. {transport}를 타고 이동하면서 조상들의 깊은 지혜와 역사의 숨결을 느껴보자꾸나. "
+    final_output += "엄마와 함께 떠나는 이번 유산 여행이 너에게 잊지 못할 소중하고 따뜻한 추억이 되었으면 좋겠구나."
+
+    return {
+        "storyboard_cards": storyboard_cards,
+        "guidebook_ko_article": article,
+        "final_output": final_output
+    }
+
 # Service Export Method
 class GuidebookService:
     def __init__(self):
@@ -492,12 +524,16 @@ class GuidebookService:
             "final_output": None
         }
         
-        # Execute LangGraph Multi-Agent collaborative graph
-        result = await self.graph.ainvoke(initial_state)
-        
-        # Extract the structured GuidebookOutput json
-        final_data = result.get("final_output")
-        if not final_data:
-            raise ValueError("Graph execution failed to generate final output.")
-            
-        return final_data
+        try:
+            if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "dummy_key":
+                logger.warn("OpenAI API key missing or dummy. Using fallback guidebook generator.")
+                return generate_fallback_guidebook(heritages, transport, knowledge)
+                
+            result = await self.graph.ainvoke(initial_state)
+            final_data = result.get("final_output")
+            if not final_data:
+                return generate_fallback_guidebook(heritages, transport, knowledge)
+            return final_data
+        except Exception as e:
+            logger.error(f"LangGraph guidebook generation error: {e}. Executing fallback generator.", exc_info=True)
+            return generate_fallback_guidebook(heritages, transport, knowledge)
